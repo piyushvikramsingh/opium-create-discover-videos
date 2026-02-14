@@ -198,7 +198,15 @@ export type Database = {
           user_id?: string
           video_url?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "videos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
     }
     Views: {
