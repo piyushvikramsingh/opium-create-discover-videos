@@ -39,8 +39,9 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
   const toggleBookmark = useToggleBookmark();
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(true); // Start muted for autoplay compliance
   const [paused, setPaused] = useState(false);
+  const [showUnmuteHint, setShowUnmuteHint] = useState(true);
 
   // Auto-play when visible, pause when not
   useEffect(() => {
@@ -48,15 +49,20 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (videoRef.current) {
-          if (entry.isIntersecting) {
-            videoRef.current.play().catch(() => {});
+        const vid = videoRef.current;
+        if (!vid) return;
+        if (entry.isIntersecting) {
+          vid.muted = true; // Always start muted for autoplay
+          setMuted(true);
+          vid.play().then(() => {
             setPaused(false);
-          } else {
-            videoRef.current.pause();
-            videoRef.current.currentTime = 0;
+          }).catch(() => {
             setPaused(true);
-          }
+          });
+        } else {
+          vid.pause();
+          vid.currentTime = 0;
+          setPaused(true);
         }
       },
       { threshold: 0.6 }
@@ -89,7 +95,8 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
   const profile = video.profiles;
   const avatarUrl = profile?.avatar_url || `https://i.pravatar.cc/100?u=${video.user_id}`;
 
-  const isVideo = video.video_url && /\.(mp4|webm|mov|ogg)(\?|$)/i.test(video.video_url);
+  const isVideo = !!video.video_url;
+  const posterUrl = video.thumbnail_url && video.thumbnail_url.length > 0 ? video.thumbnail_url : undefined;
 
   return (
     <div ref={containerRef} className="snap-item relative w-full overflow-hidden bg-background">
@@ -97,12 +104,20 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
         <video
           ref={videoRef}
           src={video.video_url}
-          poster={video.thumbnail_url || undefined}
+          poster={posterUrl}
           className="absolute inset-0 h-full w-full object-cover"
           loop
           playsInline
           muted={muted}
-          onClick={togglePlayPause}
+          preload="auto"
+          onClick={() => {
+            togglePlayPause();
+            if (muted) {
+              setMuted(false);
+              if (videoRef.current) videoRef.current.muted = false;
+              setShowUnmuteHint(false);
+            }
+          }}
         />
       ) : (
         <img
@@ -116,11 +131,25 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
       {/* Mute toggle */}
       {isVideo && (
         <button
-          onClick={(e) => { e.stopPropagation(); setMuted(!muted); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            const next = !muted;
+            setMuted(next);
+            if (videoRef.current) videoRef.current.muted = next;
+            setShowUnmuteHint(false);
+          }}
           className="absolute right-3 top-16 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm"
         >
           {muted ? <VolumeX className="h-4 w-4 text-white" /> : <Volume2 className="h-4 w-4 text-white" />}
         </button>
+      )}
+
+      {/* Unmute hint */}
+      {isVideo && muted && showUnmuteHint && !paused && (
+        <div className="absolute left-3 top-16 z-10 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm animate-pulse pointer-events-none">
+          <VolumeX className="h-3.5 w-3.5 text-white" />
+          <span className="text-xs text-white font-medium">Tap to unmute</span>
+        </div>
       )}
 
       {/* Paused indicator */}
