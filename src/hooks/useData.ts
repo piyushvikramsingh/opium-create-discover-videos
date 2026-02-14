@@ -171,3 +171,76 @@ export function useToggleFollow() {
     },
   });
 }
+
+export function useLikedVideos(userId: string | undefined) {
+  return useQuery({
+    queryKey: ["liked-videos", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: likes, error: lErr } = await supabase
+        .from("likes")
+        .select("video_id")
+        .eq("user_id", userId!)
+        .order("created_at", { ascending: false });
+      if (lErr) throw lErr;
+      if (!likes || likes.length === 0) return [];
+      const ids = likes.map((l) => l.video_id);
+      const { data, error } = await supabase
+        .from("videos")
+        .select("*")
+        .in("id", ids);
+      if (error) throw error;
+      // Preserve order from likes
+      const map = new Map((data || []).map((v) => [v.id, v]));
+      return ids.map((id) => map.get(id)).filter(Boolean);
+    },
+  });
+}
+
+export function useBookmarkedVideos(userId: string | undefined) {
+  return useQuery({
+    queryKey: ["bookmarked-videos", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: bookmarks, error: bErr } = await supabase
+        .from("bookmarks")
+        .select("video_id")
+        .eq("user_id", userId!)
+        .order("created_at", { ascending: false });
+      if (bErr) throw bErr;
+      if (!bookmarks || bookmarks.length === 0) return [];
+      const ids = bookmarks.map((b) => b.video_id);
+      const { data, error } = await supabase
+        .from("videos")
+        .select("*")
+        .in("id", ids);
+      if (error) throw error;
+      const map = new Map((data || []).map((v) => [v.id, v]));
+      return ids.map((id) => map.get(id)).filter(Boolean);
+    },
+  });
+}
+
+export function useUpdateProfile() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (updates: {
+      display_name?: string;
+      username?: string;
+      bio?: string;
+      avatar_url?: string;
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}
