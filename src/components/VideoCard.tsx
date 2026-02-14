@@ -43,7 +43,7 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
   const [paused, setPaused] = useState(false);
   const [showUnmuteHint, setShowUnmuteHint] = useState(true);
 
-  // Auto-play when visible, pause when not
+  // Auto-play when visible, pause when not — preserve user's mute preference
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -52,12 +52,21 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
         const vid = videoRef.current;
         if (!vid) return;
         if (entry.isIntersecting) {
-          vid.muted = true; // Always start muted for autoplay
-          setMuted(true);
+          // Try unmuted first, fall back to muted
+          vid.muted = false;
+          setMuted(false);
           vid.play().then(() => {
             setPaused(false);
+            setShowUnmuteHint(false);
           }).catch(() => {
-            setPaused(true);
+            // Browser blocked unmuted autoplay, retry muted
+            vid.muted = true;
+            setMuted(true);
+            vid.play().then(() => {
+              setPaused(false);
+            }).catch(() => {
+              setPaused(true);
+            });
           });
         } else {
           vid.pause();
@@ -111,12 +120,12 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
           muted={muted}
           preload="auto"
           onClick={() => {
-            togglePlayPause();
-            if (muted) {
-              setMuted(false);
-              if (videoRef.current) videoRef.current.muted = false;
-              setShowUnmuteHint(false);
-            }
+            const vid = videoRef.current;
+            if (!vid) return;
+            const next = !muted;
+            setMuted(next);
+            vid.muted = next;
+            setShowUnmuteHint(false);
           }}
         />
       ) : (
@@ -144,19 +153,11 @@ const VideoCard = ({ video, isLiked, isBookmarked }: VideoCardProps) => {
         </button>
       )}
 
-      {/* Unmute hint */}
-      {isVideo && muted && showUnmuteHint && !paused && (
-        <div className="absolute left-3 top-16 z-10 flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm animate-pulse pointer-events-none">
-          <VolumeX className="h-3.5 w-3.5 text-white" />
-          <span className="text-xs text-white font-medium">Tap to unmute</span>
-        </div>
-      )}
-
-      {/* Paused indicator */}
-      {paused && isVideo && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="h-16 w-16 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center">
-            <div className="ml-1 border-l-[18px] border-y-[12px] border-y-transparent border-l-white" />
+      {/* Muted indicator — like Instagram Reels */}
+      {isVideo && muted && !paused && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
+            <VolumeX className="h-6 w-6 text-white" />
           </div>
         </div>
       )}
