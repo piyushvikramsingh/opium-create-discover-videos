@@ -129,12 +129,14 @@ export function useSendMessage() {
       mediaUrl,
       mediaType,
       isSnap,
+      snapDuration,
     }: {
       conversationId: string;
       content?: string;
       mediaUrl?: string;
       mediaType?: string;
       isSnap?: boolean;
+      snapDuration?: number;
     }) => {
       if (!user) throw new Error("Not authenticated");
       const { error } = await supabase.from("messages").insert({
@@ -144,6 +146,7 @@ export function useSendMessage() {
         media_url: mediaUrl || null,
         media_type: mediaType || null,
         is_snap: isSnap || false,
+        snap_duration: snapDuration || null,
       });
       if (error) throw error;
 
@@ -152,6 +155,24 @@ export function useSendMessage() {
         .from("conversations")
         .update({ updated_at: new Date().toISOString() })
         .eq("id", conversationId);
+    },
+    onSuccess: (_, vars) => {
+      qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useMarkSnapViewed() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ messageId }: { messageId: string; conversationId: string }) => {
+      const { error } = await supabase
+        .from("messages")
+        .update({ viewed: true })
+        .eq("id", messageId);
+      if (error) throw error;
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });

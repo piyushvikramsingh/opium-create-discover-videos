@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowLeft, Send, Camera, Image, Smile, Flame } from "lucide-react";
-import { useMessages, useSendMessage } from "@/hooks/useMessages";
+import { useMessages, useSendMessage, useMarkSnapViewed } from "@/hooks/useMessages";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import SnapCamera from "@/components/SnapCamera";
+import SnapViewer from "@/components/SnapViewer";
 
 interface ChatViewProps {
   conversationId: string;
@@ -20,9 +22,18 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   const { user } = useAuth();
   const { data: messages, isLoading } = useMessages(conversationId);
   const sendMessage = useSendMessage();
+  const markViewed = useMarkSnapViewed();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [snapMode, setSnapMode] = useState(false);
+  const [showSnapCamera, setShowSnapCamera] = useState(false);
+  const [viewingSnap, setViewingSnap] = useState<{
+    imageUrl: string;
+    senderName: string;
+    caption: string | null;
+    duration: number;
+    messageId: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,10 +52,43 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         conversationId,
         content: trimmed,
         isSnap: snapMode,
+        snapDuration: snapMode ? 5 : undefined,
       });
       setText("");
     } catch {
       toast.error("Failed to send");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSnapCapture = async (file: File, caption: string) => {
+    if (!user) return;
+    setSending(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from("chat-media")
+        .upload(path, file, { contentType: file.type });
+      if (upErr) throw upErr;
+
+      const { data: urlData } = supabase.storage
+        .from("chat-media")
+        .getPublicUrl(path);
+
+      await sendMessage.mutateAsync({
+        conversationId,
+        mediaUrl: urlData.publicUrl,
+        mediaType: "image",
+        isSnap: true,
+        snapDuration: 5,
+        content: caption || undefined,
+      });
+      setShowSnapCamera(false);
+      toast.success("Snap sent! 🔥");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send snap");
     } finally {
       setSending(false);
     }
@@ -65,22 +109,21 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
     try {
       const ext = file.name.split(".").pop();
       const path = `${user.id}/${Date.now()}.${ext}`;
-      const bucket = "avatars"; // reuse existing public bucket for chat media
-
       const { error: upErr } = await supabase.storage
-        .from(bucket)
-        .upload(`chat/${path}`, file, { contentType: file.type });
+        .from("chat-media")
+        .upload(path, file, { contentType: file.type });
       if (upErr) throw upErr;
 
       const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(`chat/${path}`);
+        .from("chat-media")
+        .getPublicUrl(path);
 
       await sendMessage.mutateAsync({
         conversationId,
         mediaUrl: urlData.publicUrl,
-        mediaType: isVideo ? "video" : snapMode ? "snap" : "image",
+        mediaType: isVideo ? "video" : "image",
         isSnap: snapMode,
+        snapDuration: snapMode ? 5 : undefined,
         content: text.trim() || undefined,
       });
       setText("");
@@ -89,6 +132,24 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
     } finally {
       setSending(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleOpenSnap = (msg: any) => {
+    if (!msg.media_url && !msg.content) return;
+    const isMine = msg.sender_id === user?.id;
+
+    setViewingSnap({
+      imageUrl: msg.media_url || "",
+      senderName: isMine ? "You" : otherUser.display_name,
+      caption: msg.content,
+      duration: msg.snap_duration || 5,
+      messageId: msg.id,
+    });
+
+    // Mark as viewed if not mine
+    if (!isMine && !msg.viewed) {
+      markViewed.mutate({ messageId: msg.id, conversationId });
     }
   };
 
@@ -108,6 +169,26 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
 
   return (
     <div className="flex h-full flex-col bg-background">
+      {/* Snap camera overlay */}
+      {showSnapCamera && (
+        <SnapCamera
+          onCapture={handleSnapCapture}
+          onClose={() => setShowSnapCamera(false)}
+          sending={sending}
+        />
+      )}
+
+      {/* Snap viewer overlay */}
+      {viewingSnap && (
+        <SnapViewer
+          imageUrl={viewingSnap.imageUrl}
+          senderName={viewingSnap.senderName}
+          caption={viewingSnap.caption}
+          duration={viewingSnap.duration}
+          onClose={() => setViewingSnap(null)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border px-3 py-3">
         <button onClick={onBack} className="p-1">
@@ -149,6 +230,56 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         ) : messages && messages.length > 0 ? (
           messages.map((msg: any) => {
             const isMine = msg.sender_id === user?.id;
+            const isSnap = msg.is_snap;
+            const snapViewed = msg.viewed;
+
+            // Snap messages that have been viewed by non-sender - show "opened" state
+            if (isSnap && snapViewed && !isMine) {
+              return (
+                <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+                  <div className="flex items-center gap-2 rounded-2xl bg-muted/50 px-4 py-2.5">
+                    <Flame className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">Snap opened</span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Unopened snap from someone else - tappable
+            if (isSnap && !snapViewed && !isMine) {
+              return (
+                <div key={msg.id} className={`flex justify-start`}>
+                  <button
+                    onClick={() => handleOpenSnap(msg)}
+                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent px-4 py-3 animate-pulse"
+                  >
+                    <Flame className="h-5 w-5 text-primary-foreground" />
+                    <span className="text-sm font-semibold text-primary-foreground">
+                      Tap to view Snap
+                    </span>
+                  </button>
+                </div>
+              );
+            }
+
+            // Snap I sent
+            if (isSnap && isMine) {
+              return (
+                <div key={msg.id} className="flex justify-end">
+                  <div className="flex items-center gap-2 rounded-2xl bg-primary/20 border border-primary/30 px-4 py-2.5">
+                    <Flame className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-medium text-primary">
+                      {snapViewed ? "Snap opened" : "Snap sent"}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {formatTime(msg.created_at)}
+                    </span>
+                  </div>
+                </div>
+              );
+            }
+
+            // Regular message
             return (
               <div
                 key={msg.id}
@@ -156,9 +287,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
               >
                 <div
                   className={`max-w-[75%] rounded-2xl px-3.5 py-2.5 ${
-                    msg.is_snap
-                      ? "bg-gradient-to-br from-primary to-accent border border-primary/30"
-                      : isMine
+                    isMine
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-foreground"
                   }`}
@@ -189,7 +318,6 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                       isMine ? "text-primary-foreground/60" : "text-muted-foreground"
                     }`}
                   >
-                    {msg.is_snap && "🔥 "}
                     {formatTime(msg.created_at)}
                   </p>
                 </div>
@@ -220,8 +348,10 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         />
         <div className="flex items-center gap-2">
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="rounded-full bg-secondary p-2.5 text-muted-foreground"
+            onClick={() => setShowSnapCamera(true)}
+            className={`rounded-full p-2.5 ${
+              snapMode ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+            }`}
           >
             <Camera className="h-5 w-5" />
           </button>
