@@ -24,8 +24,8 @@ const Inbox = () => {
       setActiveConversation({ id: conversationId, otherUser: targetUser });
       setShowNewChat(false);
       setSearchQuery("");
-    } catch {
-      // error handled
+    } catch (err: any) {
+      console.error("Failed to start chat:", err);
     }
   };
 
