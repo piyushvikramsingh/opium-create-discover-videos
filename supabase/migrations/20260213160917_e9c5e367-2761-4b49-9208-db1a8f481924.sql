@@ -203,16 +203,61 @@ CREATE TRIGGER on_comment_change
   AFTER INSERT OR DELETE ON public.comments
   FOR EACH ROW EXECUTE FUNCTION public.handle_comment_count();
 
--- Storage bucket for videos
-INSERT INTO storage.buckets (id, name, public) VALUES ('videos', 'videos', true);
+-- Storage setup (guarded for projects where storage schema is not yet provisioned)
+DO $$
+BEGIN
+  IF to_regclass('storage.buckets') IS NOT NULL THEN
+    INSERT INTO storage.buckets (id, name, public)
+    VALUES ('videos', 'videos', true)
+    ON CONFLICT (id) DO NOTHING;
 
-CREATE POLICY "Anyone can view videos" ON storage.objects FOR SELECT USING (bucket_id = 'videos');
-CREATE POLICY "Authenticated users can upload videos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'videos' AND auth.uid() IS NOT NULL);
-CREATE POLICY "Users can delete own videos" ON storage.objects FOR DELETE USING (bucket_id = 'videos' AND auth.uid()::text = (storage.foldername(name))[1]);
+    INSERT INTO storage.buckets (id, name, public)
+    VALUES ('avatars', 'avatars', true)
+    ON CONFLICT (id) DO NOTHING;
+  END IF;
 
--- Storage bucket for avatars
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true);
+  IF to_regclass('storage.objects') IS NOT NULL THEN
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Anyone can view videos'
+    ) THEN
+      EXECUTE 'CREATE POLICY "Anyone can view videos" ON storage.objects FOR SELECT USING (bucket_id = ''videos'')';
+    END IF;
 
-CREATE POLICY "Anyone can view avatars" ON storage.objects FOR SELECT USING (bucket_id = 'avatars');
-CREATE POLICY "Authenticated users can upload avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
-CREATE POLICY "Users can update own avatar" ON storage.objects FOR UPDATE USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated users can upload videos'
+    ) THEN
+      EXECUTE 'CREATE POLICY "Authenticated users can upload videos" ON storage.objects FOR INSERT WITH CHECK (bucket_id = ''videos'' AND auth.uid() IS NOT NULL)';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Users can delete own videos'
+    ) THEN
+      EXECUTE 'CREATE POLICY "Users can delete own videos" ON storage.objects FOR DELETE USING (bucket_id = ''videos'' AND auth.uid()::text = (storage.foldername(name))[1])';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Anyone can view avatars'
+    ) THEN
+      EXECUTE 'CREATE POLICY "Anyone can view avatars" ON storage.objects FOR SELECT USING (bucket_id = ''avatars'')';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Authenticated users can upload avatars'
+    ) THEN
+      EXECUTE 'CREATE POLICY "Authenticated users can upload avatars" ON storage.objects FOR INSERT WITH CHECK (bucket_id = ''avatars'' AND auth.uid()::text = (storage.foldername(name))[1])';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Users can update own avatar'
+    ) THEN
+      EXECUTE 'CREATE POLICY "Users can update own avatar" ON storage.objects FOR UPDATE USING (bucket_id = ''avatars'' AND auth.uid()::text = (storage.foldername(name))[1])';
+    END IF;
+  END IF;
+END
+$$;

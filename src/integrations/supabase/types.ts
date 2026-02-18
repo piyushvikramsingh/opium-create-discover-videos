@@ -107,6 +107,44 @@ export type Database = {
           },
         ]
       }
+      conversation_settings: {
+        Row: {
+          archived: boolean
+          conversation_id: string
+          id: string
+          muted: boolean
+          pinned: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          archived?: boolean
+          conversation_id: string
+          id?: string
+          muted?: boolean
+          pinned?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          archived?: boolean
+          conversation_id?: string
+          id?: string
+          muted?: boolean
+          pinned?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_settings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -152,6 +190,33 @@ export type Database = {
         }
         Relationships: []
       }
+      follow_requests: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       likes: {
         Row: {
           created_at: string
@@ -181,41 +246,85 @@ export type Database = {
           },
         ]
       }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string | null
           conversation_id: string
           created_at: string
+          deleted_at: string | null
+          edited_at: string | null
           id: string
           is_snap: boolean
           media_type: string | null
           media_url: string | null
+          reply_to_message_id: string | null
           sender_id: string
           snap_duration: number | null
+          status: string
           viewed: boolean
         }
         Insert: {
           content?: string | null
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           is_snap?: boolean
           media_type?: string | null
           media_url?: string | null
+          reply_to_message_id?: string | null
           sender_id: string
           snap_duration?: number | null
+          status?: string
           viewed?: boolean
         }
         Update: {
           content?: string | null
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           is_snap?: boolean
           media_type?: string | null
           media_url?: string | null
+          reply_to_message_id?: string | null
           sender_id?: string
           snap_duration?: number | null
+          status?: string
           viewed?: boolean
         }
         Relationships: [
@@ -226,40 +335,169 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
         ]
       }
       profiles: {
         Row: {
+          affiliate_url: string | null
           avatar_url: string | null
           bio: string | null
+          category: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           display_name: string
           id: string
+          is_private: boolean
+          is_verified: boolean
+          last_active_at: string | null
+          professional_account: boolean
+          shop_url: string | null
+          show_last_active: boolean
           updated_at: string
           user_id: string
+          website_url: string | null
           username: string
         }
         Insert: {
+          affiliate_url?: string | null
           avatar_url?: string | null
           bio?: string | null
+          category?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           display_name?: string
           id?: string
+          is_private?: boolean
+          is_verified?: boolean
+          last_active_at?: string | null
+          professional_account?: boolean
+          shop_url?: string | null
+          show_last_active?: boolean
           updated_at?: string
           user_id: string
+          website_url?: string | null
           username: string
         }
         Update: {
+          affiliate_url?: string | null
           avatar_url?: string | null
           bio?: string | null
+          category?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           display_name?: string
           id?: string
+          is_private?: boolean
+          is_verified?: boolean
+          last_active_at?: string | null
+          professional_account?: boolean
+          shop_url?: string | null
+          show_last_active?: boolean
           updated_at?: string
           user_id?: string
+          website_url?: string | null
           username?: string
         }
         Relationships: []
+      }
+      profile_highlights: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          id: string
+          story_count: number
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          story_count?: number
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          id?: string
+          story_count?: number
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profile_links: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          link_type: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          link_type?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          link_type?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tagged_videos: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tagged_videos_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       videos: {
         Row: {
@@ -268,6 +506,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          is_pinned: boolean
           likes_count: number
           music: string | null
           shares_count: number
@@ -281,6 +520,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_pinned?: boolean
           likes_count?: number
           music?: string | null
           shares_count?: number
@@ -294,6 +534,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          is_pinned?: boolean
           likes_count?: number
           music?: string | null
           shares_count?: number
@@ -308,6 +549,38 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      typing_status: {
+        Row: {
+          conversation_id: string
+          id: string
+          is_typing: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          is_typing?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          is_typing?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "typing_status_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
           },
         ]
       }

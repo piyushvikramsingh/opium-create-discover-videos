@@ -4,28 +4,29 @@ const TopNav = () => {
   const [activeTab, setActiveTab] = useState<"following" | "foryou">("foryou");
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-center gap-6 pt-4 pb-2">
+    <div className="fixed left-0 right-0 top-0 z-50 pt-safe">
+      <div className="mx-auto mt-2 flex w-fit items-center justify-center gap-2 rounded-full border border-border/80 bg-background/70 px-2 py-1 backdrop-blur-xl">
       <button
         onClick={() => setActiveTab("following")}
-        className={`text-base font-semibold transition-all ${
+        className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
           activeTab === "following"
-            ? "text-foreground"
-            : "text-foreground/50"
+            ? "bg-secondary text-foreground"
+            : "text-foreground/50 hover:text-foreground/80"
         }`}
       >
         Following
       </button>
-      <span className="text-foreground/20">|</span>
       <button
         onClick={() => setActiveTab("foryou")}
-        className={`text-base font-semibold transition-all ${
+        className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-all ${
           activeTab === "foryou"
-            ? "text-foreground"
-            : "text-foreground/50"
+            ? "bg-secondary text-foreground"
+            : "text-foreground/50 hover:text-foreground/80"
         }`}
       >
         For You
       </button>
+      </div>
     </div>
   );
 };

@@ -3,23 +3,55 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 
-export function useConversations() {
+const isSchemaMismatchError = (error: any) => {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("does not exist") ||
+    message.includes("schema cache") ||
+    message.includes("could not find")
+  );
+};
+
+export type ConversationSettings = {
+  pinned: boolean;
+  muted: boolean;
+  archived: boolean;
+};
+
+export function useConversations(includeArchived = false) {
   const { user } = useAuth();
+
   return useQuery({
-    queryKey: ["conversations", user?.id],
+    queryKey: ["conversations", user?.id, includeArchived],
     enabled: !!user,
     queryFn: async () => {
-      // Get conversation IDs the user participates in
-      const { data: parts, error: pErr } = await supabase
+      let parts: any[] | null = null;
+      const participantsAdvanced = await supabase
         .from("conversation_participants")
-        .select("conversation_id")
+        .select("conversation_id, last_read_at")
         .eq("user_id", user!.id);
-      if (pErr) throw pErr;
+      if (participantsAdvanced.error) {
+        if (!isSchemaMismatchError(participantsAdvanced.error)) throw participantsAdvanced.error;
+
+        const participantsFallback = await supabase
+          .from("conversation_participants")
+          .select("conversation_id")
+          .eq("user_id", user!.id);
+        if (participantsFallback.error) throw participantsFallback.error;
+
+        parts = (participantsFallback.data || []).map((participant: any) => ({
+          ...participant,
+          last_read_at: null,
+        }));
+      } else {
+        parts = participantsAdvanced.data || [];
+      }
+
       if (!parts || parts.length === 0) return [];
 
-      const ids = parts.map((p: any) => p.conversation_id);
+      const ids = parts.map((participant: any) => participant.conversation_id);
+      const myPartMap = new Map((parts || []).map((participant: any) => [participant.conversation_id, participant]));
 
-      // Get conversations
       const { data: convos, error: cErr } = await supabase
         .from("conversations")
         .select("*")
@@ -27,17 +59,18 @@ export function useConversations() {
         .order("updated_at", { ascending: false });
       if (cErr) throw cErr;
 
-      // Get all participants with profiles for these conversations
       const { data: allParts } = await supabase
         .from("conversation_participants")
         .select("conversation_id, user_id")
         .in("conversation_id", ids);
 
-      const otherUserIds = [...new Set(
-        (allParts || [])
-          .filter((p: any) => p.user_id !== user!.id)
-          .map((p: any) => p.user_id)
-      )];
+      const otherUserIds = [
+        ...new Set(
+          (allParts || [])
+            .filter((participant: any) => participant.user_id !== user!.id)
+            .map((participant: any) => participant.user_id),
+        ),
+      ];
 
       let profileMap: Record<string, any> = {};
       if (otherUserIds.length > 0) {
@@ -45,33 +78,93 @@ export function useConversations() {
           .from("profiles")
           .select("user_id, username, display_name, avatar_url")
           .in("user_id", otherUserIds);
-        (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
+        (profiles || []).forEach((profile: any) => {
+          profileMap[profile.user_id] = profile;
+        });
       }
 
-      // Get last message for each conversation
+      const { data: settingsRows, error: settingsError } = await supabase
+        .from("conversation_settings")
+        .select("conversation_id, pinned, muted, archived")
+        .eq("user_id", user!.id)
+        .in("conversation_id", ids);
+      if (settingsError && !isSchemaMismatchError(settingsError)) throw settingsError;
+      const settingsMap = new Map((settingsRows || []).map((row: any) => [row.conversation_id, row]));
+
       const enriched = await Promise.all(
-        (convos || []).map(async (c: any) => {
-          const { data: msgs } = await supabase
+        (convos || []).map(async (conversation: any) => {
+          const lastMsgAdvanced = await supabase
             .from("messages")
-            .select("content, created_at, sender_id, media_type, is_snap")
-            .eq("conversation_id", c.id)
+            .select("id, content, created_at, sender_id, media_type, is_snap, viewed, deleted_at")
+            .eq("conversation_id", conversation.id)
             .order("created_at", { ascending: false })
             .limit(1);
 
+          let msgs = lastMsgAdvanced.data;
+          if (lastMsgAdvanced.error) {
+            if (!isSchemaMismatchError(lastMsgAdvanced.error)) throw lastMsgAdvanced.error;
+
+            const lastMsgFallback = await supabase
+              .from("messages")
+              .select("id, content, created_at, sender_id, media_type, is_snap, viewed")
+              .eq("conversation_id", conversation.id)
+              .order("created_at", { ascending: false })
+              .limit(1);
+
+            if (lastMsgFallback.error) throw lastMsgFallback.error;
+            msgs = (lastMsgFallback.data || []).map((message: any) => ({ ...message, deleted_at: null }));
+          }
+
+          const myPart = myPartMap.get(conversation.id);
+          const myLastReadAt = myPart?.last_read_at;
+
+          let unreadCount = 0;
+          if (myLastReadAt) {
+            const { count } = await supabase
+              .from("messages")
+              .select("id", { count: "exact", head: true })
+              .eq("conversation_id", conversation.id)
+              .gt("created_at", myLastReadAt)
+              .neq("sender_id", user!.id);
+            unreadCount = count ?? 0;
+          }
+
           const otherParticipants = (allParts || [])
-            .filter((p: any) => p.conversation_id === c.id && p.user_id !== user!.id)
-            .map((p: any) => profileMap[p.user_id])
-            .filter(Boolean);
+            .filter((participant: any) => participant.conversation_id === conversation.id && participant.user_id !== user!.id)
+            .map((participant: any) => {
+              const profile = profileMap[participant.user_id];
+              if (profile) return profile;
+
+              const shortId = String(participant.user_id).slice(0, 8);
+              return {
+                user_id: participant.user_id,
+                username: `user_${shortId}`,
+                display_name: `User ${shortId}`,
+                avatar_url: null,
+              };
+            });
+
+          const settings = settingsMap.get(conversation.id) || { pinned: false, muted: false, archived: false };
 
           return {
-            ...c,
+            ...conversation,
             lastMessage: msgs?.[0] || null,
             otherParticipants,
+            unreadCount,
+            isUnread: unreadCount > 0,
+            myLastReadAt: myLastReadAt || null,
+            settings,
           };
-        })
+        }),
       );
 
-      return enriched;
+      const filtered = includeArchived ? enriched : enriched.filter((conversation: any) => !conversation.settings.archived);
+
+      return filtered.sort((a: any, b: any) => {
+        if (a.settings.pinned && !b.settings.pinned) return -1;
+        if (!a.settings.pinned && b.settings.pinned) return 1;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
     },
   });
 }
@@ -83,20 +176,63 @@ export function useMessages(conversationId: string | null) {
     queryKey: ["messages", conversationId],
     enabled: !!conversationId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let messages: any[] | null = null;
+      const advancedQuery = await supabase
         .from("messages")
-        .select("*")
+        .select("*, reply:reply_to_message_id(id, sender_id, content, media_type, is_snap, deleted_at)")
         .eq("conversation_id", conversationId!)
         .order("created_at", { ascending: true });
-      if (error) throw error;
-      return data;
+      if (advancedQuery.error) {
+        if (!isSchemaMismatchError(advancedQuery.error)) throw advancedQuery.error;
+
+        const fallbackQuery = await supabase
+          .from("messages")
+          .select("*")
+          .eq("conversation_id", conversationId!)
+          .order("created_at", { ascending: true });
+        if (fallbackQuery.error) throw fallbackQuery.error;
+
+        messages = (fallbackQuery.data || []).map((message: any) => ({
+          ...message,
+          reply: null,
+        }));
+      } else {
+        messages = advancedQuery.data || [];
+      }
+
+      const messageIds = (messages || []).map((message: any) => message.id);
+      if (messageIds.length === 0) return [];
+
+      const { data: reactions, error: reactionsError } = await supabase
+        .from("message_reactions")
+        .select("id, message_id, user_id, emoji")
+        .in("message_id", messageIds);
+
+      if (reactionsError && !isSchemaMismatchError(reactionsError)) {
+        throw reactionsError;
+      }
+
+      const reactionMap = new Map<string, any[]>();
+      (reactions || []).forEach((reaction: any) => {
+        const list = reactionMap.get(reaction.message_id) || [];
+        list.push(reaction);
+        reactionMap.set(reaction.message_id, list);
+      });
+
+      return (messages || []).map((message: any) => {
+        const messageReactions = reactionMap.get(message.id) || [];
+        return {
+          ...message,
+          reactions: messageReactions,
+        };
+      });
     },
   });
 
-  // Realtime subscription
   useEffect(() => {
     if (!conversationId) return;
-    const channel = supabase
+
+    const messagesChannel = supabase
       .channel(`messages-${conversationId}`)
       .on(
         "postgres_changes",
@@ -108,14 +244,103 @@ export function useMessages(conversationId: string | null) {
         },
         () => {
           qc.invalidateQueries({ queryKey: ["messages", conversationId] });
-        }
+          qc.invalidateQueries({ queryKey: ["conversations"] });
+        },
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    const reactionsChannel = supabase
+      .channel(`message-reactions-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "message_reactions",
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["messages", conversationId] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(reactionsChannel);
+    };
   }, [conversationId, qc]);
 
   return query;
+}
+
+export function useTypingStatus(conversationId: string | null) {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["typing-status", conversationId],
+    enabled: !!conversationId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("typing_status")
+        .select("conversation_id, user_id, is_typing, updated_at")
+        .eq("conversation_id", conversationId!)
+        .eq("is_typing", true);
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+      return (data || []).filter((row: any) => row.user_id !== user?.id);
+    },
+    refetchInterval: 5000,
+  });
+
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase
+      .channel(`typing-status-${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "typing_status",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["typing-status", conversationId] });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, qc]);
+
+  return query;
+}
+
+export function useSetTypingStatus() {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ conversationId, isTyping }: { conversationId: string; isTyping: boolean }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("typing_status").upsert(
+        {
+          conversation_id: conversationId,
+          user_id: user.id,
+          is_typing: isTyping,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "conversation_id,user_id" },
+      );
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+  });
 }
 
 export function useSendMessage() {
@@ -130,6 +355,7 @@ export function useSendMessage() {
       mediaType,
       isSnap,
       snapDuration,
+      replyToMessageId,
     }: {
       conversationId: string;
       content?: string;
@@ -137,9 +363,11 @@ export function useSendMessage() {
       mediaType?: string;
       isSnap?: boolean;
       snapDuration?: number;
+      replyToMessageId?: string | null;
     }) => {
       if (!user) throw new Error("Not authenticated");
-      const { error } = await supabase.from("messages").insert({
+
+      const advancedInsert = await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: user.id,
         content: content || null,
@@ -147,16 +375,162 @@ export function useSendMessage() {
         media_type: mediaType || null,
         is_snap: isSnap || false,
         snap_duration: snapDuration || null,
+        status: "sent",
+        reply_to_message_id: replyToMessageId || null,
       });
-      if (error) throw error;
+      if (advancedInsert.error) {
+        if (!isSchemaMismatchError(advancedInsert.error)) throw advancedInsert.error;
 
-      // Update conversation timestamp
+        const fallbackInsert = await supabase.from("messages").insert({
+          conversation_id: conversationId,
+          sender_id: user.id,
+          content: content || null,
+          media_url: mediaUrl || null,
+          media_type: mediaType || null,
+          is_snap: isSnap || false,
+          snap_duration: snapDuration || null,
+        });
+        if (fallbackInsert.error) throw fallbackInsert.error;
+      }
+
       await supabase
         .from("conversations")
         .update({ updated_at: new Date().toISOString() })
         .eq("id", conversationId);
     },
-    onSuccess: (_, vars) => {
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+      qc.invalidateQueries({ queryKey: ["typing-status", vars.conversationId] });
+    },
+  });
+}
+
+export function useEditMessage() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ conversationId, messageId, content }: { conversationId: string; messageId: string; content: string }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const advancedEdit = await supabase
+        .from("messages")
+        .update({ content, edited_at: new Date().toISOString() })
+        .eq("id", messageId)
+        .eq("sender_id", user.id);
+      if (advancedEdit.error) {
+        if (!isSchemaMismatchError(advancedEdit.error)) throw advancedEdit.error;
+
+        const fallbackEdit = await supabase
+          .from("messages")
+          .update({ content })
+          .eq("id", messageId)
+          .eq("sender_id", user.id);
+        if (fallbackEdit.error) throw fallbackEdit.error;
+      }
+
+      await supabase
+        .from("conversations")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", conversationId);
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useDeleteMessage() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ conversationId, messageId }: { conversationId: string; messageId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const advancedDelete = await supabase
+        .from("messages")
+        .update({
+          content: null,
+          media_url: null,
+          media_type: null,
+          is_snap: false,
+          deleted_at: new Date().toISOString(),
+        })
+        .eq("id", messageId)
+        .eq("sender_id", user.id);
+      if (advancedDelete.error) {
+        if (!isSchemaMismatchError(advancedDelete.error)) throw advancedDelete.error;
+
+        const fallbackDelete = await supabase
+          .from("messages")
+          .update({
+            content: null,
+            media_url: null,
+            media_type: null,
+            is_snap: false,
+          })
+          .eq("id", messageId)
+          .eq("sender_id", user.id);
+        if (fallbackDelete.error) throw fallbackDelete.error;
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useToggleReaction() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      conversationId,
+      messageId,
+      emoji,
+      existingReaction,
+    }: {
+      conversationId: string;
+      messageId: string;
+      emoji: string;
+      existingReaction?: { id: string; emoji: string } | null;
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      if (existingReaction && existingReaction.emoji === emoji) {
+        const { error } = await supabase
+          .from("message_reactions")
+          .delete()
+          .eq("id", existingReaction.id)
+          .eq("user_id", user.id);
+        if (error && !isSchemaMismatchError(error)) throw error;
+        return;
+      }
+
+      const { error } = await supabase.from("message_reactions").upsert(
+        {
+          message_id: messageId,
+          user_id: user.id,
+          emoji,
+        },
+        { onConflict: "message_id,user_id" },
+      );
+      if (error) {
+        if (isSchemaMismatchError(error)) return;
+        throw error;
+      }
+
+      await supabase
+        .from("conversations")
+        .update({ updated_at: new Date().toISOString() })
+        .eq("id", conversationId);
+    },
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
@@ -168,14 +542,115 @@ export function useMarkSnapViewed() {
 
   return useMutation({
     mutationFn: async ({ messageId }: { messageId: string; conversationId: string }) => {
+      const advancedUpdate = await supabase
+        .from("messages")
+        .update({ viewed: true, status: "seen" })
+        .eq("id", messageId);
+      if (advancedUpdate.error) {
+        if (!isSchemaMismatchError(advancedUpdate.error)) throw advancedUpdate.error;
+
+        const fallbackUpdate = await supabase
+          .from("messages")
+          .update({ viewed: true })
+          .eq("id", messageId);
+        if (fallbackUpdate.error) throw fallbackUpdate.error;
+      }
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useMarkConversationRead() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ conversationId }: { conversationId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const now = new Date().toISOString();
+
+      const { error } = await supabase
+        .from("conversation_participants")
+        .update({ last_read_at: now })
+        .eq("conversation_id", conversationId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      const { error: seenErr } = await supabase
+        .from("messages")
+        .update({ status: "seen", viewed: true })
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", user.id)
+        .eq("is_snap", false)
+        .in("status", ["sent", "delivered"]);
+
+      if (seenErr && !isSchemaMismatchError(seenErr)) throw seenErr;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["messages"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useMarkConversationDelivered() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ conversationId }: { conversationId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+
       const { error } = await supabase
         .from("messages")
-        .update({ viewed: true })
-        .eq("id", messageId);
+        .update({ status: "delivered" })
+        .eq("conversation_id", conversationId)
+        .neq("sender_id", user.id)
+        .eq("is_snap", false)
+        .eq("status", "sent");
+
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useUpdateConversationSettings() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      conversationId,
+      updates,
+    }: {
+      conversationId: string;
+      updates: Partial<ConversationSettings>;
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase.from("conversation_settings").upsert(
+        {
+          conversation_id: conversationId,
+          user_id: user.id,
+          pinned: updates.pinned ?? false,
+          muted: updates.muted ?? false,
+          archived: updates.archived ?? false,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "conversation_id,user_id" },
+      );
+
       if (error) throw error;
     },
-    onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["messages", vars.conversationId] });
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
@@ -189,14 +664,13 @@ export function useCreateConversation() {
     mutationFn: async (targetUserId: string) => {
       if (!user) throw new Error("Not authenticated");
 
-      // Check if DM conversation already exists between these two users
       const { data: myConvos } = await supabase
         .from("conversation_participants")
         .select("conversation_id")
         .eq("user_id", user.id);
 
       if (myConvos && myConvos.length > 0) {
-        const myConvoIds = myConvos.map((c: any) => c.conversation_id);
+        const myConvoIds = myConvos.map((conversation: any) => conversation.conversation_id);
         const { data: shared } = await supabase
           .from("conversation_participants")
           .select("conversation_id")
@@ -204,31 +678,42 @@ export function useCreateConversation() {
           .in("conversation_id", myConvoIds);
 
         if (shared && shared.length > 0) {
-          // Check if it's a DM
-          const { data: convo } = await supabase
+          const convoWithType = await supabase
             .from("conversations")
             .select("*")
             .eq("id", shared[0].conversation_id)
             .eq("type", "dm")
             .maybeSingle();
-          if (convo) return convo.id;
+
+          if (!convoWithType.error && convoWithType.data) return convoWithType.data.id;
+
+          if (convoWithType.error && isSchemaMismatchError(convoWithType.error)) {
+            const convoFallback = await supabase
+              .from("conversations")
+              .select("*")
+              .eq("id", shared[0].conversation_id)
+              .maybeSingle();
+            if (convoFallback.error) throw convoFallback.error;
+            if (convoFallback.data) return convoFallback.data.id;
+          }
+
+          if (convoWithType.error && !isSchemaMismatchError(convoWithType.error)) throw convoWithType.error;
         }
       }
 
-      // Create new conversation with client-generated ID to avoid SELECT RLS issue
       const newId = crypto.randomUUID();
-      const { error: cErr } = await supabase
-        .from("conversations")
-        .insert({ id: newId, type: "dm" });
-      if (cErr) throw cErr;
+      const createWithType = await supabase.from("conversations").insert({ id: newId, type: "dm" });
+      if (createWithType.error) {
+        if (!isSchemaMismatchError(createWithType.error)) throw createWithType.error;
 
-      // Add both participants
-      const { error: pErr } = await supabase
-        .from("conversation_participants")
-        .insert([
-          { conversation_id: newId, user_id: user.id },
-          { conversation_id: newId, user_id: targetUserId },
-        ]);
+        const createFallback = await supabase.from("conversations").insert({ id: newId });
+        if (createFallback.error) throw createFallback.error;
+      }
+
+      const { error: pErr } = await supabase.from("conversation_participants").insert([
+        { conversation_id: newId, user_id: user.id },
+        { conversation_id: newId, user_id: targetUserId },
+      ]);
       if (pErr) throw pErr;
 
       return newId;
@@ -241,6 +726,7 @@ export function useCreateConversation() {
 
 export function useSearchUsers(query: string) {
   const { user } = useAuth();
+
   return useQuery({
     queryKey: ["search-users", query],
     enabled: !!query && query.length >= 2 && !!user,

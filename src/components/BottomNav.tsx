@@ -14,19 +14,21 @@ const BottomNav = () => {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border">
-      <div className="mx-auto flex max-w-lg items-center justify-around py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/80 backdrop-blur-xl pb-safe">
+      <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = item.path === "/"
+            ? location.pathname === "/"
+            : location.pathname.startsWith(item.path);
 
           if (item.isCreate) {
             return (
               <button
                 key={item.path}
                 onClick={() => navigate(item.path)}
-                className="flex items-center justify-center"
+                className="lift-on-tap flex items-center justify-center rounded-xl p-1"
               >
-                <div className="gradient-primary flex h-8 w-12 items-center justify-center rounded-lg">
+                <div className="gradient-primary flex h-9 w-12 items-center justify-center rounded-xl shadow-lg shadow-primary/20">
                   <PlusSquare className="h-5 w-5 text-foreground" />
                 </div>
               </button>
@@ -37,7 +39,9 @@ const BottomNav = () => {
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className="flex flex-col items-center gap-0.5 px-3 py-1"
+              className={`lift-on-tap flex min-w-14 flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 ${
+                isActive ? "bg-secondary/80" : ""
+              }`}
             >
               <item.icon
                 className={`h-6 w-6 transition-colors ${

@@ -45,7 +45,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-6">
+    <div className="fade-in flex min-h-screen flex-col items-center justify-center bg-background px-6">
       <h1 className="mb-2 text-3xl font-bold text-foreground text-glow">Opium</h1>
       <p className="mb-8 text-sm text-muted-foreground">
         {isLogin ? "Welcome back" : "Create your account"}
@@ -95,7 +95,7 @@ const Auth = () => {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
+          className="lift-on-tap w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
         >
           {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
         </button>

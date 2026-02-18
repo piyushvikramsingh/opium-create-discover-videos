@@ -66,47 +66,49 @@ const Discover = () => {
   const hasRealVideos = filteredVideos && filteredVideos.length > 0;
 
   return (
-    <div className="min-h-screen bg-background pb-20 pt-4">
-      {/* Search bar */}
-      <div className="px-4 py-2">
-        <div className="flex items-center gap-3 rounded-xl bg-secondary px-4 py-3">
-          <Search className="h-5 w-5 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search videos and users"
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              if (e.target.value.length > 0) setActiveTag(null);
-            }}
-            className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")} className="text-xs text-muted-foreground">
-              ✕
-            </button>
-          )}
+    <div className="min-h-screen bg-background pb-20 pt-safe fade-in">
+      <div className="sticky top-0 z-20 bg-background/85 backdrop-blur-xl">
+        {/* Search bar */}
+        <div className="px-4 py-2">
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary px-4 py-3">
+            <Search className="h-5 w-5 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search videos and users"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                if (e.target.value.length > 0) setActiveTag(null);
+              }}
+              className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="lift-on-tap text-xs text-muted-foreground">
+                ✕
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Trending tags */}
-      <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 py-3">
-        {trendingTags.map((tag) => (
-          <button
-            key={tag}
-            onClick={() => {
-              setActiveTag(activeTag === tag ? null : tag);
-              setSearchQuery("");
-            }}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
-              activeTag === tag
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-secondary-foreground"
-            }`}
-          >
-            #{tag}
-          </button>
-        ))}
+        {/* Trending tags */}
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide px-4 py-3">
+          {trendingTags.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => {
+                setActiveTag(activeTag === tag ? null : tag);
+                setSearchQuery("");
+              }}
+              className={`lift-on-tap shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+                activeTag === tag
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-secondary-foreground"
+              }`}
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Search results: Users */}
@@ -120,7 +122,7 @@ const Discover = () => {
               <button
                 key={p.user_id}
                 onClick={() => navigate(`/profile/${p.user_id}`)}
-                className="flex shrink-0 flex-col items-center gap-1.5 w-20"
+                className="lift-on-tap flex w-20 shrink-0 flex-col items-center gap-1.5"
               >
                 <div className="h-14 w-14 rounded-full bg-secondary overflow-hidden">
                   {p.avatar_url ? (
@@ -157,7 +159,7 @@ const Discover = () => {
               <button
                 key={video.id}
                 onClick={() => navigate("/")}
-                className="relative aspect-[9/16] overflow-hidden bg-secondary text-left"
+                className="lift-on-tap relative aspect-[9/16] overflow-hidden bg-secondary text-left"
               >
                 {video.thumbnail_url ? (
                   <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" loading="lazy" />
