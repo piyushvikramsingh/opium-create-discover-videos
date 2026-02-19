@@ -957,7 +957,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             </button>
             <button
               type="button"
-              onClick={handleEndCall}
+              onClick={() => handleEndCall(true)}
               className="rounded-full bg-destructive p-4 text-destructive-foreground"
             >
               <PhoneOff className="h-5 w-5" />
