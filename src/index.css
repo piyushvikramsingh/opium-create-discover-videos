@@ -148,16 +148,19 @@
     scroll-snap-type: y mandatory;
     overflow-y: auto;
     height: 100dvh;
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
     touch-action: pan-y;
+    scroll-padding-top: 0;
+    will-change: scroll-position;
   }
 
   .snap-item {
     scroll-snap-align: start;
     scroll-snap-stop: always;
     height: 100dvh;
+    min-height: 100dvh;
     contain: layout paint style;
   }
 
@@ -169,5 +172,6 @@
   .feed-media {
     backface-visibility: hidden;
     transform: translateZ(0);
+    will-change: transform;
   }
 }

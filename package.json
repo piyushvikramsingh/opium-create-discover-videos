@@ -10,7 +10,14 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "vercel:login": "vercel login",
+    "vercel:link": "vercel link",
+    "vercel:pull:preview": "vercel pull --yes --environment=preview",
+    "vercel:pull:production": "vercel pull --yes --environment=production",
+    "vercel:deploy:preview": "vercel --yes",
+    "vercel:deploy:prod": "vercel --prod --yes",
+    "supabase:deploy:mux": "echo \"Mux deploy is disabled in no-token mode. Current app uses direct high-quality uploads from Create.\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -48,6 +55,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
+    "hls.js": "^1.6.15",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",

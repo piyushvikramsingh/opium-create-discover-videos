@@ -41,8 +41,34 @@ import {
 } from "@/components/ui/select";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
+const MAX_DIRECT_UPLOAD_SIZE = 30 * 1024 * 1024;
+const ENABLE_MUX_STREAMING = import.meta.env.VITE_ENABLE_MUX_STREAMING === "true";
 const DB_NAME = "opium-create-drafts";
 const DB_STORE = "drafts";
+
+interface EncodeProfile {
+  maxWidth: number;
+  maxHeight: number;
+  fps: number;
+  videoBitrate: number;
+  audioBitrate: number;
+}
+
+const HD_PROFILE: EncodeProfile = {
+  maxWidth: 1080,
+  maxHeight: 1920,
+  fps: 30,
+  videoBitrate: 4_500_000,
+  audioBitrate: 160_000,
+};
+
+const BALANCED_PROFILE: EncodeProfile = {
+  maxWidth: 720,
+  maxHeight: 1280,
+  fps: 30,
+  videoBitrate: 2_800_000,
+  audioBitrate: 128_000,
+};
 
 type Step = "select" | "edit" | "share" | "success";
 type Audience = "public" | "followers";
@@ -210,6 +236,48 @@ const chooseRecorderMimeType = () => {
   return options.find((mime) => MediaRecorder.isTypeSupported(mime)) ?? "";
 };
 
+const getTargetDimensions = (width: number, height: number, profile: EncodeProfile) => {
+  const sourceWidth = width > 0 ? width : profile.maxWidth;
+  const sourceHeight = height > 0 ? height : profile.maxHeight;
+  const scale = Math.min(1, profile.maxWidth / sourceWidth, profile.maxHeight / sourceHeight);
+
+  const scaledWidth = Math.max(2, Math.round((sourceWidth * scale) / 2) * 2);
+  const scaledHeight = Math.max(2, Math.round((sourceHeight * scale) / 2) * 2);
+
+  return { width: scaledWidth, height: scaledHeight };
+};
+
+const getRecorderOptions = (mimeType: string, profile: EncodeProfile): MediaRecorderOptions => {
+  const options: MediaRecorderOptions = {
+    videoBitsPerSecond: profile.videoBitrate,
+    audioBitsPerSecond: profile.audioBitrate,
+  };
+
+  if (mimeType) {
+    options.mimeType = mimeType;
+  }
+
+  return options;
+};
+
+const getUploadEncodeProfile = (): EncodeProfile => {
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; effectiveType?: string };
+  }).connection;
+
+  if (!connection) return HD_PROFILE;
+  if (connection.saveData) return BALANCED_PROFILE;
+  if (connection.effectiveType === "slow-2g" || connection.effectiveType === "2g" || connection.effectiveType === "3g") {
+    return BALANCED_PROFILE;
+  }
+  return HD_PROFILE;
+};
+
+const isMissingColumnError = (error: unknown) => {
+  const message = String((error as { message?: string })?.message || "").toLowerCase();
+  return message.includes("column") && message.includes("does not exist");
+};
+
 const waitForMetadata = (video: HTMLVideoElement) =>
   new Promise<void>((resolve, reject) => {
     if (video.readyState >= 1) {
@@ -262,8 +330,10 @@ const processClipToFile = async (
   clip: ClipItem,
   fileNameSuffix: string,
   music: MusicOverlaySettings,
+  encodeProfile: EncodeProfile,
+  forceTranscode = false,
 ) => {
-  if (!isClipProcessingNeeded(clip)) return clip.file;
+  if (!forceTranscode && !isClipProcessingNeeded(clip)) return clip.file;
 
   if (typeof MediaRecorder === "undefined") return clip.file;
 
@@ -276,12 +346,17 @@ const processClipToFile = async (
   await waitForMetadata(video);
 
   const canvas = document.createElement("canvas");
-  canvas.width = video.videoWidth || 720;
-  canvas.height = video.videoHeight || 1280;
+  const { width: targetWidth, height: targetHeight } = getTargetDimensions(
+    video.videoWidth || encodeProfile.maxWidth,
+    video.videoHeight || encodeProfile.maxHeight,
+    encodeProfile,
+  );
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
   const context = canvas.getContext("2d");
   if (!context) return clip.file;
 
-  const stream = canvas.captureStream(30);
+  const stream = canvas.captureStream(encodeProfile.fps);
   const sourceStream = (video as HTMLVideoElement & { captureStream?: () => MediaStream }).captureStream?.();
 
   let musicAudioElement: HTMLAudioElement | null = null;
@@ -332,7 +407,7 @@ const processClipToFile = async (
 
   const mimeType = chooseRecorderMimeType();
   const chunks: BlobPart[] = [];
-  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const recorder = new MediaRecorder(stream, getRecorderOptions(mimeType, encodeProfile));
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) chunks.push(event.data);
@@ -395,9 +470,9 @@ const processClipToFile = async (
   return new File([processedBlob], `processed-${fileNameSuffix}.webm`, { type: processedBlob.type || "video/webm" });
 };
 
-const mergeClipsToSingleFile = async (clips: ClipItem[], music: MusicOverlaySettings) => {
+const mergeClipsToSingleFile = async (clips: ClipItem[], music: MusicOverlaySettings, encodeProfile: EncodeProfile) => {
   if (clips.length === 1) {
-    return processClipToFile(clips[0], clips[0].id, music);
+    return processClipToFile(clips[0], clips[0].id, music, encodeProfile);
   }
 
   if (typeof MediaRecorder === "undefined") {
@@ -410,12 +485,17 @@ const mergeClipsToSingleFile = async (clips: ClipItem[], music: MusicOverlaySett
   await waitForMetadata(firstVideo);
 
   const canvas = document.createElement("canvas");
-  canvas.width = firstVideo.videoWidth || 720;
-  canvas.height = firstVideo.videoHeight || 1280;
+  const { width: targetWidth, height: targetHeight } = getTargetDimensions(
+    firstVideo.videoWidth || encodeProfile.maxWidth,
+    firstVideo.videoHeight || encodeProfile.maxHeight,
+    encodeProfile,
+  );
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
   const context = canvas.getContext("2d");
   if (!context) throw new Error("Could not initialize merge renderer");
 
-  const stream = canvas.captureStream(30);
+  const stream = canvas.captureStream(encodeProfile.fps);
   const mimeType = chooseRecorderMimeType();
   const chunks: BlobPart[] = [];
 
@@ -450,7 +530,7 @@ const mergeClipsToSingleFile = async (clips: ClipItem[], music: MusicOverlaySett
     source.connect(gain).connect(destinationNode);
     destinationNode.stream.getAudioTracks().forEach((audioTrack) => stream.addTrack(audioTrack));
   }
-  const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  const recorder = new MediaRecorder(stream, getRecorderOptions(mimeType, encodeProfile));
 
   recorder.ondataavailable = (event) => {
     if (event.data.size > 0) chunks.push(event.data);
@@ -768,7 +848,7 @@ const Create = () => {
     const mimeType = chooseRecorderMimeType() || "video/webm";
     cameraChunksRef.current = [];
 
-    const recorder = new MediaRecorder(cameraStream, { mimeType });
+    const recorder = new MediaRecorder(cameraStream, getRecorderOptions(mimeType, HD_PROFILE));
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
         cameraChunksRef.current.push(event.data);
@@ -1095,20 +1175,42 @@ const Create = () => {
       volume: musicVolume,
     };
 
-    const targets = mergeClips && clips.length > 1
-      ? [{ clip: clips[0], file: await mergeClipsToSingleFile(clips, musicOverlay), index: 0, total: 1 }]
-      : await Promise.all(
-          clips.map(async (clip, index) => ({
-            clip,
-            file: await processClipToFile(clip, `${clip.id}-${index}`, musicOverlay),
-            index,
-            total: clips.length,
-          })),
-        );
-    let createdCount = 0;
-    let latestId: string | null = null;
-
     try {
+      const encodeProfile = getUploadEncodeProfile();
+
+      const targets = mergeClips && clips.length > 1
+        ? [{ clip: clips[0], file: await mergeClipsToSingleFile(clips, musicOverlay, encodeProfile), index: 0, total: 1 }]
+        : await Promise.all(
+            clips.map(async (clip, index) => {
+              try {
+                const processedFile = await processClipToFile(
+                  clip,
+                  `${clip.id}-${index}`,
+                  musicOverlay,
+                  encodeProfile,
+                  clip.file.size > MAX_DIRECT_UPLOAD_SIZE,
+                );
+                return {
+                  clip,
+                  file: processedFile,
+                  index,
+                  total: clips.length,
+                };
+              } catch (processingError) {
+                console.warn("Clip processing failed, falling back to original file", processingError);
+                return {
+                  clip,
+                  file: clip.file,
+                  index,
+                  total: clips.length,
+                };
+              }
+            }),
+          );
+
+      let createdCount = 0;
+      let latestId: string | null = null;
+
       for (let index = 0; index < targets.length; index += 1) {
         if (cancelRequestedRef.current) throw new Error("Upload canceled");
 
@@ -1120,30 +1222,31 @@ const Create = () => {
 
         setUploadProgress(Math.round((index / targets.length) * 100));
 
-        const { error: videoError } = await supabase.storage
-          .from("videos")
-          .upload(filePath, file, { contentType: file.type || "video/webm" });
-        if (videoError) throw videoError;
+        let thumbnailUrl = "";
+        try {
+          const thumbnailBlob = await generateThumbnailBlob(clip);
+          const { error: thumbError } = await supabase.storage
+            .from("videos")
+            .upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg", upsert: true });
 
-        if (cancelRequestedRef.current) throw new Error("Upload canceled");
-
-        const thumbnailBlob = await generateThumbnailBlob(clip);
-        const { error: thumbError } = await supabase.storage
-          .from("videos")
-          .upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg", upsert: true });
-        if (thumbError) throw thumbError;
-
-        const { data: videoUrlData } = supabase.storage.from("videos").getPublicUrl(filePath);
-        const { data: thumbUrlData } = supabase.storage.from("videos").getPublicUrl(thumbnailPath);
+          if (!thumbError) {
+            const { data: thumbUrlData } = supabase.storage.from("videos").getPublicUrl(thumbnailPath);
+            thumbnailUrl = thumbUrlData.publicUrl;
+          } else {
+            console.warn("Thumbnail upload failed, continuing without thumbnail", thumbError);
+          }
+        } catch (thumbnailError) {
+          console.warn("Thumbnail generation failed, continuing without thumbnail", thumbnailError);
+        }
 
         const musicLabel = musicName.trim()
           ? `${musicName.trim()}${musicStart > 0 ? ` @ ${musicStart.toFixed(1)}s` : ""}`
           : null;
 
-        const payload = {
+        const advancedPayload = {
           user_id: user.id,
-          video_url: videoUrlData.publicUrl,
-          thumbnail_url: thumbUrlData.publicUrl,
+          video_url: "",
+          thumbnail_url: thumbnailUrl,
           description: buildDescription(clip, index, targets.length),
           music: musicLabel,
           audience,
@@ -1179,6 +1282,90 @@ const Create = () => {
           filter_stack: clip.filterStack,
         };
 
+        if (ENABLE_MUX_STREAMING) {
+          const muxPayload = {
+            ...advancedPayload,
+            stream_provider: "mux",
+            stream_status: "uploading",
+          };
+
+          let { data: createdVideo, error: dbError } = await supabase
+            .from("videos")
+            .insert(muxPayload as never)
+            .select("id")
+            .single();
+
+          if (dbError && isMissingColumnError(dbError)) {
+            dbError = null;
+            createdVideo = null;
+          }
+
+          if (dbError) throw dbError;
+
+          if (createdVideo?.id) {
+            const invokeResult = await supabase.functions.invoke("create-mux-direct-upload", {
+              body: { videoId: createdVideo.id },
+            });
+
+            if (invokeResult.error) {
+              await supabase
+                .from("videos")
+                .update({ stream_status: "failed", stream_error: String(invokeResult.error.message || "Mux upload failed") } as never)
+                .eq("id", createdVideo.id);
+              throw invokeResult.error;
+            }
+
+            const uploadUrl = String((invokeResult.data as { uploadUrl?: string } | null)?.uploadUrl || "");
+            if (!uploadUrl) {
+              await supabase
+                .from("videos")
+                .update({ stream_status: "failed", stream_error: "Mux upload URL missing" } as never)
+                .eq("id", createdVideo.id);
+              throw new Error("Mux upload URL missing");
+            }
+
+            const uploadResponse = await fetch(uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Type": file.type || "application/octet-stream",
+              },
+              body: file,
+            });
+
+            if (!uploadResponse.ok) {
+              await supabase
+                .from("videos")
+                .update({ stream_status: "failed", stream_error: `Mux upload failed (${uploadResponse.status})` } as never)
+                .eq("id", createdVideo.id);
+              throw new Error(`Mux upload failed (${uploadResponse.status})`);
+            }
+
+            await supabase
+              .from("videos")
+              .update({ stream_status: "processing", stream_error: null } as never)
+              .eq("id", createdVideo.id);
+
+            createdCount += 1;
+            latestId = createdVideo.id;
+            setUploadProgress(Math.round(((index + 1) / targets.length) * 100));
+            continue;
+          }
+        }
+
+        const { error: videoError } = await supabase.storage
+          .from("videos")
+          .upload(filePath, file, { contentType: file.type || "video/webm" });
+        if (videoError) throw videoError;
+
+        if (cancelRequestedRef.current) throw new Error("Upload canceled");
+
+        const { data: videoUrlData } = supabase.storage.from("videos").getPublicUrl(filePath);
+
+        const payload = {
+          ...advancedPayload,
+          video_url: videoUrlData.publicUrl,
+        };
+
         let { data: createdVideo, error: dbError } = await supabase
           .from("videos")
           .insert(payload as never)
@@ -1189,7 +1376,7 @@ const Create = () => {
           const fallbackPayload = {
             user_id: user.id,
             video_url: videoUrlData.publicUrl,
-            thumbnail_url: thumbUrlData.publicUrl,
+            thumbnail_url: thumbnailUrl,
             description: buildDescription(clip, index, targets.length),
             music: musicLabel,
           };

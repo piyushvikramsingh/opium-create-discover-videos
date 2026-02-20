@@ -1,5 +1,6 @@
 import { Home, Search, PlusSquare, MessageCircle, User } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useUnreadNotificationsCount } from "@/hooks/useData";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
@@ -12,6 +13,7 @@ const navItems = [
 const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/80 backdrop-blur-xl pb-safe">
@@ -43,11 +45,18 @@ const BottomNav = () => {
                 isActive ? "bg-secondary/80" : ""
               }`}
             >
-              <item.icon
-                className={`h-6 w-6 transition-colors ${
-                  isActive ? "text-foreground" : "text-muted-foreground"
-                }`}
-              />
+              <div className="relative">
+                <item.icon
+                  className={`h-6 w-6 transition-colors ${
+                    isActive ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                />
+                {item.path === "/inbox" && unreadNotifications > 0 && (
+                  <span className="absolute -right-2 -top-2 min-w-4 rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </span>
+                )}
+              </div>
               <span
                 className={`text-[10px] transition-colors ${
                   isActive ? "text-foreground font-medium" : "text-muted-foreground"

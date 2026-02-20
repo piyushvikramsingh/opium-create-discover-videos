@@ -20,6 +20,7 @@ import {
   Phone,
   TrendingUp,
   Eye,
+  EyeOff,
   BarChart3,
   UserPlus,
 } from "lucide-react";
@@ -50,6 +51,10 @@ import {
   useSuggestedUsers,
   useCreatorMetrics,
   useTogglePinVideo,
+  useCreateReferral,
+  useReferrals,
+  useHiddenVideos,
+  useUnhideVideo,
 } from "@/hooks/useData";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,25 +69,34 @@ const Profile = () => {
   const navigate = useNavigate();
   const { userId: paramUserId } = useParams<{ userId: string }>();
 
+  const [activeTab, setActiveTab] = useState<"posts" | "reels" | "tagged" | "saved">("posts");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [showHiddenVideosModal, setShowHiddenVideosModal] = useState(false);
+  const [newHighlightTitle, setNewHighlightTitle] = useState("");
+
   const viewingUserId = paramUserId || user?.id;
   const isOwnProfile = !paramUserId || paramUserId === user?.id;
 
   const { data: profile } = useProfile(viewingUserId);
   const { data: counts } = useFollowCounts(viewingUserId);
   const { data: videos } = useUserVideos(viewingUserId);
-  const { data: likedVideos } = useLikedVideos(isOwnProfile ? user?.id : undefined);
-  const { data: bookmarkedVideos } = useBookmarkedVideos(isOwnProfile ? user?.id : undefined);
+  const { data: likedVideos } = useLikedVideos(isOwnProfile ? user?.id : undefined, isOwnProfile && activeTab === "reels");
+  const { data: bookmarkedVideos } = useBookmarkedVideos(isOwnProfile ? user?.id : undefined, isOwnProfile && activeTab === "saved");
   const { data: taggedVideos } = useTaggedVideos(viewingUserId);
   const { data: highlights } = useProfileHighlights(viewingUserId);
   const { data: profileLinks } = useProfileLinks(viewingUserId);
-  const { data: followersList } = useFollowersList(viewingUserId);
-  const { data: followingList } = useFollowingList(viewingUserId);
+  const { data: followersList } = useFollowersList(viewingUserId, showFollowersModal);
+  const { data: followingList } = useFollowingList(viewingUserId, showFollowingModal);
   const { data: isFollowing } = useIsFollowing(paramUserId);
   const { data: followRequest } = useFollowRequestStatus(paramUserId);
   const { data: incomingFollowRequests } = useIncomingFollowRequests();
   const { data: mutualFollowers } = useMutualFollowers(paramUserId);
   const { data: suggestedUsers } = useSuggestedUsers();
   const { data: creatorMetrics } = useCreatorMetrics(viewingUserId);
+  const { data: referrals } = useReferrals();
+  const { data: hiddenVideos } = useHiddenVideos(100, showHiddenVideosModal);
 
   const toggleFollow = useToggleFollow();
   const respondFollowRequest = useRespondFollowRequest();
@@ -93,12 +107,8 @@ const Profile = () => {
   const createConversation = useCreateConversation();
   const updateProfile = useUpdateProfile();
   const togglePinVideo = useTogglePinVideo();
-
-  const [activeTab, setActiveTab] = useState<"posts" | "reels" | "tagged" | "saved">("posts");
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showFollowersModal, setShowFollowersModal] = useState(false);
-  const [showFollowingModal, setShowFollowingModal] = useState(false);
-  const [newHighlightTitle, setNewHighlightTitle] = useState("");
+  const createReferral = useCreateReferral();
+  const unhideVideo = useUnhideVideo();
 
   if (!viewingUserId) {
     return (
@@ -324,6 +334,31 @@ const Profile = () => {
               >
                 Share
               </button>
+              <button
+                onClick={async () => {
+                  try {
+                    const referral = await createReferral.mutateAsync();
+                    if (!referral?.code) {
+                      toast.message("Invites will be available after database update");
+                      return;
+                    }
+                    const link = `${window.location.origin}/auth?ref=${referral?.code}`;
+                    await navigator.clipboard.writeText(link);
+                    toast.success("Invite link copied");
+                  } catch {
+                    toast.error("Could not create invite");
+                  }
+                }}
+                className="lift-on-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+              >
+                Invite
+              </button>
+              <button
+                onClick={() => setShowHiddenVideosModal(true)}
+                className="lift-on-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+              >
+                Hidden {hiddenVideos?.length ? `(${hiddenVideos.length})` : ""}
+              </button>
             </>
           ) : (
             <>
@@ -425,8 +460,8 @@ const Profile = () => {
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="rounded-lg bg-secondary/50 p-2">
                 <Eye className="mx-auto mb-1 h-4 w-4 text-muted-foreground" />
-                <p className="text-sm font-bold text-foreground">{creatorMetrics.reach}</p>
-                <p className="text-[10px] text-muted-foreground">Reach</p>
+                <p className="text-sm font-bold text-foreground">{creatorMetrics.totalViews ?? creatorMetrics.reach}</p>
+                <p className="text-[10px] text-muted-foreground">Views</p>
               </div>
               <div className="rounded-lg bg-secondary/50 p-2">
                 <TrendingUp className="mx-auto mb-1 h-4 w-4 text-muted-foreground" />
@@ -438,7 +473,25 @@ const Profile = () => {
                 <p className="text-sm font-bold text-foreground">{creatorMetrics.posts}</p>
                 <p className="text-[10px] text-muted-foreground">Posts</p>
               </div>
+              <div className="rounded-lg bg-secondary/50 p-2">
+                <p className="text-sm font-bold text-foreground">{creatorMetrics.avgWatchPercent ?? 0}%</p>
+                <p className="text-[10px] text-muted-foreground">Avg watch</p>
+              </div>
+              <div className="rounded-lg bg-secondary/50 p-2">
+                <p className="text-sm font-bold text-foreground">{creatorMetrics.completionRate ?? 0}%</p>
+                <p className="text-[10px] text-muted-foreground">Completion</p>
+              </div>
+              <div className="rounded-lg bg-secondary/50 p-2">
+                <p className="text-sm font-bold text-foreground">+{creatorMetrics.followerGrowth7d ?? 0}</p>
+                <p className="text-[10px] text-muted-foreground">Followers 7d</p>
+              </div>
             </div>
+
+            {!!(referrals || []).length && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Invites sent: {(referrals || []).length}
+              </p>
+            )}
           </div>
         )}
 
@@ -588,9 +641,78 @@ const Profile = () => {
       {showFollowingModal && (
         <PeopleModal title="Following" people={followingList || []} onClose={() => setShowFollowingModal(false)} onOpenProfile={(id) => navigate(`/profile/${id}`)} />
       )}
+      {showHiddenVideosModal && (
+        <HiddenVideosModal
+          videos={hiddenVideos || []}
+          onClose={() => setShowHiddenVideosModal(false)}
+          onRestore={async (videoId) => {
+            try {
+              await unhideVideo.mutateAsync({ videoId });
+              toast.success("Video restored");
+            } catch {
+              toast.error("Could not restore video");
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
+
+function HiddenVideosModal({
+  videos,
+  onClose,
+  onRestore,
+}: {
+  videos: any[];
+  onClose: () => void;
+  onRestore: (videoId: string) => Promise<void>;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <button onClick={onClose}>
+          <X className="h-5 w-5 text-foreground" />
+        </button>
+        <h2 className="text-base font-semibold text-foreground">Hidden Videos</h2>
+        <div className="w-5" />
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        {videos.length === 0 ? (
+          <div className="py-16 text-center text-sm text-muted-foreground">No hidden videos</div>
+        ) : (
+          <div className="space-y-2">
+            {videos.map((video: any) => (
+              <div key={video.id} className="flex items-center gap-3 rounded-xl border border-border p-2">
+                <div className="h-16 w-12 overflow-hidden rounded bg-secondary shrink-0">
+                  {video.thumbnail_url ? (
+                    <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 text-xs text-foreground/90">{video.description || "No caption"}</p>
+                </div>
+
+                <button
+                  onClick={() => onRestore(video.id)}
+                  className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-primary-foreground"
+                >
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function PeopleModal({
   title,

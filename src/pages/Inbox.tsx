@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode, useEffect, useMemo, useState
 import { MessageCircle, Search, Plus, X, Flame, Circle, MoreHorizontal, Pin, PinOff, Bell, BellOff, Archive } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConversations, useCreateConversation, useSearchUsers, useUpdateConversationSettings } from "@/hooks/useMessages";
+import { useMarkAllNotificationsRead, useNotifications } from "@/hooks/useData";
 import { useLocation, useNavigate } from "react-router-dom";
 import ChatView from "../components/ChatView";
 import {
@@ -62,6 +63,8 @@ const Inbox = () => {
   const { data: conversations, isLoading } = useConversations(filter === "archived");
   const createConversation = useCreateConversation();
   const updateConversationSettings = useUpdateConversationSettings();
+  const { data: notifications = [] } = useNotifications(10);
+  const markAllNotificationsRead = useMarkAllNotificationsRead();
 
   const [activeConversation, setActiveConversation] = useState<{
     id: string;
@@ -298,6 +301,31 @@ const Inbox = () => {
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {!!notifications.length && (
+        <div className="border-b border-border/60 px-4 py-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notifications</p>
+            <button
+              onClick={() => markAllNotificationsRead.mutate()}
+              className="text-[11px] font-semibold text-primary"
+            >
+              Mark all read
+            </button>
+          </div>
+          <div className="scrollbar-hide flex gap-2 overflow-x-auto">
+            {notifications.map((notification: any) => (
+              <div
+                key={notification.id}
+                className={`shrink-0 rounded-lg border px-3 py-2 text-left ${notification.is_read ? "border-border bg-secondary/40" : "border-primary/40 bg-primary/10"}`}
+              >
+                <p className="text-[11px] font-semibold text-foreground">{notification.title}</p>
+                {!!notification.body && <p className="mt-0.5 max-w-[180px] truncate text-[10px] text-muted-foreground">{notification.body}</p>}
+              </div>
+            ))}
           </div>
         </div>
       )}

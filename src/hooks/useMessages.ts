@@ -83,6 +83,14 @@ export function useConversations(includeArchived = false) {
         });
       }
 
+      const [blocksRes, mutesRes] = await Promise.all([
+        supabase.from("user_blocks").select("blocked_user_id").eq("user_id", user!.id),
+        supabase.from("user_mutes").select("muted_user_id").eq("user_id", user!.id),
+      ]);
+
+      const blockedSet = new Set((blocksRes.data || []).map((row: any) => row.blocked_user_id));
+      const mutedSet = new Set((mutesRes.data || []).map((row: any) => row.muted_user_id));
+
       const { data: settingsRows, error: settingsError } = await supabase
         .from("conversation_settings")
         .select("conversation_id, pinned, muted, archived")
@@ -91,74 +99,83 @@ export function useConversations(includeArchived = false) {
       if (settingsError && !isSchemaMismatchError(settingsError)) throw settingsError;
       const settingsMap = new Map((settingsRows || []).map((row: any) => [row.conversation_id, row]));
 
-      const enriched = await Promise.all(
-        (convos || []).map(async (conversation: any) => {
-          const lastMsgAdvanced = await supabase
-            .from("messages")
-            .select("id, content, created_at, sender_id, media_type, is_snap, viewed, deleted_at")
-            .eq("conversation_id", conversation.id)
-            .order("created_at", { ascending: false })
-            .limit(1);
+      const allMessagesAdvanced = await supabase
+        .from("messages")
+        .select("id, conversation_id, content, created_at, sender_id, media_type, is_snap, viewed, deleted_at")
+        .in("conversation_id", ids)
+        .order("created_at", { ascending: false });
 
-          let msgs = lastMsgAdvanced.data;
-          if (lastMsgAdvanced.error) {
-            if (!isSchemaMismatchError(lastMsgAdvanced.error)) throw lastMsgAdvanced.error;
+      let allMessages: any[] = allMessagesAdvanced.data || [];
+      if (allMessagesAdvanced.error) {
+        if (!isSchemaMismatchError(allMessagesAdvanced.error)) throw allMessagesAdvanced.error;
 
-            const lastMsgFallback = await supabase
-              .from("messages")
-              .select("id, content, created_at, sender_id, media_type, is_snap, viewed")
-              .eq("conversation_id", conversation.id)
-              .order("created_at", { ascending: false })
-              .limit(1);
+        const allMessagesFallback = await supabase
+          .from("messages")
+          .select("id, conversation_id, content, created_at, sender_id, media_type, is_snap, viewed")
+          .in("conversation_id", ids)
+          .order("created_at", { ascending: false });
 
-            if (lastMsgFallback.error) throw lastMsgFallback.error;
-            msgs = (lastMsgFallback.data || []).map((message: any) => ({ ...message, deleted_at: null }));
-          }
+        if (allMessagesFallback.error) throw allMessagesFallback.error;
+        allMessages = (allMessagesFallback.data || []).map((message: any) => ({ ...message, deleted_at: null }));
+      }
 
-          const myPart = myPartMap.get(conversation.id);
-          const myLastReadAt = myPart?.last_read_at;
+      const lastMessageByConversation = new Map<string, any>();
+      const unreadCountByConversation = new Map<string, number>();
 
-          let unreadCount = 0;
-          if (myLastReadAt) {
-            const { count } = await supabase
-              .from("messages")
-              .select("id", { count: "exact", head: true })
-              .eq("conversation_id", conversation.id)
-              .gt("created_at", myLastReadAt)
-              .neq("sender_id", user!.id);
-            unreadCount = count ?? 0;
-          }
+      for (const message of allMessages) {
+        const conversationId = message.conversation_id;
+        if (!lastMessageByConversation.has(conversationId)) {
+          lastMessageByConversation.set(conversationId, message);
+        }
 
-          const otherParticipants = (allParts || [])
-            .filter((participant: any) => participant.conversation_id === conversation.id && participant.user_id !== user!.id)
-            .map((participant: any) => {
-              const profile = profileMap[participant.user_id];
-              if (profile) return profile;
+        if (message.sender_id === user!.id) continue;
+        const myLastReadAt = myPartMap.get(conversationId)?.last_read_at;
+        if (!myLastReadAt || new Date(message.created_at).getTime() > new Date(myLastReadAt).getTime()) {
+          unreadCountByConversation.set(conversationId, (unreadCountByConversation.get(conversationId) || 0) + 1);
+        }
+      }
 
-              const shortId = String(participant.user_id).slice(0, 8);
-              return {
-                user_id: participant.user_id,
-                username: `user_${shortId}`,
-                display_name: `User ${shortId}`,
-                avatar_url: null,
-              };
-            });
+      const enriched = (convos || []).map((conversation: any) => {
+        const myPart = myPartMap.get(conversation.id);
+        const myLastReadAt = myPart?.last_read_at;
 
-          const settings = settingsMap.get(conversation.id) || { pinned: false, muted: false, archived: false };
+        const otherParticipants = (allParts || [])
+          .filter((participant: any) => participant.conversation_id === conversation.id && participant.user_id !== user!.id)
+          .map((participant: any) => {
+            const profile = profileMap[participant.user_id];
+            if (profile) return profile;
 
-          return {
-            ...conversation,
-            lastMessage: msgs?.[0] || null,
-            otherParticipants,
-            unreadCount,
-            isUnread: unreadCount > 0,
-            myLastReadAt: myLastReadAt || null,
-            settings,
-          };
-        }),
-      );
+            const shortId = String(participant.user_id).slice(0, 8);
+            return {
+              user_id: participant.user_id,
+              username: `user_${shortId}`,
+              display_name: `User ${shortId}`,
+              avatar_url: null,
+            };
+          });
 
-      const filtered = includeArchived ? enriched : enriched.filter((conversation: any) => !conversation.settings.archived);
+        const settings = settingsMap.get(conversation.id) || { pinned: false, muted: false, archived: false };
+        const unreadCount = unreadCountByConversation.get(conversation.id) || 0;
+
+        return {
+          ...conversation,
+          lastMessage: lastMessageByConversation.get(conversation.id) || null,
+          otherParticipants,
+          unreadCount,
+          isUnread: unreadCount > 0,
+          myLastReadAt: myLastReadAt || null,
+          settings,
+          isBlockedOrMuted: otherParticipants.some(
+            (participant: any) => blockedSet.has(participant.user_id) || mutedSet.has(participant.user_id),
+          ),
+        };
+      });
+
+      const filteredBySafety = enriched.filter((conversation: any) => !conversation.isBlockedOrMuted);
+
+      const filtered = includeArchived
+        ? filteredBySafety
+        : filteredBySafety.filter((conversation: any) => !conversation.settings.archived);
 
       return filtered.sort((a: any, b: any) => {
         if (a.settings.pinned && !b.settings.pinned) return -1;

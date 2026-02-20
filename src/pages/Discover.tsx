@@ -1,10 +1,11 @@
-import { Search, Play, TrendingUp, Users } from "lucide-react";
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useVideos } from "@/hooks/useData";
+import { Search, Play, TrendingUp, Users, EyeOff } from "lucide-react";
+import { useEffect, useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useContinueWatchingVideos, useHideVideo, useTrackVideoEvent, useUnhideVideo, useVideos } from "@/hooks/useData";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { mockVideos } from "@/data/mockVideos";
+import { toast } from "sonner";
 
 const trendingTags = [
   "dance", "viral", "foodie", "cats",
@@ -29,12 +30,70 @@ function useSearchProfiles(query: string) {
 
 const Discover = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  const [isFeedMuted, setIsFeedMuted] = useState<boolean>(() => {
+    try {
+      const stored = window.localStorage.getItem("opium_feed_muted");
+      if (stored === "0") return false;
+      if (stored === "1") return true;
+    } catch {
+      // ignore storage errors
+    }
+    return true;
+  });
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const { data: videos } = useVideos();
-  const { data: searchProfiles } = useSearchProfiles(searchQuery);
+  const { data: continueWatching = [] } = useContinueWatchingVideos(12);
+  const hideVideo = useHideVideo();
+  const unhideVideo = useUnhideVideo();
+  const trackEvent = useTrackVideoEvent();
+  const { data: searchProfiles } = useSearchProfiles(debouncedSearchQuery);
 
-  const isSearching = searchQuery.length >= 2;
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 220);
+
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const q = (searchParams.get("q") || "").trim();
+    if (!q) return;
+    setSearchQuery(q);
+    setDebouncedSearchQuery(q);
+    setActiveTag(null);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const syncMutePref = () => {
+      try {
+        const stored = window.localStorage.getItem("opium_feed_muted");
+        if (stored === "0") setIsFeedMuted(false);
+        else if (stored === "1") setIsFeedMuted(true);
+      } catch {
+        // ignore storage errors
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        syncMutePref();
+      }
+    };
+
+    window.addEventListener("storage", syncMutePref);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("storage", syncMutePref);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, []);
+
+  const isSearching = debouncedSearchQuery.length >= 2;
 
   // Filter videos by search query or tag
   const filteredVideos = useMemo(() => {
@@ -144,55 +203,120 @@ const Discover = () => {
 
       {/* Section title */}
       {!isSearching && (
-        <div className="px-4 pb-2">
+        <>
+          {!!continueWatching.length && (
+            <div className="px-4 pb-3">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Continue Watching
+              </p>
+              <div className="scrollbar-hide flex gap-2 overflow-x-auto">
+                {continueWatching.map((video: any) => (
+                  <button
+                    key={video.id}
+                    onClick={() => navigate("/", { state: { focusVideoId: video.id, focusSource: "discover" } })}
+                    className="lift-on-tap relative h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary"
+                  >
+                    {video.thumbnail_url ? (
+                      <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Play className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-1 left-1">
+                      <Play className="h-3 w-3 text-white" fill="white" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="px-4 pb-2">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
             <TrendingUp className="h-3.5 w-3.5" />
             {activeTag ? `#${activeTag}` : "Trending"}
           </p>
-        </div>
+          </div>
+        </>
       )}
 
       {/* Video Grid */}
       <div className="grid grid-cols-3 gap-0.5 px-0.5">
-        {hasRealVideos
-          ? filteredVideos.map((video: any) => (
-              <button
-                key={video.id}
-                onClick={() => navigate("/")}
-                className="lift-on-tap relative aspect-[9/16] overflow-hidden bg-secondary text-left"
-              >
-                {video.thumbnail_url ? (
-                  <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                ) : video.video_url ? (
-                  <video src={video.video_url} className="h-full w-full object-cover" muted preload="metadata" />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <Play className="h-6 w-6 text-muted-foreground" />
+        {hasRealVideos &&
+          filteredVideos.map((video: any) => (
+              <div key={video.id} className="relative aspect-[9/16] overflow-hidden bg-secondary">
+                <button
+                  onClick={() => navigate("/", { state: { focusVideoId: video.id, focusSource: "discover" } })}
+                  className="lift-on-tap h-full w-full text-left"
+                >
+                  {video.thumbnail_url ? (
+                    <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  ) : video.video_url ? (
+                    <video src={video.video_url} className="h-full w-full object-cover" muted={isFeedMuted} preload="metadata" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center">
+                      <Play className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                  )}
+                  <div className="absolute bottom-1 left-1 flex items-center gap-1">
+                    <Play className="h-3 w-3 text-white" fill="white" />
+                    <span className="text-[10px] font-medium text-white">
+                      {video.likes_count >= 1000
+                        ? (video.likes_count / 1000).toFixed(0) + "K"
+                        : video.likes_count}
+                    </span>
                   </div>
-                )}
-                <div className="absolute bottom-1 left-1 flex items-center gap-1">
-                  <Play className="h-3 w-3 text-white" fill="white" />
-                  <span className="text-[10px] font-medium text-white">
-                    {video.likes_count >= 1000
-                      ? (video.likes_count / 1000).toFixed(0) + "K"
-                      : video.likes_count}
-                  </span>
-                </div>
-              </button>
-            ))
-          : // Fallback mock grid
-            [...mockVideos, ...mockVideos].map((video, i) => (
-              <div key={`${video.id}-${i}`} className="relative aspect-[9/16] overflow-hidden bg-secondary">
-                <img src={video.thumbnail} alt="" className="h-full w-full object-cover" loading="lazy" />
-                <div className="absolute bottom-1 left-1 flex items-center gap-1">
-                  <Play className="h-3 w-3 text-white" fill="white" />
-                  <span className="text-[10px] font-medium text-white">
-                    {(video.likes / 1000).toFixed(0)}K
-                  </span>
-                </div>
+                </button>
+
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+
+                    if (!user) {
+                      navigate("/auth");
+                      return;
+                    }
+
+                    hideVideo.mutate(
+                      { videoId: video.id },
+                      {
+                        onSuccess: () => {
+                          trackEvent.mutate({ videoId: video.id, eventType: "hide" });
+                          toast.success("We’ll show less like this", {
+                            action: {
+                              label: "Undo",
+                              onClick: () => {
+                                unhideVideo.mutate(
+                                  { videoId: video.id },
+                                  {
+                                    onSuccess: () => {
+                                      toast.success("Video restored");
+                                    },
+                                  },
+                                );
+                              },
+                            },
+                          });
+                        },
+                      },
+                    );
+                  }}
+                  className="absolute right-1 top-1 z-10 rounded-full bg-black/45 p-1.5 backdrop-blur-sm"
+                  aria-label="Not interested"
+                >
+                  <EyeOff className="h-3.5 w-3.5 text-white" />
+                </button>
               </div>
             ))}
       </div>
+
+      {!hasRealVideos && (
+        <div className="px-6 py-16 text-center">
+          <p className="text-base font-semibold text-foreground">No videos to discover yet</p>
+          <p className="mt-2 text-sm text-muted-foreground">Once videos are uploaded, they’ll appear here automatically.</p>
+        </div>
+      )}
 
       {/* Empty state for search/tag with no results */}
       {(isSearching || activeTag) && hasRealVideos === false && videos && videos.length > 0 && (

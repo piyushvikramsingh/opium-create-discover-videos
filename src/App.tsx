@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component, ReactNode } from "react";
+import { lazy, Suspense, Component, ReactNode, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,14 +18,45 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 30_000,
-      gcTime: 5 * 60_000,
+      staleTime: 3 * 60_000,
+      gcTime: 30 * 60_000,
+      refetchOnMount: false,
       refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
+      refetchOnReconnect: false,
       retry: 1,
     },
   },
 });
+
+const RouteWarmup = () => {
+  useEffect(() => {
+    const warm = () => {
+      void import("./pages/Discover");
+      void import("./pages/Create");
+      void import("./pages/Inbox");
+      void import("./pages/Profile");
+    };
+
+    const withIdle = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+
+    if (typeof withIdle.requestIdleCallback === "function") {
+      const idleId = withIdle.requestIdleCallback(warm, { timeout: 1200 });
+      return () => {
+        if (typeof withIdle.cancelIdleCallback === "function") {
+          withIdle.cancelIdleCallback(idleId);
+        }
+      };
+    }
+
+    const timeoutId = window.setTimeout(warm, 350);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  return null;
+};
 
 const RouteFallback = () => (
   <div className="flex min-h-screen items-center justify-center bg-background">
@@ -85,6 +116,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <RouteWarmup />
             <Suspense fallback={<RouteFallback />}>
               <Routes>
                 <Route path="/auth" element={<Auth />} />

@@ -24,6 +24,34 @@ export interface VideoComment {
   } | null;
 }
 
+type VideoEventType =
+  | "view_start"
+  | "view_3s"
+  | "view_complete"
+  | "like"
+  | "share"
+  | "follow"
+  | "hide"
+  | "report";
+
+const loadSafetyFilters = async (userId: string) => {
+  const [hidden, blocks, mutes] = await Promise.all([
+    supabase.from("hidden_videos").select("video_id").eq("user_id", userId),
+    supabase.from("user_blocks").select("blocked_user_id").eq("user_id", userId),
+    supabase.from("user_mutes").select("muted_user_id").eq("user_id", userId),
+  ]);
+
+  if (hidden.error && !isSchemaMismatchError(hidden.error)) throw hidden.error;
+  if (blocks.error && !isSchemaMismatchError(blocks.error)) throw blocks.error;
+  if (mutes.error && !isSchemaMismatchError(mutes.error)) throw mutes.error;
+
+  return {
+    hiddenVideoIds: new Set((hidden.data || []).map((row: any) => row.video_id)),
+    blockedUserIds: new Set((blocks.data || []).map((row: any) => row.blocked_user_id)),
+    mutedUserIds: new Set((mutes.data || []).map((row: any) => row.muted_user_id)),
+  };
+};
+
 function updateVideosCommentsCount(
   queryClient: ReturnType<typeof useQueryClient>,
   videoId: string,
@@ -43,15 +71,126 @@ function updateVideosCommentsCount(
 }
 
 export function useVideos() {
+  const { user } = useAuth();
+
   return useQuery({
-    queryKey: ["videos"],
+    queryKey: ["videos", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("videos")
         .select("*, profiles!videos_user_id_fkey(username, display_name, avatar_url)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+
+      if (!user) return data;
+
+      const { hiddenVideoIds, blockedUserIds, mutedUserIds } = await loadSafetyFilters(user.id);
+
+      return (data || []).filter(
+        (video: any) =>
+          !hiddenVideoIds.has(video.id) &&
+          !blockedUserIds.has(video.user_id) &&
+          !mutedUserIds.has(video.user_id),
+      );
+    },
+  });
+}
+
+export function useForYouVideos() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["for-you-videos", user?.id],
+    queryFn: async () => {
+      const { data: videos, error } = await supabase
+        .from("videos")
+        .select("*, profiles!videos_user_id_fkey(username, display_name, avatar_url)")
+        .order("created_at", { ascending: false })
+        .limit(150);
+      if (error) throw error;
+
+      if (!user) return videos || [];
+
+      const [{ hiddenVideoIds, blockedUserIds, mutedUserIds }, eventsRes, followsRes, interestsRes] = await Promise.all([
+        loadSafetyFilters(user.id),
+        supabase
+          .from("video_events")
+          .select("video_id, event_type")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(400),
+        supabase.from("follows").select("following_id").eq("follower_id", user.id),
+        supabase
+          .from("profiles")
+          .select("interests")
+          .eq("user_id", user.id)
+          .maybeSingle(),
+      ]);
+
+      if (eventsRes.error && !isSchemaMismatchError(eventsRes.error)) throw eventsRes.error;
+      if (followsRes.error) throw followsRes.error;
+      if (interestsRes.error && !isSchemaMismatchError(interestsRes.error)) throw interestsRes.error;
+
+      const interactionWeights: Record<string, number> = {
+        view_start: 0.4,
+        view_3s: 1.5,
+        view_complete: 7,
+        like: 8,
+        share: 14,
+        follow: 18,
+        hide: -20,
+        report: -28,
+      };
+
+      const perVideoAffinity = new Map<string, number>();
+      (eventsRes.data || []).forEach((event: any, index: number) => {
+        const baseWeight = interactionWeights[event.event_type] ?? 0;
+        if (!baseWeight) return;
+
+        const rankDecay = Math.max(0.2, 1 - index * 0.0025);
+        const weighted = baseWeight * rankDecay;
+
+        perVideoAffinity.set(event.video_id, (perVideoAffinity.get(event.video_id) || 0) + weighted);
+      });
+
+      const followedSet = new Set((followsRes.data || []).map((row: any) => row.following_id));
+      const interests = (interestsRes.data?.interests || []).map((interest: string) => interest.toLowerCase());
+
+      const filtered = (videos || []).filter(
+        (video: any) =>
+          !hiddenVideoIds.has(video.id) &&
+          !blockedUserIds.has(video.user_id) &&
+          !mutedUserIds.has(video.user_id),
+      );
+
+      const ranked = filtered
+        .map((video: any) => {
+          const hoursSinceCreated = Math.max(
+            1,
+            (Date.now() - new Date(video.created_at).getTime()) / (1000 * 60 * 60),
+          );
+          const recencyBoost = 18 / Math.sqrt(hoursSinceCreated);
+          const popularity =
+            (video.likes_count || 0) * 1.3 +
+            (video.comments_count || 0) * 1.8 +
+            (video.shares_count || 0) * 2.5;
+          const affinity = (perVideoAffinity.get(video.id) || 0) * 2.1;
+          const followingBoost = followedSet.has(video.user_id) ? 12 : 0;
+          const textBlob = `${video.description || ""} ${video.music || ""}`.toLowerCase();
+          const interestMatches = interests.reduce(
+            (sum: number, interest: string) => (textBlob.includes(interest) ? sum + 1 : sum),
+            0,
+          );
+          const interestBoost = interestMatches * 14;
+
+          return {
+            ...video,
+            _score: popularity + affinity + followingBoost + recencyBoost + interestBoost,
+          };
+        })
+        .sort((a: any, b: any) => b._score - a._score);
+
+      return ranked;
     },
   });
 }
@@ -309,6 +448,406 @@ export function useToggleLike() {
   });
 }
 
+export function useTrackVideoEvent() {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ videoId, eventType, watchMs }: { videoId: string; eventType: VideoEventType; watchMs?: number }) => {
+      if (!user) return;
+      const { error } = await supabase.from("video_events").insert({
+        user_id: user.id,
+        video_id: videoId,
+        event_type: eventType,
+        watch_ms: watchMs ?? null,
+      });
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+  });
+}
+
+export function useShareVideo() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ videoId }: { videoId: string }) => {
+      const { data: current, error: readError } = await supabase
+        .from("videos")
+        .select("shares_count")
+        .eq("id", videoId)
+        .maybeSingle();
+      if (readError) throw readError;
+
+      const next = (current?.shares_count || 0) + 1;
+      const { error } = await supabase
+        .from("videos")
+        .update({ shares_count: next })
+        .eq("id", videoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+    },
+  });
+}
+
+export function useHideVideo() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ videoId }: { videoId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("hidden_videos").upsert(
+        { user_id: user.id, video_id: videoId },
+        { onConflict: "user_id,video_id" },
+      );
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["hidden-videos"] });
+    },
+  });
+}
+
+export function useUnhideVideo() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ videoId }: { videoId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("hidden_videos")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("video_id", videoId);
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["continue-watching"] });
+      qc.invalidateQueries({ queryKey: ["hidden-videos"] });
+    },
+  });
+}
+
+export function useHiddenVideos(limit = 100, enabled = true) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["hidden-videos", user?.id, limit],
+    enabled: !!user && enabled,
+    queryFn: async () => {
+      const { data: hiddenRows, error } = await supabase
+        .from("hidden_videos")
+        .select("video_id, created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+
+      const ids = (hiddenRows || []).map((row: any) => row.video_id);
+      if (ids.length === 0) return [];
+
+      const { data: videos, error: videosError } = await supabase
+        .from("videos")
+        .select("id, user_id, description, thumbnail_url, video_url, likes_count, created_at")
+        .in("id", ids);
+      if (videosError) throw videosError;
+
+      const videoMap = new Map((videos || []).map((video: any) => [video.id, video]));
+      return ids.map((id: string) => videoMap.get(id)).filter(Boolean);
+    },
+  });
+}
+
+export function useBlockUser() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ targetUserId }: { targetUserId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("user_blocks").upsert(
+        { user_id: user.id, blocked_user_id: targetUserId },
+        { onConflict: "user_id,blocked_user_id" },
+      );
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useMuteUser() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ targetUserId }: { targetUserId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("user_mutes").upsert(
+        { user_id: user.id, muted_user_id: targetUserId },
+        { onConflict: "user_id,muted_user_id" },
+      );
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useReportVideo() {
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({ videoId, reason, details }: { videoId: string; reason: string; details?: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase.from("video_reports").insert({
+        reporter_id: user.id,
+        video_id: videoId,
+        reason,
+        details: details || null,
+      });
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+  });
+}
+
+export function useNotifications(limit = 30) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["notifications", user?.id, limit],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+      return data || [];
+    },
+    refetchInterval: 10000,
+  });
+}
+
+export function useMarkAllNotificationsRead() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+}
+
+export function useUnreadNotificationsCount() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["notifications-unread-count", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user!.id)
+        .eq("is_read", false);
+
+      if (error) {
+        if (isSchemaMismatchError(error)) return 0;
+        throw error;
+      }
+
+      return count || 0;
+    },
+    refetchInterval: 10000,
+  });
+}
+
+export function useCreateReferral() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error("Not authenticated");
+      const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const { data, error } = await supabase
+        .from("referrals")
+        .insert({ inviter_id: user.id, code, status: "sent" })
+        .select("*")
+        .maybeSingle();
+      if (error) {
+        if (isSchemaMismatchError(error)) return null;
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["referrals"] });
+    },
+  });
+}
+
+export function useReferrals() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["referrals", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("referrals")
+        .select("*")
+        .eq("inviter_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+      return data || [];
+    },
+  });
+}
+
+export function useContinueWatchingVideos(limit = 12) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["continue-watching", user?.id, limit],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data: events, error } = await supabase
+        .from("video_events")
+        .select("video_id, event_type, watch_ms, created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+
+      const progressMap = new Map<
+        string,
+        { hasStart: boolean; hasComplete: boolean; watchMs: number; latestAt: string }
+      >();
+
+      for (const event of events || []) {
+        const current = progressMap.get(event.video_id) || {
+          hasStart: false,
+          hasComplete: false,
+          watchMs: 0,
+          latestAt: event.created_at,
+        };
+
+        const hasStart = current.hasStart || event.event_type === "view_start" || event.event_type === "view_3s";
+        const hasComplete = current.hasComplete || event.event_type === "view_complete";
+        const watchMs = Math.max(current.watchMs, event.watch_ms || 0);
+
+        progressMap.set(event.video_id, {
+          hasStart,
+          hasComplete,
+          watchMs,
+          latestAt: current.latestAt,
+        });
+      }
+
+      const ids = [...progressMap.entries()]
+        .filter(([, progress]) => progress.hasStart && !progress.hasComplete && progress.watchMs >= 3000)
+        .sort((a, b) => new Date(b[1].latestAt).getTime() - new Date(a[1].latestAt).getTime())
+        .slice(0, limit)
+        .map(([videoId]) => videoId);
+
+      if (ids.length === 0) return [];
+
+      const { data: videos, error: videosError } = await supabase
+        .from("videos")
+        .select("*")
+        .in("id", ids);
+      if (videosError) throw videosError;
+
+      const videoMap = new Map((videos || []).map((video: any) => [video.id, video]));
+      return ids.map((id) => videoMap.get(id)).filter(Boolean);
+    },
+  });
+}
+
+export function useUserInterests() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["user-interests", user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("interests")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (error) {
+        if (isSchemaMismatchError(error)) return null;
+        throw error;
+      }
+      return data?.interests || [];
+    },
+  });
+}
+
+export function useUpdateUserInterests() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ interests }: { interests: string[] }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("profiles")
+        .update({ interests })
+        .eq("user_id", user.id);
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["user-interests"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["profile"] });
+    },
+  });
+}
+
 export function useToggleBookmark() {
   const qc = useQueryClient();
   const { user } = useAuth();
@@ -345,10 +884,10 @@ export function useProfile(userId: string | undefined) {
   });
 }
 
-export function useFollowersList(userId: string | undefined) {
+export function useFollowersList(userId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ["followers-list", userId],
-    enabled: !!userId,
+    enabled: !!userId && enabled,
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("follows")
@@ -367,10 +906,10 @@ export function useFollowersList(userId: string | undefined) {
   });
 }
 
-export function useFollowingList(userId: string | undefined) {
+export function useFollowingList(userId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ["following-list", userId],
-    enabled: !!userId,
+    enabled: !!userId && enabled,
     queryFn: async () => {
       const { data: rows, error } = await supabase
         .from("follows")
@@ -796,6 +1335,54 @@ export function useCreatorMetrics(userId: string | undefined) {
       const engagement = likes + comments + shares;
       const reach = likes * 3 + comments * 5 + shares * 8;
 
+      const videoIds = (videos || []).map((video: any) => video.id);
+      let avgWatchPercent = 0;
+      let completionRate = 0;
+      let totalViews = 0;
+
+      if (videoIds.length > 0) {
+        const [starts, completes, watchRows] = await Promise.all([
+          supabase.from("video_events").select("id", { count: "exact", head: true }).in("video_id", videoIds).eq("event_type", "view_start"),
+          supabase.from("video_events").select("id", { count: "exact", head: true }).in("video_id", videoIds).eq("event_type", "view_complete"),
+          supabase.from("video_events").select("watch_ms").in("video_id", videoIds).not("watch_ms", "is", null).limit(2000),
+        ]);
+
+        if (starts.error && !isSchemaMismatchError(starts.error)) throw starts.error;
+        if (completes.error && !isSchemaMismatchError(completes.error)) throw completes.error;
+        if (watchRows.error && !isSchemaMismatchError(watchRows.error)) throw watchRows.error;
+
+        totalViews = starts.count || 0;
+        const completeViews = completes.count || 0;
+        completionRate = totalViews > 0 ? Math.round((completeViews / totalViews) * 100) : 0;
+
+        const watchValues = (watchRows.data || []).map((row: any) => row.watch_ms || 0).filter((value: number) => value > 0);
+        if (watchValues.length > 0) {
+          const avgWatchMs = watchValues.reduce((sum: number, value: number) => sum + value, 0) / watchValues.length;
+          avgWatchPercent = Math.min(100, Math.round((avgWatchMs / 10000) * 100));
+        }
+      }
+
+      const last7Days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { count: followerGrowthCount, error: followerGrowthError } = await supabase
+        .from("follows")
+        .select("id", { count: "exact", head: true })
+        .eq("following_id", userId!)
+        .gte("created_at", last7Days);
+      if (followerGrowthError) throw followerGrowthError;
+
+      const topVideos = [...(videos || [])]
+        .sort(
+          (a: any, b: any) =>
+            (b.likes_count || 0) + (b.comments_count || 0) * 2 + (b.shares_count || 0) * 3 -
+            ((a.likes_count || 0) + (a.comments_count || 0) * 2 + (a.shares_count || 0) * 3),
+        )
+        .slice(0, 5)
+        .map((video: any) => ({
+          id: video.id,
+          thumbnail_url: video.thumbnail_url,
+          score: (video.likes_count || 0) + (video.comments_count || 0) * 2 + (video.shares_count || 0) * 3,
+        }));
+
       return {
         posts: totalPosts,
         likes,
@@ -803,6 +1390,11 @@ export function useCreatorMetrics(userId: string | undefined) {
         shares,
         engagement,
         reach,
+        totalViews,
+        avgWatchPercent,
+        completionRate,
+        followerGrowth7d: followerGrowthCount || 0,
+        topVideos,
       };
     },
   });
@@ -823,10 +1415,10 @@ export function useUpdateLastActive() {
   });
 }
 
-export function useLikedVideos(userId: string | undefined) {
+export function useLikedVideos(userId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ["liked-videos", userId],
-    enabled: !!userId,
+    enabled: !!userId && enabled,
     queryFn: async () => {
       const { data: likes, error: lErr } = await supabase
         .from("likes")
@@ -848,10 +1440,10 @@ export function useLikedVideos(userId: string | undefined) {
   });
 }
 
-export function useBookmarkedVideos(userId: string | undefined) {
+export function useBookmarkedVideos(userId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: ["bookmarked-videos", userId],
-    enabled: !!userId,
+    enabled: !!userId && enabled,
     queryFn: async () => {
       const { data: bookmarks, error: bErr } = await supabase
         .from("bookmarks")

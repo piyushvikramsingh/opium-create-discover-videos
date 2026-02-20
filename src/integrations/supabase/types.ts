@@ -344,6 +344,71 @@ export type Database = {
           },
         ]
       }
+      hidden_videos: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hidden_videos_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          actor_id: string | null
+          body: string | null
+          created_at: string
+          entity_id: string | null
+          id: string
+          is_read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          is_read?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          body?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          is_read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           affiliate_url: string | null
@@ -355,6 +420,7 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          interests: string[]
           is_private: boolean
           is_verified: boolean
           last_active_at: string | null
@@ -376,6 +442,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          interests?: string[]
           is_private?: boolean
           is_verified?: boolean
           last_active_at?: string | null
@@ -397,6 +464,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          interests?: string[]
           is_private?: boolean
           is_verified?: boolean
           last_active_at?: string | null
@@ -470,6 +538,33 @@ export type Database = {
         }
         Relationships: []
       }
+      referrals: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          invitee_id: string | null
+          inviter_id: string
+          status: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          invitee_id?: string | null
+          inviter_id: string
+          status?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          invitee_id?: string | null
+          inviter_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       tagged_videos: {
         Row: {
           created_at: string
@@ -499,6 +594,121 @@ export type Database = {
           },
         ]
       }
+      user_blocks: {
+        Row: {
+          blocked_user_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          blocked_user_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          blocked_user_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_mutes: {
+        Row: {
+          created_at: string
+          id: string
+          muted_user_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          muted_user_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          muted_user_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      video_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          user_id: string
+          video_id: string
+          watch_ms: number | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          user_id: string
+          video_id: string
+          watch_ms?: number | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+          watch_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_events_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_reports: {
+        Row: {
+          created_at: string
+          details: string | null
+          id: string
+          reason: string
+          reporter_id: string
+          status: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason: string
+          reporter_id: string
+          status?: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: string | null
+          id?: string
+          reason?: string
+          reporter_id?: string
+          status?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_reports_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       videos: {
         Row: {
           bookmarks_count: number
@@ -510,6 +720,12 @@ export type Database = {
           likes_count: number
           music: string | null
           shares_count: number
+          stream_asset_id: string | null
+          stream_error: string | null
+          stream_playback_id: string | null
+          stream_provider: string | null
+          stream_status: string
+          stream_upload_id: string | null
           thumbnail_url: string | null
           user_id: string
           video_url: string
@@ -524,6 +740,12 @@ export type Database = {
           likes_count?: number
           music?: string | null
           shares_count?: number
+          stream_asset_id?: string | null
+          stream_error?: string | null
+          stream_playback_id?: string | null
+          stream_provider?: string | null
+          stream_status?: string
+          stream_upload_id?: string | null
           thumbnail_url?: string | null
           user_id: string
           video_url: string
@@ -538,6 +760,12 @@ export type Database = {
           likes_count?: number
           music?: string | null
           shares_count?: number
+          stream_asset_id?: string | null
+          stream_error?: string | null
+          stream_playback_id?: string | null
+          stream_provider?: string | null
+          stream_status?: string
+          stream_upload_id?: string | null
           thumbnail_url?: string | null
           user_id?: string
           video_url?: string
