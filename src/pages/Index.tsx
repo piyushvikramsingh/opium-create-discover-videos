@@ -32,6 +32,7 @@ const interestOptions = [
 const PREFETCH_CACHE_LIMIT = 60;
 const ACTIVE_SWITCH_THRESHOLD = 0.6;
 const SCROLL_IDLE_RESTORE_MS = 180;
+const SCROLL_JITTER_PX = 2;
 
 function isSlowConnection() {
   const connection = (navigator as Navigator & {
@@ -63,6 +64,7 @@ const Index = () => {
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const prefetchedVideoIdsRef = useRef<Set<string>>(new Set());
   const feedPanelIdleTimeoutRef = useRef<number | null>(null);
+  const lastScrollTopRef = useRef(0);
   const activeIndexRef = useRef(0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isFeedPanelHidden, setIsFeedPanelHidden] = useState(false);
@@ -187,15 +189,10 @@ const Index = () => {
       if (!viewportHeight) return;
 
       const rawPosition = root.scrollTop / viewportHeight;
-      let nextIndex = activeIndexRef.current;
-
-      while (rawPosition >= nextIndex + ACTIVE_SWITCH_THRESHOLD && nextIndex < visibleVideos.length - 1) {
-        nextIndex += 1;
-      }
-
-      while (rawPosition <= nextIndex - ACTIVE_SWITCH_THRESHOLD && nextIndex > 0) {
-        nextIndex -= 1;
-      }
+      const nextIndex = Math.max(
+        0,
+        Math.min(visibleVideos.length - 1, Math.floor(rawPosition + ACTIVE_SWITCH_THRESHOLD)),
+      );
 
       if (nextIndex !== activeIndexRef.current) {
         activeIndexRef.current = nextIndex;
@@ -205,6 +202,12 @@ const Index = () => {
 
     let rafId: number | null = null;
     const onScroll = () => {
+      const currentScrollTop = root.scrollTop;
+      const delta = Math.abs(currentScrollTop - lastScrollTopRef.current);
+      lastScrollTopRef.current = currentScrollTop;
+
+      if (delta <= SCROLL_JITTER_PX) return;
+
       setIsFeedPanelHidden((prev) => (prev ? prev : true));
       if (feedPanelIdleTimeoutRef.current !== null) {
         window.clearTimeout(feedPanelIdleTimeoutRef.current);
