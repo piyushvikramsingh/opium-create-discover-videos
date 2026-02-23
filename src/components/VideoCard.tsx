@@ -94,6 +94,8 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const watchStartAtRef = useRef<number | null>(null);
   const tracked3sRef = useRef(false);
   const trackedCompleteRef = useRef(false);
+  const playRequestInFlightRef = useRef(false);
+  const autoplayRecoveryRef = useRef(false);
 
   const discoveryTopic = useMemo(() => {
     const match = (video.description || "").match(/#([a-zA-Z0-9_]+)/);
@@ -162,14 +164,34 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const safePlay = useCallback(async () => {
     const vid = videoRef.current;
     if (!vid || mediaError) return;
+    if (playRequestInFlightRef.current) return;
+
+    playRequestInFlightRef.current = true;
 
     try {
       await vid.play();
       setIsPlaying(true);
+      autoplayRecoveryRef.current = false;
     } catch {
-      setIsPlaying(false);
+      if (!vid.muted) {
+        vid.muted = true;
+      }
+
+      if (!isMuted && !autoplayRecoveryRef.current) {
+        autoplayRecoveryRef.current = true;
+        onToggleMute();
+      }
+
+      try {
+        await vid.play();
+        setIsPlaying(true);
+      } catch {
+        setIsPlaying(false);
+      }
+    } finally {
+      playRequestInFlightRef.current = false;
     }
-  }, [mediaError]);
+  }, [isMuted, mediaError, onToggleMute]);
 
   useEffect(() => {
     isActiveRef.current = isActive;
