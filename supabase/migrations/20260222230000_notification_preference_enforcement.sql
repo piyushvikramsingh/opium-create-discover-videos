@@ -30,7 +30,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.create_notification_for_comment()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -69,7 +68,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.create_notification_for_message()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -95,7 +93,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.create_notification_for_like()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -134,7 +131,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.create_notification_for_save()
 RETURNS TRIGGER
 LANGUAGE plpgsql

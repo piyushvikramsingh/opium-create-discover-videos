@@ -121,7 +121,6 @@ BEGIN
     bounded_threshold;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.run_message_request_critical_mitigation(
   window_days INTEGER DEFAULT 7,
   delete_rate_threshold_percent NUMERIC DEFAULT 70,
@@ -251,7 +250,6 @@ BEGIN
   END LOOP;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_creator_recommendation_experiment_metrics(window_days INTEGER DEFAULT 7)
 RETURNS TABLE (
   variant TEXT,

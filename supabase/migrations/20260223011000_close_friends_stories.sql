@@ -8,29 +8,22 @@ CREATE TABLE IF NOT EXISTS public.close_friends (
   UNIQUE(user_id, friend_id),
   CHECK (user_id <> friend_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_close_friends_user_id ON public.close_friends(user_id);
 CREATE INDEX IF NOT EXISTS idx_close_friends_friend_id ON public.close_friends(friend_id);
-
 ALTER TABLE public.close_friends
   ADD COLUMN IF NOT EXISTS friend_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
-
 ALTER TABLE public.close_friends ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view own close friends" ON public.close_friends;
 CREATE POLICY "Users can view own close friends"
 ON public.close_friends FOR SELECT
 USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "Users can manage own close friends" ON public.close_friends;
 CREATE POLICY "Users can manage own close friends"
 ON public.close_friends FOR ALL
 USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
-
 ALTER TABLE public.stories
   ADD COLUMN IF NOT EXISTS audience TEXT NOT NULL DEFAULT 'followers';
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -48,7 +41,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 DROP POLICY IF EXISTS "Users can view stories from public accounts or followed accounts" ON public.stories;
 DROP POLICY IF EXISTS "Users can view stories based on audience" ON public.stories;
 CREATE POLICY "Users can view stories based on audience"

@@ -9,24 +9,19 @@ CREATE TABLE IF NOT EXISTS public.creator_recommendation_clicks (
   surface TEXT NOT NULL DEFAULT 'discover',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.creator_recommendation_clicks ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view own creator recommendation clicks" ON public.creator_recommendation_clicks;
 CREATE POLICY "Users can view own creator recommendation clicks"
 ON public.creator_recommendation_clicks FOR SELECT
 USING (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can insert own creator recommendation clicks" ON public.creator_recommendation_clicks;
 CREATE POLICY "Users can insert own creator recommendation clicks"
 ON public.creator_recommendation_clicks FOR INSERT
 WITH CHECK (auth.uid() = user_id);
-
 CREATE INDEX IF NOT EXISTS idx_creator_reco_clicks_user_created
   ON public.creator_recommendation_clicks(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_creator_reco_clicks_suggested_created
   ON public.creator_recommendation_clicks(suggested_user_id, created_at DESC);
-
 CREATE OR REPLACE FUNCTION public.log_creator_recommendation_click(
   suggested_user_id_input UUID,
   surface_name TEXT DEFAULT 'discover'
@@ -73,7 +68,6 @@ BEGIN
   );
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_creator_recommendation_experiment_metrics(window_days INTEGER DEFAULT 7)
 RETURNS TABLE (
   variant TEXT,

@@ -21,14 +21,11 @@ BEGIN
   END IF;
 END;
 $$;
-
 ALTER TABLE public.notifications
   DROP CONSTRAINT IF EXISTS notifications_type_check;
-
 ALTER TABLE public.notifications
   ADD CONSTRAINT notifications_type_check
   CHECK (type IN ('follow', 'message', 'comment', 'reply', 'like', 'save'));
-
 -- Notify creator when a video is liked.
 CREATE OR REPLACE FUNCTION public.create_notification_for_like()
 RETURNS TRIGGER
@@ -58,12 +55,10 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_notify_like ON public.likes;
 CREATE TRIGGER trg_notify_like
 AFTER INSERT ON public.likes
 FOR EACH ROW EXECUTE FUNCTION public.create_notification_for_like();
-
 -- Notify creator when a video is saved/bookmarked.
 CREATE OR REPLACE FUNCTION public.create_notification_for_save()
 RETURNS TRIGGER
@@ -93,12 +88,10 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_notify_save ON public.bookmarks;
 CREATE TRIGGER trg_notify_save
 AFTER INSERT ON public.bookmarks
 FOR EACH ROW EXECUTE FUNCTION public.create_notification_for_save();
-
 -- One-time reconciliation to keep counters in sync with source tables.
 UPDATE public.videos v
 SET likes_count = COALESCE(src.like_count, 0)
@@ -108,13 +101,11 @@ FROM (
   GROUP BY video_id
 ) src
 WHERE src.video_id = v.id;
-
 UPDATE public.videos v
 SET likes_count = 0
 WHERE NOT EXISTS (
   SELECT 1 FROM public.likes l WHERE l.video_id = v.id
 );
-
 UPDATE public.videos v
 SET bookmarks_count = COALESCE(src.bookmark_count, 0)
 FROM (
@@ -123,13 +114,11 @@ FROM (
   GROUP BY video_id
 ) src
 WHERE src.video_id = v.id;
-
 UPDATE public.videos v
 SET bookmarks_count = 0
 WHERE NOT EXISTS (
   SELECT 1 FROM public.bookmarks b WHERE b.video_id = v.id
 );
-
 UPDATE public.videos v
 SET comments_count = COALESCE(src.comment_count, 0)
 FROM (
@@ -138,7 +127,6 @@ FROM (
   GROUP BY video_id
 ) src
 WHERE src.video_id = v.id;
-
 UPDATE public.videos v
 SET comments_count = 0
 WHERE NOT EXISTS (

@@ -26,16 +26,12 @@ BEGIN
   END IF;
 END;
 $$;
-
 ALTER TABLE public.close_friends
   ALTER COLUMN friend_id SET NOT NULL;
-
 CREATE UNIQUE INDEX IF NOT EXISTS idx_close_friends_user_friend_unique
   ON public.close_friends(user_id, friend_id);
-
 CREATE INDEX IF NOT EXISTS idx_close_friends_friend_id
   ON public.close_friends(friend_id);
-
 CREATE OR REPLACE FUNCTION public.can_view_story_for_user(
   p_story_owner_id UUID,
   p_audience TEXT,
@@ -68,7 +64,6 @@ AS $$
       )
     );
 $$;
-
 CREATE OR REPLACE FUNCTION public.can_reply_to_story_owner(
   p_story_owner_id UUID,
   p_sender_id UUID
@@ -107,14 +102,12 @@ BEGIN
   RETURN TRUE;
 END;
 $$;
-
 DROP POLICY IF EXISTS "Users can view stories based on audience" ON public.stories;
 CREATE POLICY "Users can view stories based on audience"
 ON public.stories FOR SELECT
 USING (
   public.can_view_story_for_user(stories.user_id, stories.audience, auth.uid())
 );
-
 DROP POLICY IF EXISTS "Users can insert own story views" ON public.story_views;
 CREATE POLICY "Users can insert own story views"
 ON public.story_views FOR INSERT
@@ -127,7 +120,6 @@ WITH CHECK (
       AND public.can_view_story_for_user(s.user_id, s.audience, auth.uid())
   )
 );
-
 DROP POLICY IF EXISTS "Users can insert own story replies" ON public.story_replies;
 CREATE POLICY "Users can insert own story replies"
 ON public.story_replies FOR INSERT
@@ -142,7 +134,6 @@ WITH CHECK (
       AND public.can_reply_to_story_owner(s.user_id, auth.uid())
   )
 );
-
 CREATE OR REPLACE FUNCTION public.get_story_feed()
 RETURNS TABLE (
   id UUID,
@@ -191,7 +182,6 @@ AS $$
     AND public.can_view_story_for_user(s.user_id, s.audience, auth.uid())
   ORDER BY s.created_at DESC;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_close_friend_candidates(
   search_query TEXT DEFAULT NULL,
   limit_count INTEGER DEFAULT 50

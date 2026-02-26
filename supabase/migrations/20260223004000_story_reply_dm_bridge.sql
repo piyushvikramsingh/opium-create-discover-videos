@@ -4,7 +4,6 @@ DROP POLICY IF EXISTS "Users can insert own story views" ON public.story_views;
 CREATE POLICY "Users can insert own story views"
 ON public.story_views FOR INSERT
 WITH CHECK (auth.uid() = viewer_id);
-
 DROP POLICY IF EXISTS "Users can view own and own-story views" ON public.story_views;
 CREATE POLICY "Users can view own and own-story views"
 ON public.story_views FOR SELECT
@@ -17,7 +16,6 @@ USING (
       AND s.user_id = auth.uid()
   )
 );
-
 DROP POLICY IF EXISTS "Users can insert own story replies" ON public.story_replies;
 CREATE POLICY "Users can insert own story replies"
 ON public.story_replies FOR INSERT
@@ -30,7 +28,6 @@ WITH CHECK (
       AND s.user_id <> auth.uid()
   )
 );
-
 DROP POLICY IF EXISTS "Users can view sent and received story replies" ON public.story_replies;
 CREATE POLICY "Users can view sent and received story replies"
 ON public.story_replies FOR SELECT
@@ -43,7 +40,6 @@ USING (
       AND s.user_id = auth.uid()
   )
 );
-
 CREATE OR REPLACE FUNCTION public.bridge_story_reply_to_dm()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -98,7 +94,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_bridge_story_reply_to_dm ON public.story_replies;
 CREATE TRIGGER trg_bridge_story_reply_to_dm
 AFTER INSERT ON public.story_replies

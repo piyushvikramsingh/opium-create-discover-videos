@@ -7,7 +7,6 @@ ALTER TABLE public.videos
   ADD COLUMN IF NOT EXISTS stream_playback_id TEXT,
   ADD COLUMN IF NOT EXISTS stream_upload_id TEXT,
   ADD COLUMN IF NOT EXISTS stream_error TEXT;
-
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -20,6 +19,5 @@ BEGIN
       CHECK (stream_status IN ('uploading', 'processing', 'ready', 'failed'));
   END IF;
 END $$;
-
 CREATE INDEX IF NOT EXISTS idx_videos_stream_status ON public.videos(stream_status);
 CREATE INDEX IF NOT EXISTS idx_videos_stream_provider ON public.videos(stream_provider);

@@ -12,7 +12,6 @@ AS $$
   )
   FROM regexp_matches(COALESCE(input_text, ''), '@([A-Za-z0-9_.]+)', 'g') AS match;
 $$;
-
 CREATE OR REPLACE FUNCTION public.assert_mentions_allowed(input_text TEXT)
 RETURNS VOID
 LANGUAGE plpgsql
@@ -33,7 +32,6 @@ BEGIN
   END IF;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.enforce_video_privacy_rules()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -45,13 +43,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_enforce_video_privacy_rules ON public.videos;
 CREATE TRIGGER trg_enforce_video_privacy_rules
 BEFORE INSERT OR UPDATE ON public.videos
 FOR EACH ROW
 EXECUTE FUNCTION public.enforce_video_privacy_rules();
-
 CREATE OR REPLACE FUNCTION public.enforce_comment_privacy_rules()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -84,13 +80,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_enforce_comment_privacy_rules ON public.comments;
 CREATE TRIGGER trg_enforce_comment_privacy_rules
 BEFORE INSERT OR UPDATE ON public.comments
 FOR EACH ROW
 EXECUTE FUNCTION public.enforce_comment_privacy_rules();
-
 CREATE OR REPLACE FUNCTION public.enforce_message_privacy_rules()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -138,7 +132,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_enforce_message_privacy_rules ON public.messages;
 CREATE TRIGGER trg_enforce_message_privacy_rules
 BEFORE INSERT ON public.messages

@@ -21,10 +21,8 @@ BEGIN
   END IF;
 END;
 $$;
-
 ALTER TABLE public.notifications
   DROP CONSTRAINT IF EXISTS notifications_type_check;
-
 ALTER TABLE public.notifications
   ADD CONSTRAINT notifications_type_check
   CHECK (type IN (
@@ -37,7 +35,6 @@ ALTER TABLE public.notifications
     'recap',
     'reengage'
   ));
-
 -- Auto-escalate risky/open reports into reviewing queue.
 CREATE OR REPLACE FUNCTION public.run_abuse_moderation_automation(max_updates INTEGER DEFAULT 100)
 RETURNS TABLE (
@@ -114,7 +111,6 @@ BEGIN
   SELECT * FROM updated;
 END;
 $$;
-
 -- Create recap + reengagement notifications from activity windows.
 CREATE OR REPLACE FUNCTION public.run_retention_nudges(limit_count INTEGER DEFAULT 200)
 RETURNS TABLE (

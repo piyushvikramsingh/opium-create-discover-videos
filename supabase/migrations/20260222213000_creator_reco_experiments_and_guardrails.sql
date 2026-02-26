@@ -10,19 +10,15 @@ CREATE TABLE IF NOT EXISTS public.creator_recommendation_experiments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.creator_recommendation_experiments ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Creator recommendation experiments are readable" ON public.creator_recommendation_experiments;
 CREATE POLICY "Creator recommendation experiments are readable"
 ON public.creator_recommendation_experiments FOR SELECT
 USING (true);
-
 DROP TRIGGER IF EXISTS trg_creator_reco_experiments_updated_at ON public.creator_recommendation_experiments;
 CREATE TRIGGER trg_creator_reco_experiments_updated_at
 BEFORE UPDATE ON public.creator_recommendation_experiments
 FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 CREATE TABLE IF NOT EXISTS public.creator_recommendation_exposures (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -32,24 +28,19 @@ CREATE TABLE IF NOT EXISTS public.creator_recommendation_exposures (
   surface TEXT NOT NULL DEFAULT 'discover',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.creator_recommendation_exposures ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view own creator recommendation exposures" ON public.creator_recommendation_exposures;
 CREATE POLICY "Users can view own creator recommendation exposures"
 ON public.creator_recommendation_exposures FOR SELECT
 USING (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can insert own creator recommendation exposures" ON public.creator_recommendation_exposures;
 CREATE POLICY "Users can insert own creator recommendation exposures"
 ON public.creator_recommendation_exposures FOR INSERT
 WITH CHECK (auth.uid() = user_id);
-
 CREATE INDEX IF NOT EXISTS idx_creator_reco_exposures_user_created
   ON public.creator_recommendation_exposures(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_creator_reco_exposures_user_suggested_day
   ON public.creator_recommendation_exposures(user_id, suggested_user_id, created_at DESC);
-
 CREATE OR REPLACE FUNCTION public.get_creator_reco_experiment_variant(viewer_id UUID, experiment_id UUID)
 RETURNS TEXT
 LANGUAGE sql
@@ -61,7 +52,6 @@ AS $$
     ELSE 'variant'
   END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_follow_recommendations(limit_count INTEGER DEFAULT 12)
 RETURNS TABLE (
   user_id UUID,
@@ -210,7 +200,6 @@ AS $$
   ORDER BY s.score DESC, s.user_id
   LIMIT GREATEST(1, LEAST(COALESCE(limit_count, 12), 50));
 $$;
-
 CREATE OR REPLACE FUNCTION public.log_creator_recommendation_exposure_batch(
   suggested_user_ids UUID[],
   surface_name TEXT DEFAULT 'discover'
@@ -263,7 +252,6 @@ BEGIN
   LIMIT 50;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_creator_recommendation_experiment_admin()
 RETURNS TABLE (
   id UUID,
@@ -309,7 +297,6 @@ BEGIN
   LIMIT 1;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.upsert_creator_recommendation_experiment(
   experiment_name TEXT,
   experiment_status TEXT,
@@ -375,7 +362,6 @@ BEGIN
   RETURN existing_id;
 END;
 $$;
-
 -- Seed default experiment row if not present.
 INSERT INTO public.creator_recommendation_experiments (name, status)
 SELECT 'creator_reco_default', 'paused'

@@ -1,4 +1,3 @@
-
 -- Profiles table
 CREATE TABLE public.profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -10,13 +9,10 @@ CREATE TABLE public.profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Profiles are viewable by everyone" ON public.profiles FOR SELECT USING (true);
 CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own profile" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
-
 -- Videos table
 CREATE TABLE public.videos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -31,14 +27,11 @@ CREATE TABLE public.videos (
   bookmarks_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.videos ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Videos are viewable by everyone" ON public.videos FOR SELECT USING (true);
 CREATE POLICY "Users can insert own videos" ON public.videos FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own videos" ON public.videos FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own videos" ON public.videos FOR DELETE USING (auth.uid() = user_id);
-
 -- Likes table
 CREATE TABLE public.likes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -47,13 +40,10 @@ CREATE TABLE public.likes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, video_id)
 );
-
 ALTER TABLE public.likes ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Likes viewable by everyone" ON public.likes FOR SELECT USING (true);
 CREATE POLICY "Users can insert own likes" ON public.likes FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete own likes" ON public.likes FOR DELETE USING (auth.uid() = user_id);
-
 -- Bookmarks table
 CREATE TABLE public.bookmarks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -62,13 +52,10 @@ CREATE TABLE public.bookmarks (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, video_id)
 );
-
 ALTER TABLE public.bookmarks ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Users can view own bookmarks" ON public.bookmarks FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own bookmarks" ON public.bookmarks FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete own bookmarks" ON public.bookmarks FOR DELETE USING (auth.uid() = user_id);
-
 -- Comments table
 CREATE TABLE public.comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -77,13 +64,10 @@ CREATE TABLE public.comments (
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Comments viewable by everyone" ON public.comments FOR SELECT USING (true);
 CREATE POLICY "Users can insert own comments" ON public.comments FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can delete own comments" ON public.comments FOR DELETE USING (auth.uid() = user_id);
-
 -- Follows table
 CREATE TABLE public.follows (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -92,13 +76,10 @@ CREATE TABLE public.follows (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (follower_id, following_id)
 );
-
 ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
-
 CREATE POLICY "Follows viewable by everyone" ON public.follows FOR SELECT USING (true);
 CREATE POLICY "Users can follow" ON public.follows FOR INSERT WITH CHECK (auth.uid() = follower_id);
 CREATE POLICY "Users can unfollow" ON public.follows FOR DELETE USING (auth.uid() = follower_id);
-
 -- Auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -116,11 +97,9 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
-
 -- Updated_at trigger
 CREATE OR REPLACE FUNCTION public.update_updated_at_column()
 RETURNS TRIGGER
@@ -132,11 +111,9 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE TRIGGER update_profiles_updated_at
   BEFORE UPDATE ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
-
 -- Counters: increment/decrement likes
 CREATE OR REPLACE FUNCTION public.handle_like_count()
 RETURNS TRIGGER
@@ -154,11 +131,9 @@ BEGIN
   END IF;
 END;
 $$;
-
 CREATE TRIGGER on_like_change
   AFTER INSERT OR DELETE ON public.likes
   FOR EACH ROW EXECUTE FUNCTION public.handle_like_count();
-
 -- Counters: increment/decrement bookmarks
 CREATE OR REPLACE FUNCTION public.handle_bookmark_count()
 RETURNS TRIGGER
@@ -176,11 +151,9 @@ BEGIN
   END IF;
 END;
 $$;
-
 CREATE TRIGGER on_bookmark_change
   AFTER INSERT OR DELETE ON public.bookmarks
   FOR EACH ROW EXECUTE FUNCTION public.handle_bookmark_count();
-
 -- Counters: increment/decrement comments
 CREATE OR REPLACE FUNCTION public.handle_comment_count()
 RETURNS TRIGGER
@@ -198,11 +171,9 @@ BEGIN
   END IF;
 END;
 $$;
-
 CREATE TRIGGER on_comment_change
   AFTER INSERT OR DELETE ON public.comments
   FOR EACH ROW EXECUTE FUNCTION public.handle_comment_count();
-
 -- Storage setup (guarded for projects where storage schema is not yet provisioned)
 DO $$
 BEGIN

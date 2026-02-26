@@ -8,30 +8,23 @@ CREATE TABLE IF NOT EXISTS public.message_request_action_events (
   surface TEXT NOT NULL DEFAULT 'inbox',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.message_request_action_events ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view own message request action events" ON public.message_request_action_events;
 CREATE POLICY "Users can view own message request action events"
 ON public.message_request_action_events FOR SELECT
 USING (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "Users can insert own message request action events" ON public.message_request_action_events;
 CREATE POLICY "Users can insert own message request action events"
 ON public.message_request_action_events FOR INSERT
 WITH CHECK (user_id = auth.uid());
-
 DROP POLICY IF EXISTS "Admins can view all message request action events" ON public.message_request_action_events;
 CREATE POLICY "Admins can view all message request action events"
 ON public.message_request_action_events FOR SELECT
 USING (public.is_current_user_admin());
-
 CREATE INDEX IF NOT EXISTS idx_msg_request_events_user_created
   ON public.message_request_action_events(user_id, created_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_msg_request_events_conversation_created
   ON public.message_request_action_events(conversation_id, created_at DESC);
-
 CREATE OR REPLACE FUNCTION public.log_message_request_action(
   conversation_id_input UUID,
   action_input TEXT,
@@ -58,7 +51,6 @@ BEGIN
   VALUES (actor, conversation_id_input, action_input, COALESCE(NULLIF(surface_name, ''), 'inbox'));
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.get_message_request_admin_metrics(p_window_days INTEGER DEFAULT 7)
 RETURNS TABLE (
   window_days INTEGER,

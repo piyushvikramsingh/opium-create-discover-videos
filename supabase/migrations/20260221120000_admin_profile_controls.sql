@@ -3,12 +3,10 @@
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS is_monetized BOOLEAN NOT NULL DEFAULT false;
-
 UPDATE public.profiles
 SET
   is_admin = COALESCE(is_admin, false),
   is_monetized = COALESCE(is_monetized, false);
-
 CREATE OR REPLACE FUNCTION public.is_current_user_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -18,14 +16,12 @@ SET search_path = public
 AS $$
   SELECT COALESCE((SELECT is_admin FROM public.profiles WHERE user_id = auth.uid()), false);
 $$;
-
 DROP POLICY IF EXISTS "Admins can update any profile" ON public.profiles;
 CREATE POLICY "Admins can update any profile"
 ON public.profiles
 FOR UPDATE
 USING (public.is_current_user_admin())
 WITH CHECK (public.is_current_user_admin());
-
 CREATE OR REPLACE FUNCTION public.prevent_non_admin_profile_status_changes()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -50,7 +46,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_prevent_non_admin_profile_status_changes ON public.profiles;
 CREATE TRIGGER trg_prevent_non_admin_profile_status_changes
 BEFORE UPDATE ON public.profiles

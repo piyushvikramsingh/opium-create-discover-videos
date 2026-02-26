@@ -2,7 +2,6 @@
 
 CREATE INDEX IF NOT EXISTS idx_video_events_user_created_type_video
 ON public.video_events(user_id, created_at DESC, event_type, video_id);
-
 CREATE OR REPLACE FUNCTION public.get_for_you_video_ids(limit_count INTEGER DEFAULT 150)
 RETURNS TABLE(video_id UUID, score DOUBLE PRECISION)
 LANGUAGE sql

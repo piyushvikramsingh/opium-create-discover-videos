@@ -20,7 +20,6 @@ ALTER TABLE public.videos
   ADD COLUMN IF NOT EXISTS clip_settings JSONB,
   ADD COLUMN IF NOT EXISTS thumbnail_text TEXT,
   ADD COLUMN IF NOT EXISTS music_start_seconds NUMERIC NOT NULL DEFAULT 0;
-
 CREATE INDEX IF NOT EXISTS idx_videos_scheduled_for ON public.videos(scheduled_for);
 CREATE INDEX IF NOT EXISTS idx_videos_upload_group ON public.videos(upload_group_id, upload_group_index);
 CREATE INDEX IF NOT EXISTS idx_videos_audience_visibility ON public.videos(audience, visibility);

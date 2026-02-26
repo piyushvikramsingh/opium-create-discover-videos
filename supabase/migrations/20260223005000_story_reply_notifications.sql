@@ -19,10 +19,8 @@ BEGIN
   END IF;
 END;
 $$;
-
 ALTER TABLE public.notifications
   DROP CONSTRAINT IF EXISTS notifications_type_check;
-
 ALTER TABLE public.notifications
   ADD CONSTRAINT notifications_type_check
   CHECK (type IN (
@@ -37,7 +35,6 @@ ALTER TABLE public.notifications
     'recap',
     'reengage'
   ));
-
 CREATE OR REPLACE FUNCTION public.bridge_story_reply_to_dm()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -92,7 +89,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.create_notification_for_story_reply()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -134,7 +130,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_story_reply_notification ON public.story_replies;
 CREATE TRIGGER trg_story_reply_notification
 AFTER INSERT ON public.story_replies

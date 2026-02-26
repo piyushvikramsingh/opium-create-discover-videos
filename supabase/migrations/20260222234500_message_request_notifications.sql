@@ -19,10 +19,8 @@ BEGIN
   END IF;
 END;
 $$;
-
 ALTER TABLE public.notifications
   DROP CONSTRAINT IF EXISTS notifications_type_check;
-
 ALTER TABLE public.notifications
   ADD CONSTRAINT notifications_type_check
   CHECK (type IN (
@@ -36,7 +34,6 @@ ALTER TABLE public.notifications
     'recap',
     'reengage'
   ));
-
 CREATE OR REPLACE FUNCTION public.create_notification_for_message()
 RETURNS TRIGGER
 LANGUAGE plpgsql

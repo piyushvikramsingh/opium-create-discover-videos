@@ -10,7 +10,6 @@ BEGIN
   WHERE id = collection_id;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.decrement_collection_video_count(collection_id UUID)
 RETURNS void
 LANGUAGE plpgsql

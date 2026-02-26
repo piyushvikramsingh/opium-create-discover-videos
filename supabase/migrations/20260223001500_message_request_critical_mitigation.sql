@@ -11,28 +11,22 @@ CREATE TABLE IF NOT EXISTS public.message_request_sender_throttles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.message_request_sender_throttles ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Admins can view sender throttles" ON public.message_request_sender_throttles;
 CREATE POLICY "Admins can view sender throttles"
 ON public.message_request_sender_throttles FOR SELECT
 USING (public.is_current_user_admin());
-
 DROP POLICY IF EXISTS "Admins can insert sender throttles" ON public.message_request_sender_throttles;
 CREATE POLICY "Admins can insert sender throttles"
 ON public.message_request_sender_throttles FOR INSERT
 WITH CHECK (public.is_current_user_admin());
-
 DROP POLICY IF EXISTS "Admins can update sender throttles" ON public.message_request_sender_throttles;
 CREATE POLICY "Admins can update sender throttles"
 ON public.message_request_sender_throttles FOR UPDATE
 USING (public.is_current_user_admin())
 WITH CHECK (public.is_current_user_admin());
-
 CREATE INDEX IF NOT EXISTS idx_msg_request_sender_throttles_expires_at
   ON public.message_request_sender_throttles(expires_at DESC);
-
 CREATE OR REPLACE FUNCTION public.enforce_message_privacy_rules()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -110,13 +104,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_enforce_message_privacy_rules ON public.messages;
 CREATE TRIGGER trg_enforce_message_privacy_rules
 BEFORE INSERT ON public.messages
 FOR EACH ROW
 EXECUTE FUNCTION public.enforce_message_privacy_rules();
-
 CREATE OR REPLACE FUNCTION public.run_message_request_critical_mitigation(
   window_days INTEGER DEFAULT 7,
   delete_rate_threshold_percent NUMERIC DEFAULT 70,

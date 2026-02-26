@@ -11,25 +11,19 @@ CREATE TABLE IF NOT EXISTS public.feed_ranking_telemetry (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CHECK (rank_position > 0)
 );
-
 CREATE INDEX IF NOT EXISTS idx_feed_ranking_telemetry_user_created
   ON public.feed_ranking_telemetry(user_id, created_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_feed_ranking_telemetry_surface_created
   ON public.feed_ranking_telemetry(surface, created_at DESC);
-
 ALTER TABLE public.feed_ranking_telemetry ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Users can view own feed ranking telemetry" ON public.feed_ranking_telemetry;
 CREATE POLICY "Users can view own feed ranking telemetry"
 ON public.feed_ranking_telemetry FOR SELECT
 USING (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can insert own feed ranking telemetry" ON public.feed_ranking_telemetry;
 CREATE POLICY "Users can insert own feed ranking telemetry"
 ON public.feed_ranking_telemetry FOR INSERT
 WITH CHECK (auth.uid() = user_id);
-
 CREATE OR REPLACE FUNCTION public.log_for_you_ranking_batch(
   rows_payload JSONB,
   surface_name TEXT DEFAULT 'for_you'

@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS public.stories (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL DEFAULT (now() + INTERVAL '24 hours')
 );
-
 CREATE TABLE IF NOT EXISTS public.story_views (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   story_id UUID NOT NULL REFERENCES public.stories(id) ON DELETE CASCADE,
@@ -24,7 +23,6 @@ CREATE TABLE IF NOT EXISTS public.story_views (
   viewed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(story_id, viewer_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.story_replies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   story_id UUID NOT NULL REFERENCES public.stories(id) ON DELETE CASCADE,
@@ -32,15 +30,12 @@ CREATE TABLE IF NOT EXISTS public.story_replies (
   message TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_stories_user_id ON public.stories(user_id);
 CREATE INDEX IF NOT EXISTS idx_stories_expires_at ON public.stories(expires_at);
 CREATE INDEX IF NOT EXISTS idx_story_views_story_id ON public.story_views(story_id);
-
 ALTER TABLE public.stories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.story_views ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.story_replies ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- COLLECTIONS (SAVE ORGANIZATION)
 -- ============================================
@@ -55,7 +50,6 @@ CREATE TABLE IF NOT EXISTS public.collections (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.collection_videos (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   collection_id UUID NOT NULL REFERENCES public.collections(id) ON DELETE CASCADE,
@@ -63,13 +57,10 @@ CREATE TABLE IF NOT EXISTS public.collection_videos (
   added_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(collection_id, video_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_collections_user_id ON public.collections(user_id);
 CREATE INDEX IF NOT EXISTS idx_collection_videos_collection_id ON public.collection_videos(collection_id);
-
 ALTER TABLE public.collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.collection_videos ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- DRAFTS & SCHEDULING
 -- ============================================
@@ -87,7 +78,6 @@ CREATE TABLE IF NOT EXISTS public.video_drafts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.scheduled_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -99,14 +89,11 @@ CREATE TABLE IF NOT EXISTS public.scheduled_posts (
   published_video_id UUID REFERENCES public.videos(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_drafts_user_id ON public.video_drafts(user_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_user_id ON public.scheduled_posts(user_id);
 CREATE INDEX IF NOT EXISTS idx_scheduled_posts_scheduled_for ON public.scheduled_posts(scheduled_for);
-
 ALTER TABLE public.video_drafts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.scheduled_posts ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- ANALYTICS
 -- ============================================
@@ -126,7 +113,6 @@ CREATE TABLE IF NOT EXISTS public.video_analytics (
   audience_demographics JSONB DEFAULT '{}'::jsonb,
   UNIQUE(video_id, date)
 );
-
 CREATE TABLE IF NOT EXISTS public.user_analytics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -142,14 +128,11 @@ CREATE TABLE IF NOT EXISTS public.user_analytics (
   impressions INTEGER DEFAULT 0,
   UNIQUE(user_id, date)
 );
-
 CREATE INDEX IF NOT EXISTS idx_video_analytics_video_id ON public.video_analytics(video_id);
 CREATE INDEX IF NOT EXISTS idx_user_analytics_user_id ON public.user_analytics(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_analytics_date ON public.user_analytics(date);
-
 ALTER TABLE public.video_analytics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_analytics ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- MONETIZATION
 -- ============================================
@@ -165,7 +148,6 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   auto_renew BOOLEAN DEFAULT true,
   UNIQUE(creator_id, subscriber_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.subscription_tiers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -177,7 +159,6 @@ CREATE TABLE IF NOT EXISTS public.subscription_tiers (
   subscriber_count INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.tips (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   from_user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -188,7 +169,6 @@ CREATE TABLE IF NOT EXISTS public.tips (
   status TEXT DEFAULT 'completed' CHECK (status IN ('pending', 'completed', 'refunded')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.earnings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -199,17 +179,14 @@ CREATE TABLE IF NOT EXISTS public.earnings (
   reference_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_subscriptions_creator_id ON public.subscriptions(creator_id);
 CREATE INDEX IF NOT EXISTS idx_subscription_tiers_user_id ON public.subscription_tiers(user_id);
 CREATE INDEX IF NOT EXISTS idx_tips_to_user_id ON public.tips(to_user_id);
 CREATE INDEX IF NOT EXISTS idx_earnings_user_id ON public.earnings(user_id);
-
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscription_tiers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.earnings ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- LIVE STREAMING
 -- ============================================
@@ -229,7 +206,6 @@ CREATE TABLE IF NOT EXISTS public.live_streams (
   ended_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.live_viewers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   stream_id UUID NOT NULL REFERENCES public.live_streams(id) ON DELETE CASCADE,
@@ -238,7 +214,6 @@ CREATE TABLE IF NOT EXISTS public.live_viewers (
   left_at TIMESTAMPTZ,
   UNIQUE(stream_id, user_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.live_comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   stream_id UUID NOT NULL REFERENCES public.live_streams(id) ON DELETE CASCADE,
@@ -246,15 +221,12 @@ CREATE TABLE IF NOT EXISTS public.live_comments (
   content TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_live_streams_user_id ON public.live_streams(user_id);
 CREATE INDEX IF NOT EXISTS idx_live_streams_status ON public.live_streams(status);
 CREATE INDEX IF NOT EXISTS idx_live_comments_stream_id ON public.live_comments(stream_id);
-
 ALTER TABLE public.live_streams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.live_viewers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.live_comments ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- ENGAGEMENT FEATURES
 -- ============================================
@@ -269,7 +241,6 @@ CREATE TABLE IF NOT EXISTS public.polls (
   total_votes INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.poll_votes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   poll_id UUID NOT NULL REFERENCES public.polls(id) ON DELETE CASCADE,
@@ -278,7 +249,6 @@ CREATE TABLE IF NOT EXISTS public.poll_votes (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(poll_id, user_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.challenges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   creator_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -294,7 +264,6 @@ CREATE TABLE IF NOT EXISTS public.challenges (
   is_official BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.challenge_participants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   challenge_id UUID NOT NULL REFERENCES public.challenges(id) ON DELETE CASCADE,
@@ -303,16 +272,13 @@ CREATE TABLE IF NOT EXISTS public.challenge_participants (
   joined_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(challenge_id, user_id, video_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_polls_video_id ON public.polls(video_id);
 CREATE INDEX IF NOT EXISTS idx_challenges_hashtag ON public.challenges(hashtag);
 CREATE INDEX IF NOT EXISTS idx_challenge_participants_challenge_id ON public.challenge_participants(challenge_id);
-
 ALTER TABLE public.polls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.poll_votes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.challenges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.challenge_participants ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- PRIVACY & SAFETY
 -- ============================================
@@ -324,14 +290,12 @@ CREATE TABLE IF NOT EXISTS public.blocked_users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(blocker_id, blocked_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.muted_words (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   word TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.close_friends (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -339,7 +303,6 @@ CREATE TABLE IF NOT EXISTS public.close_friends (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(user_id, friend_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.content_warnings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   video_id UUID NOT NULL REFERENCES public.videos(id) ON DELETE CASCADE,
@@ -347,16 +310,13 @@ CREATE TABLE IF NOT EXISTS public.content_warnings (
   description TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE INDEX IF NOT EXISTS idx_blocked_users_blocker_id ON public.blocked_users(blocker_id);
 CREATE INDEX IF NOT EXISTS idx_muted_words_user_id ON public.muted_words(user_id);
 CREATE INDEX IF NOT EXISTS idx_close_friends_user_id ON public.close_friends(user_id);
-
 ALTER TABLE public.blocked_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.muted_words ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.close_friends ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.content_warnings ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- SEARCH & DISCOVERY
 -- ============================================
@@ -367,7 +327,6 @@ CREATE TABLE IF NOT EXISTS public.search_history (
   search_type TEXT CHECK (search_type IN ('video', 'user', 'hashtag', 'sound', 'general')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.trending_hashtags (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   hashtag TEXT NOT NULL UNIQUE,
@@ -377,7 +336,6 @@ CREATE TABLE IF NOT EXISTS public.trending_hashtags (
   category TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.hashtag_follows (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -385,15 +343,12 @@ CREATE TABLE IF NOT EXISTS public.hashtag_follows (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(user_id, hashtag)
 );
-
 CREATE INDEX IF NOT EXISTS idx_search_history_user_id ON public.search_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_trending_hashtags_trend_score ON public.trending_hashtags(trend_score DESC);
 CREATE INDEX IF NOT EXISTS idx_hashtag_follows_user_id ON public.hashtag_follows(user_id);
-
 ALTER TABLE public.search_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trending_hashtags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hashtag_follows ENABLE ROW LEVEL SECURITY;
-
 -- ============================================
 -- ADVANCED MESSAGING
 -- ============================================
@@ -407,7 +362,6 @@ CREATE TABLE IF NOT EXISTS public.broadcast_channels (
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.channel_subscribers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   channel_id UUID NOT NULL REFERENCES public.broadcast_channels(id) ON DELETE CASCADE,
@@ -415,7 +369,6 @@ CREATE TABLE IF NOT EXISTS public.channel_subscribers (
   subscribed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(channel_id, user_id)
 );
-
 CREATE TABLE IF NOT EXISTS public.channel_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   channel_id UUID NOT NULL REFERENCES public.broadcast_channels(id) ON DELETE CASCADE,
@@ -423,7 +376,6 @@ CREATE TABLE IF NOT EXISTS public.channel_messages (
   media_url TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS public.message_reactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id UUID NOT NULL REFERENCES public.messages(id) ON DELETE CASCADE,
@@ -432,21 +384,17 @@ CREATE TABLE IF NOT EXISTS public.message_reactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(message_id, user_id)
 );
-
 CREATE INDEX IF NOT EXISTS idx_broadcast_channels_creator_id ON public.broadcast_channels(creator_id);
 CREATE INDEX IF NOT EXISTS idx_channel_subscribers_channel_id ON public.channel_subscribers(channel_id);
 CREATE INDEX IF NOT EXISTS idx_message_reactions_message_id ON public.message_reactions(message_id);
-
 ALTER TABLE public.broadcast_channels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.channel_subscribers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.channel_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_reactions ENABLE ROW LEVEL SECURITY;
-
 -- Add voice message support to existing messages table
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS voice_duration INTEGER;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS is_disappearing BOOLEAN DEFAULT false;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS disappear_after_seconds INTEGER;
-
 -- ============================================
 -- BASIC RLS POLICIES
 -- ============================================
@@ -461,31 +409,25 @@ USING (
     WHERE follower_id = auth.uid() AND following_id = stories.user_id
   )
 );
-
 CREATE POLICY "Users can create own stories"
 ON public.stories FOR INSERT
 WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "Users can delete own stories"
 ON public.stories FOR DELETE
 USING (auth.uid() = user_id);
-
 -- Collections policies
 CREATE POLICY "Users can view own collections and public collections"
 ON public.collections FOR SELECT
 USING (user_id = auth.uid() OR is_public = true);
-
 CREATE POLICY "Users can manage own collections"
 ON public.collections FOR ALL
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
-
 -- Drafts policies
 CREATE POLICY "Users can manage own drafts"
 ON public.video_drafts FOR ALL
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
-
 -- Analytics policies
 CREATE POLICY "Users can view own analytics"
 ON public.video_analytics FOR SELECT
@@ -494,51 +436,41 @@ USING (
     SELECT id FROM public.videos WHERE user_id = auth.uid()
   )
 );
-
 CREATE POLICY "Users can view own user analytics"
 ON public.user_analytics FOR SELECT
 USING (user_id = auth.uid());
-
 -- Monetization policies
 CREATE POLICY "Users can view own subscriptions"
 ON public.subscriptions FOR SELECT
 USING (creator_id = auth.uid() OR subscriber_id = auth.uid());
-
 CREATE POLICY "Users can view own earnings"
 ON public.earnings FOR SELECT
 USING (user_id = auth.uid());
-
 -- Live streaming policies
 CREATE POLICY "Users can view live streams"
 ON public.live_streams FOR SELECT
 USING (true);
-
 CREATE POLICY "Users can manage own streams"
 ON public.live_streams FOR ALL
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
-
 -- Privacy policies
 CREATE POLICY "Users can manage own blocks"
 ON public.blocked_users FOR ALL
 USING (auth.uid() = blocker_id)
 WITH CHECK (auth.uid() = blocker_id);
-
 CREATE POLICY "Users can manage own muted words"
 ON public.muted_words FOR ALL
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
-
 -- Search policies
 CREATE POLICY "Users can manage own search history"
 ON public.search_history FOR ALL
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "Everyone can view trending hashtags"
 ON public.trending_hashtags FOR SELECT
 USING (true);
-
 -- Broadcast channel policies
 CREATE POLICY "Users can view subscribed channels"
 ON public.broadcast_channels FOR SELECT

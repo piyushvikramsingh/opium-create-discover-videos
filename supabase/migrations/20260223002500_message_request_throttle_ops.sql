@@ -44,7 +44,6 @@ BEGIN
   LIMIT GREATEST(1, LEAST(COALESCE(limit_count, 100), 500));
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.release_message_request_sender_throttle(
   sender_id_input UUID,
   release_reason TEXT DEFAULT 'manual_admin_release'
@@ -82,7 +81,6 @@ BEGIN
   RETURN false;
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.cleanup_expired_message_request_sender_throttles()
 RETURNS TABLE (
   released_count INTEGER

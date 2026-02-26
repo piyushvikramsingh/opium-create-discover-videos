@@ -10,9 +10,7 @@ CREATE TABLE IF NOT EXISTS public.admin_audit_logs (
   metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
 ALTER TABLE public.admin_audit_logs ENABLE ROW LEVEL SECURITY;
-
 CREATE OR REPLACE FUNCTION public.is_current_user_admin()
 RETURNS BOOLEAN
 LANGUAGE sql
@@ -22,25 +20,20 @@ SET search_path = public
 AS $$
   SELECT COALESCE((SELECT is_admin FROM public.profiles WHERE user_id = auth.uid()), false);
 $$;
-
 DROP POLICY IF EXISTS "Admins can view all audit logs" ON public.admin_audit_logs;
 CREATE POLICY "Admins can view all audit logs"
 ON public.admin_audit_logs
 FOR SELECT
 USING (public.is_current_user_admin());
-
 DROP POLICY IF EXISTS "Admins can insert own audit logs" ON public.admin_audit_logs;
 CREATE POLICY "Admins can insert own audit logs"
 ON public.admin_audit_logs
 FOR INSERT
 WITH CHECK (public.is_current_user_admin() AND auth.uid() = actor_user_id);
-
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_created_at
   ON public.admin_audit_logs(created_at DESC);
-
 CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_action
   ON public.admin_audit_logs(action);
-
 CREATE OR REPLACE FUNCTION public.log_admin_action(
   action_name TEXT,
   target_user UUID DEFAULT NULL,
@@ -79,7 +72,6 @@ BEGIN
   );
 END;
 $$;
-
 CREATE OR REPLACE FUNCTION public.trg_log_profile_admin_changes()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -124,13 +116,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_log_profile_admin_changes ON public.profiles;
 CREATE TRIGGER trg_log_profile_admin_changes
 AFTER UPDATE ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.trg_log_profile_admin_changes();
-
 CREATE OR REPLACE FUNCTION public.trg_log_report_status_changes()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -155,13 +145,11 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_log_report_status_changes ON public.video_reports;
 CREATE TRIGGER trg_log_report_status_changes
 AFTER UPDATE ON public.video_reports
 FOR EACH ROW
 EXECUTE FUNCTION public.trg_log_report_status_changes();
-
 CREATE OR REPLACE FUNCTION public.trg_log_admin_video_delete()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -184,7 +172,6 @@ BEGIN
   RETURN OLD;
 END;
 $$;
-
 DROP TRIGGER IF EXISTS trg_log_admin_video_delete ON public.videos;
 CREATE TRIGGER trg_log_admin_video_delete
 AFTER DELETE ON public.videos
