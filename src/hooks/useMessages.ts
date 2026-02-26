@@ -362,7 +362,16 @@ export function useMessages(conversationId: string | null) {
           schema: "public",
           table: "message_reactions",
         },
-        () => {
+        (payload: any) => {
+          const reactionMessageId = payload?.new?.message_id || payload?.old?.message_id;
+          if (!reactionMessageId) return;
+
+          const cachedMessages = qc.getQueryData<any[]>(["messages", conversationId]) || [];
+          if (cachedMessages.length > 0) {
+            const cachedMessageIds = new Set(cachedMessages.map((message: any) => message.id));
+            if (!cachedMessageIds.has(reactionMessageId)) return;
+          }
+
           qc.invalidateQueries({ queryKey: ["messages", conversationId] });
         },
       )
@@ -867,11 +876,15 @@ export function useCreateConversation() {
         if (createFallback.error) throw createFallback.error;
       }
 
-      const { error: pErr } = await supabase.from("conversation_participants").insert([
-        { conversation_id: newId, user_id: user.id },
-        { conversation_id: newId, user_id: targetUserId },
-      ]);
-      if (pErr) throw pErr;
+      const { error: selfPartError } = await supabase
+        .from("conversation_participants")
+        .insert({ conversation_id: newId, user_id: user.id });
+      if (selfPartError) throw selfPartError;
+
+      const { error: targetPartError } = await supabase
+        .from("conversation_participants")
+        .insert({ conversation_id: newId, user_id: targetUserId });
+      if (targetPartError) throw targetPartError;
 
       return newId;
     },
