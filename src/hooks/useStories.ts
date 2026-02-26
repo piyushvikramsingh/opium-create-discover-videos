@@ -170,7 +170,7 @@ export const useCloseFriends = () => {
 
       if (error) throw error;
 
-      const ids = Array.from(new Set((data || []).map((row: any) => row.friend_id)));
+      const ids = Array.from(new Set((data || []).map((row: any) => row.friend_id))) as string[];
       if (ids.length === 0) return [];
 
       const { data: profiles, error: profileError } = await supabase
