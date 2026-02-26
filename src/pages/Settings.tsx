@@ -1,4 +1,4 @@
-import { ArrowLeft, BadgeCheck, Bell, Loader2, Lock, LogOut, Shield, UserRound, Wallet } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Bell, BellOff, Inbox, Loader2, Lock, LogOut, Shield, UserRound, VideoOff, VolumeX, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,17 @@ import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import {
   useAdminUpdateProfileStatus,
+  useBlockedUsers,
+  useHiddenVideos,
+  useIncomingFollowRequests,
+  useMarkAllNotificationsRead,
+  useMarkMessageRequestNotificationsRead,
+  useMutedUsers,
   useProfile,
   useReferrals,
+  useUnblockUser,
+  useUnhideVideo,
+  useUnmuteUser,
   useUnreadNotificationsCount,
   useUpdateProfile,
   useUpsertUserSettings,
@@ -32,8 +41,17 @@ const Settings = () => {
   const { data: userSettings } = useUserSettings();
   const { data: referrals = [] } = useReferrals();
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
+  const { data: incomingFollowRequests = [] } = useIncomingFollowRequests();
+  const { data: hiddenVideos = [] } = useHiddenVideos(24);
+  const { data: blockedUsers = [] } = useBlockedUsers(24);
+  const { data: mutedUsers = [] } = useMutedUsers(24);
   const updateProfile = useUpdateProfile();
   const upsertUserSettings = useUpsertUserSettings();
+  const markAllNotificationsRead = useMarkAllNotificationsRead();
+  const markMessageRequestNotificationsRead = useMarkMessageRequestNotificationsRead();
+  const unhideVideo = useUnhideVideo();
+  const unblockUser = useUnblockUser();
+  const unmuteUser = useUnmuteUser();
   const adminUpdateProfileStatus = useAdminUpdateProfileStatus();
   const toggleCloseFriend = useToggleCloseFriend();
 
@@ -67,6 +85,9 @@ const Settings = () => {
   const [storyReplies, setStoryReplies] = useState<"everyone" | "following" | "off">("everyone");
   const [tagsAllowedFrom, setTagsAllowedFrom] = useState<"everyone" | "following" | "none">("everyone");
   const [mentionRequests, setMentionRequests] = useState(true);
+  const [messagePreview, setMessagePreview] = useState(true);
+  const [readReceipts, setReadReceipts] = useState(true);
+  const [typingIndicators, setTypingIndicators] = useState(true);
   // closeFriendsQuery declared above with hooks
   const [adPersonalization, setAdPersonalization] = useState(true);
   const [adsPartnerData, setAdsPartnerData] = useState(true);
@@ -75,6 +96,9 @@ const Settings = () => {
   const [reduceMotion, setReduceMotion] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [dataSaver, setDataSaver] = useState(false);
+  const [autoplayVideos, setAutoplayVideos] = useState(true);
+  const [autoplaySound, setAutoplaySound] = useState(false);
+  const [loopVideos, setLoopVideos] = useState(true);
   const [language, setLanguage] = useState("English");
   const [accountEmail, setAccountEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -149,6 +173,9 @@ const Settings = () => {
         : "everyone",
     );
     setMentionRequests(interactions.mention_requests !== false);
+    setMessagePreview(interactions.message_preview !== false);
+    setReadReceipts(interactions.read_receipts !== false);
+    setTypingIndicators(interactions.typing_indicators !== false);
 
     setAdPersonalization(ads.personalization !== false);
     setAdsPartnerData(ads.partner_data !== false);
@@ -159,6 +186,9 @@ const Settings = () => {
 
     setDarkMode(!!app.dark_mode);
     setDataSaver(!!app.data_saver);
+    setAutoplayVideos(app.autoplay_videos !== false);
+    setAutoplaySound(!!app.autoplay_sound);
+    setLoopVideos(app.loop_videos !== false);
     setLanguage(typeof app.language === "string" && app.language ? app.language : "English");
   }, [userSettings, profile?.push_likes, profile?.push_comments, profile?.push_messages]);
 
@@ -292,6 +322,51 @@ const Settings = () => {
     }
   };
 
+  const handleMarkAllRead = async () => {
+    try {
+      await markAllNotificationsRead.mutateAsync();
+      toast.success("All notifications marked as read");
+    } catch (error: any) {
+      toast.error(error?.message || "Could not update notifications");
+    }
+  };
+
+  const handleMarkMessageRequestsRead = async () => {
+    try {
+      await markMessageRequestNotificationsRead.mutateAsync();
+      toast.success("Message request notifications marked as read");
+    } catch (error: any) {
+      toast.error(error?.message || "Could not update notifications");
+    }
+  };
+
+  const handleUnhideVideo = async (videoId: string) => {
+    try {
+      await unhideVideo.mutateAsync({ videoId });
+      toast.success("Video restored to your feed");
+    } catch (error: any) {
+      toast.error(error?.message || "Could not unhide video");
+    }
+  };
+
+  const handleUnblockUser = async (targetUserId: string) => {
+    try {
+      await unblockUser.mutateAsync({ targetUserId });
+      toast.success("User unblocked");
+    } catch (error: any) {
+      toast.error(error?.message || "Could not unblock user");
+    }
+  };
+
+  const handleUnmuteUser = async (targetUserId: string) => {
+    try {
+      await unmuteUser.mutateAsync({ targetUserId });
+      toast.success("User unmuted");
+    } catch (error: any) {
+      toast.error(error?.message || "Could not unmute user");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -303,6 +378,32 @@ const Settings = () => {
       </div>
 
       <div className="px-4 py-4">
+        <section className="mb-4 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 via-background to-cyan-500/10 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account center</p>
+          <div className="mt-2">
+            <p className="text-lg font-semibold text-foreground">{displayName || username || "Your account"}</p>
+            <p className="text-xs text-muted-foreground">@{username || "username"}</p>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-border/70 bg-background/50 p-2">
+              <p className="text-[11px] text-muted-foreground">Unread alerts</p>
+              <p className="text-base font-semibold text-foreground">{unreadNotifications}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background/50 p-2">
+              <p className="text-[11px] text-muted-foreground">Follow requests</p>
+              <p className="text-base font-semibold text-foreground">{incomingFollowRequests.length}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background/50 p-2">
+              <p className="text-[11px] text-muted-foreground">Hidden videos</p>
+              <p className="text-base font-semibold text-foreground">{hiddenVideos.length}</p>
+            </div>
+            <div className="rounded-xl border border-border/70 bg-background/50 p-2">
+              <p className="text-[11px] text-muted-foreground">Muted accounts</p>
+              <p className="text-base font-semibold text-foreground">{mutedUsers.length}</p>
+            </div>
+          </div>
+        </section>
+
         <section className="mb-4 rounded-2xl border border-border p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick access</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
@@ -317,14 +418,15 @@ const Settings = () => {
         <Tabs defaultValue="account">
           <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-border bg-background px-4 pb-2 pt-1">
             <TabsList className="flex w-full justify-start gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0">
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="account">Account</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="privacy">Privacy</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="notifications">Notifications</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="content">Content</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="interactions">Interactions</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="ads">Ads</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="accessibility">App</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4" value="creator">Creator</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="account">Account</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="privacy">Privacy</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="notifications">Notifications</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="safety">Safety</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="content">Content</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="interactions">Interactions</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="ads">Ads</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="accessibility">App</TabsTrigger>
+              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="creator">Creator</TabsTrigger>
             </TabsList>
           </div>
 
@@ -530,6 +632,115 @@ const Settings = () => {
 
           </TabsContent>
 
+          <TabsContent value="safety" className="space-y-3">
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <BellOff className="h-3.5 w-3.5" /> Inbox controls
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button variant="secondary" onClick={handleMarkAllRead} disabled={markAllNotificationsRead.isPending}>
+                  {markAllNotificationsRead.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Mark all notifications read"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={handleMarkMessageRequestsRead}
+                  disabled={markMessageRequestNotificationsRead.isPending}
+                >
+                  {markMessageRequestNotificationsRead.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Clear message request alerts"}
+                </Button>
+              </div>
+              <Button className="mt-2 w-full" variant="outline" onClick={() => navigate("/inbox")}>
+                <Inbox className="mr-2 h-4 w-4" />
+                Open inbox
+              </Button>
+            </section>
+
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <VideoOff className="h-3.5 w-3.5" /> Hidden videos
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Manage videos you've hidden from your feed.</p>
+
+              <div className="mt-3 max-h-56 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
+                {hiddenVideos.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No hidden videos</p>
+                ) : (
+                  (hiddenVideos as any[]).map((video: any) => (
+                    <div key={video.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-secondary/50">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{video.description || "Untitled video"}</p>
+                        <p className="truncate text-xs text-muted-foreground">#{String(video.id).slice(0, 8)}</p>
+                      </div>
+                      <Button size="sm" variant="secondary" onClick={() => handleUnhideVideo(video.id)} disabled={unhideVideo.isPending}>
+                        Unhide
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Lock className="h-3.5 w-3.5" /> Blocked accounts
+              </p>
+              <div className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
+                {blockedUsers.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No blocked accounts</p>
+                ) : (
+                  (blockedUsers as any[]).map((entry: any) => (
+                    <div key={entry.blocked_user_id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-secondary/50">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {entry.profile?.display_name || entry.profile?.username || `User ${String(entry.blocked_user_id).slice(0, 8)}`}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">@{entry.profile?.username || "unknown"}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleUnblockUser(entry.blocked_user_id)}
+                        disabled={unblockUser.isPending}
+                      >
+                        Unblock
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <VolumeX className="h-3.5 w-3.5" /> Muted accounts
+              </p>
+              <div className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
+                {mutedUsers.length === 0 ? (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No muted accounts</p>
+                ) : (
+                  (mutedUsers as any[]).map((entry: any) => (
+                    <div key={entry.muted_user_id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-secondary/50">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {entry.profile?.display_name || entry.profile?.username || `User ${String(entry.muted_user_id).slice(0, 8)}`}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">@{entry.profile?.username || "unknown"}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleUnmuteUser(entry.muted_user_id)}
+                        disabled={unmuteUser.isPending}
+                      >
+                        Unmute
+                      </Button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
+          </TabsContent>
+
           <TabsContent value="creator" className="space-y-3">
             <section className="rounded-2xl border border-border p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Creator account</p>
@@ -678,6 +889,18 @@ const Settings = () => {
                   <p className="text-sm text-foreground">Allow mention requests</p>
                   <Switch checked={mentionRequests} onCheckedChange={setMentionRequests} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Show message previews</p>
+                  <Switch checked={messagePreview} onCheckedChange={setMessagePreview} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Read receipts</p>
+                  <Switch checked={readReceipts} onCheckedChange={setReadReceipts} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Typing indicators</p>
+                  <Switch checked={typingIndicators} onCheckedChange={setTypingIndicators} />
+                </div>
               </div>
               <Button
                 className="mt-4 w-full"
@@ -688,6 +911,9 @@ const Settings = () => {
                         story_replies: storyReplies,
                         tags_allowed_from: tagsAllowedFrom,
                         mention_requests: mentionRequests,
+                        message_preview: messagePreview,
+                        read_receipts: readReceipts,
+                        typing_indicators: typingIndicators,
                       },
                     },
                     "Interaction settings saved",
@@ -802,6 +1028,18 @@ const Settings = () => {
                   <p className="text-sm text-foreground">Data saver</p>
                   <Switch checked={dataSaver} onCheckedChange={setDataSaver} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Autoplay videos</p>
+                  <Switch checked={autoplayVideos} onCheckedChange={setAutoplayVideos} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Start with sound</p>
+                  <Switch checked={autoplaySound} onCheckedChange={setAutoplaySound} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Loop videos</p>
+                  <Switch checked={loopVideos} onCheckedChange={setLoopVideos} />
+                </div>
                 <Input value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="Language" />
               </div>
               <Button
@@ -817,6 +1055,9 @@ const Settings = () => {
                       app: {
                         dark_mode: darkMode,
                         data_saver: dataSaver,
+                        autoplay_videos: autoplayVideos,
+                        autoplay_sound: autoplaySound,
+                        loop_videos: loopVideos,
                         language,
                       },
                     },

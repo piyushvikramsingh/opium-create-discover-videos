@@ -751,6 +751,66 @@ export function useBlockUser() {
   });
 }
 
+export function useBlockedUsers(limit = 50) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["blocked-users", user?.id, limit],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("user_blocks")
+        .select("blocked_user_id, created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+
+      const blockedIds = [...new Set((rows || []).map((row: any) => row.blocked_user_id))];
+      if (blockedIds.length === 0) return [];
+
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, username, display_name, avatar_url, is_verified")
+        .in("user_id", blockedIds);
+      if (profileError) throw profileError;
+
+      const profileMap = new Map((profiles || []).map((profile: any) => [profile.user_id, profile]));
+      return (rows || []).map((row: any) => ({
+        ...row,
+        profile: profileMap.get(row.blocked_user_id) || null,
+      }));
+    },
+  });
+}
+
+export function useUnblockUser() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ targetUserId }: { targetUserId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("user_blocks")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("blocked_user_id", targetUserId);
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["blocked-users"] });
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
 export function useMuteUser() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -765,6 +825,66 @@ export function useMuteUser() {
       if (error && !isSchemaMismatchError(error)) throw error;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["conversations"] });
+    },
+  });
+}
+
+export function useMutedUsers(limit = 50) {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ["muted-users", user?.id, limit],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data: rows, error } = await supabase
+        .from("user_mutes")
+        .select("muted_user_id, created_at")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+
+      const mutedIds = [...new Set((rows || []).map((row: any) => row.muted_user_id))];
+      if (mutedIds.length === 0) return [];
+
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("user_id, username, display_name, avatar_url, is_verified")
+        .in("user_id", mutedIds);
+      if (profileError) throw profileError;
+
+      const profileMap = new Map((profiles || []).map((profile: any) => [profile.user_id, profile]));
+      return (rows || []).map((row: any) => ({
+        ...row,
+        profile: profileMap.get(row.muted_user_id) || null,
+      }));
+    },
+  });
+}
+
+export function useUnmuteUser() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ targetUserId }: { targetUserId: string }) => {
+      if (!user) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("user_mutes")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("muted_user_id", targetUserId);
+      if (error && !isSchemaMismatchError(error)) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["muted-users"] });
       qc.invalidateQueries({ queryKey: ["videos"] });
       qc.invalidateQueries({ queryKey: ["for-you-videos"] });
       qc.invalidateQueries({ queryKey: ["conversations"] });
