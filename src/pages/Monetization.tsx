@@ -16,7 +16,7 @@ const Monetization = () => {
   const { data: profiles = [] } = useQuery({
     queryKey: ["monetized-profiles"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("profiles")
         .select("id, user_id, username, is_monetized")
         .eq("is_monetized", true)

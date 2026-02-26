@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+const db = supabase as any;
+
 // Fetch user's video analytics
 export const useVideoAnalytics = (videoId?: string, days: number = 30) => {
   return useQuery({
@@ -11,7 +13,7 @@ export const useVideoAnalytics = (videoId?: string, days: number = 30) => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("video_analytics")
         .select("*")
         .eq("video_id", videoId)
@@ -37,7 +39,7 @@ export const useUserAnalytics = (userId?: string, days: number = 30) => {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("user_analytics")
         .select("*")
         .eq("user_id", targetUserId)
@@ -72,10 +74,10 @@ export const useAnalyticsSummary = () => {
       const totalComments = videos?.reduce((sum, v) => sum + (v.comments_count || 0), 0) || 0;
       
       // Get total views from analytics
-      const { data: allAnalytics } = await supabase
+      const { data: allAnalytics } = await db
         .from("video_analytics")
         .select("views")
-        .in("video_id", videos?.map(v => v.id) || []);
+        .in("video_id", videos?.map((v: any) => v.id) || []);
       
       const totalViews = allAnalytics?.reduce((sum, a) => sum + (a.views || 0), 0) || 0;
 
@@ -95,7 +97,7 @@ export const useAnalyticsSummary = () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data: recentAnalytics } = await supabase
+      const { data: recentAnalytics } = await db
         .from("user_analytics")
         .select("*")
         .eq("user_id", user.id)
@@ -214,7 +216,7 @@ export const useCreatorGrowthInsights = (days: number = 30) => {
           .select("id", { count: "exact", head: true })
           .eq("following_id", user.id)
           .gte("created_at", sinceIso),
-        supabase
+        db
           .from("video_events")
           .select("event_type, video_id")
           .gte("created_at", sinceIso),

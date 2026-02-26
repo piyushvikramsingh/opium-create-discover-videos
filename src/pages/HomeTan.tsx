@@ -46,8 +46,8 @@ const HomeTan = () => {
   const { data: profile } = useProfile(user?.id);
   const { data: videos = [], isLoading, isFetching, refetch } = useForYouVideos();
   const [feedMode, setFeedMode] = useState<"forYou" | "following">("forYou");
-  const { data: serverLikedPosts = new Set<string>() } = useUserLikes(user?.id);
-  const { data: serverBookmarkedPosts = new Set<string>() } = useUserBookmarks(user?.id);
+  const { data: serverLikedPosts } = useUserLikes(user?.id);
+  const { data: serverBookmarkedPosts } = useUserBookmarks(user?.id);
   const { data: followRecommendations = [] } = useFollowRecommendations(8, feedMode === "following");
   const { data: followingList = [] } = useFollowingList(user?.id, feedMode === "following");
   const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
@@ -147,11 +147,11 @@ const HomeTan = () => {
   };
 
   useEffect(() => {
-    setLikedPosts(new Set(serverLikedPosts));
+    if (serverLikedPosts) setLikedPosts(new Set(serverLikedPosts as Set<string>));
   }, [serverLikedPosts]);
 
   useEffect(() => {
-    setBookmarkedPosts(new Set(serverBookmarkedPosts));
+    if (serverBookmarkedPosts) setBookmarkedPosts(new Set(serverBookmarkedPosts as Set<string>));
   }, [serverBookmarkedPosts]);
 
   useEffect(() => {

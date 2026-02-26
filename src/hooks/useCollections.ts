@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
+// Cast to any to bypass missing table types for collections/collection_videos
+const db: any = supabase;
+
 // Fetch user's collections
 export const useCollections = (userId?: string) => {
   return useQuery({
@@ -11,7 +14,7 @@ export const useCollections = (userId?: string) => {
       const targetUserId = userId || user?.id;
       if (!targetUserId) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("collections")
         .select("*")
         .eq("user_id", targetUserId)
@@ -29,7 +32,7 @@ export const useCollection = (collectionId: string) => {
   return useQuery({
     queryKey: ["collection", collectionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("collections")
         .select(`
           *,
@@ -78,7 +81,7 @@ export const useCreateCollection = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("collections")
         .insert({
           user_id: user.id,
@@ -122,7 +125,7 @@ export const useUpdateCollection = () => {
     }) => {
       const { id, ...updates } = params;
 
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("collections")
         .update({ ...updates, updated_at: new Date().toISOString() })
         .eq("id", id)
@@ -132,7 +135,7 @@ export const useUpdateCollection = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["collections"] });
       queryClient.invalidateQueries({ queryKey: ["collection", data.id] });
       toast({
@@ -157,7 +160,7 @@ export const useDeleteCollection = () => {
 
   return useMutation({
     mutationFn: async (collectionId: string) => {
-      const { error } = await supabase
+      const { error } = await db
         .from("collections")
         .delete()
         .eq("id", collectionId);
@@ -191,7 +194,7 @@ export const useAddVideoToCollection = () => {
       collection_id: string;
       video_id: string;
     }) => {
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("collection_videos")
         .insert(params)
         .select()
@@ -200,13 +203,13 @@ export const useAddVideoToCollection = () => {
       if (error) throw error;
 
       // Update video count
-      await supabase.rpc("increment_collection_video_count", {
+      await db.rpc("increment_collection_video_count", {
         collection_id: params.collection_id,
       });
 
       return data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (_: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["collection", variables.collection_id] });
       queryClient.invalidateQueries({ queryKey: ["collections"] });
       toast({
@@ -242,7 +245,7 @@ export const useRemoveVideoFromCollection = () => {
       collection_id: string;
       video_id: string;
     }) => {
-      const { error } = await supabase
+      const { error } = await db
         .from("collection_videos")
         .delete()
         .eq("collection_id", params.collection_id)
@@ -251,11 +254,11 @@ export const useRemoveVideoFromCollection = () => {
       if (error) throw error;
 
       // Update video count
-      await supabase.rpc("decrement_collection_video_count", {
+      await db.rpc("decrement_collection_video_count", {
         collection_id: params.collection_id,
       });
     },
-    onSuccess: (_, variables) => {
+    onSuccess: (_: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["collection", variables.collection_id] });
       queryClient.invalidateQueries({ queryKey: ["collections"] });
       toast({

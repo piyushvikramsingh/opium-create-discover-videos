@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase } from "@/integrations/supabase/client";
+const supabase: any = _supabase;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -2250,7 +2251,7 @@ export function useAdminVideoReports(limit = 100) {
           ...report,
           video,
           reporter_profile: profileMap.get(report.reporter_id) || null,
-          owner_profile: video ? profileMap.get(video.user_id) || null : null,
+          owner_profile: video ? profileMap.get((video as any).user_id) || null : null,
         };
       });
     },

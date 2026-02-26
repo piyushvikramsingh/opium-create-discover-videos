@@ -1716,7 +1716,7 @@ const Create = () => {
           ) : (
             <>
               <div className="flex items-center gap-2">
-                {step !== "select" && step !== "success" && (
+                {(step as string) !== "select" && step !== "success" && (
                   <Button variant="ghost" size="icon" onClick={() => setStep("select")}>
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
@@ -1737,7 +1737,7 @@ const Create = () => {
             <button
               onClick={() => setStep("select")}
               className={`pb-2 transition-colors ${
-                step === "select" ? "border-b-2 border-foreground text-foreground" : "text-muted-foreground"
+                step === ("select" as string) ? "border-b-2 border-foreground text-foreground" : "text-muted-foreground"
               }`}
             >
               Select
