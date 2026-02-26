@@ -378,13 +378,14 @@ export function useUserLikes(userId: string | undefined) {
   return useQuery({
     queryKey: ["user-likes", userId],
     enabled: !!userId,
+    initialData: () => new Set<string>(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("likes")
         .select("video_id")
         .eq("user_id", userId!);
       if (error) throw error;
-      return new Set(data.map((l) => l.video_id));
+      return new Set((data || []).map((l) => l.video_id));
     },
   });
 }
@@ -393,13 +394,14 @@ export function useUserBookmarks(userId: string | undefined) {
   return useQuery({
     queryKey: ["user-bookmarks", userId],
     enabled: !!userId,
+    initialData: () => new Set<string>(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bookmarks")
         .select("video_id")
         .eq("user_id", userId!);
       if (error) throw error;
-      return new Set(data.map((b) => b.video_id));
+      return new Set((data || []).map((b) => b.video_id));
     },
   });
 }

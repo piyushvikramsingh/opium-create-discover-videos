@@ -53,12 +53,16 @@ export const useGlobalSearch = (query: string, type?: string) => {
               .slice(0, 20),
           );
 
-        const seenVideoIds = new Set<string>();
-        results.videos = mergedVideos.filter((video: any) => {
-          if (seenVideoIds.has(video.id)) return false;
-          seenVideoIds.add(video.id);
-          return true;
-        }).slice(0, 20);
+        const seenVideoIds: Record<string, true> = Object.create(null);
+        results.videos = mergedVideos
+          .filter((video: any) => {
+            const videoId = typeof video?.id === "string" ? video.id : "";
+            if (!videoId) return false;
+            if (seenVideoIds[videoId]) return false;
+            seenVideoIds[videoId] = true;
+            return true;
+          })
+          .slice(0, 20);
       }
 
       // Search users

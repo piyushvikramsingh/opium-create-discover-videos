@@ -281,7 +281,7 @@ const HomeTan = () => {
   const getLikeCount = (post: any) => {
     const base = post.likes_count || 0;
     const currentlyLiked = likedPosts.has(post.id);
-    const serverLiked = serverLikedPosts.has(post.id);
+    const serverLiked = serverLikedPosts?.has(post.id) ?? false;
     if (currentlyLiked === serverLiked) return base;
     return currentlyLiked ? base + 1 : Math.max(0, base - 1);
   };
