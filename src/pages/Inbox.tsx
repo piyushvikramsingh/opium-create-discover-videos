@@ -160,7 +160,7 @@ const Inbox = () => {
 
   const handleToggleSetting = async (
     conversationId: string,
-    currentSettings: { pinned: boolean; muted: boolean; archived: boolean; accepted_request: boolean },
+    currentSettings: { pinned?: boolean; muted?: boolean; archived?: boolean; accepted_request?: boolean },
     key: "pinned" | "muted" | "archived" | "accepted_request",
   ) => {
     try {

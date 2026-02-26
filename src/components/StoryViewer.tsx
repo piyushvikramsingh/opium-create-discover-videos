@@ -28,6 +28,7 @@ export interface StoryGroup {
     is_verified: boolean;
   };
   stories: Story[];
+  hasUnviewed?: boolean;
   hasCloseFriendsStory?: boolean;
 }
 

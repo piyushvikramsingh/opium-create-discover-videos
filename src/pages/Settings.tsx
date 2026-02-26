@@ -27,6 +27,7 @@ const Settings = () => {
 
   const { data: profile } = useProfile(user?.id);
   const { data: closeFriends = [] } = useCloseFriends();
+  const [closeFriendsQuery, setCloseFriendsQuery] = useState("");
   const { data: closeFriendCandidates = [] } = useCloseFriendCandidates(closeFriendsQuery, 100);
   const { data: userSettings } = useUserSettings();
   const { data: referrals = [] } = useReferrals();
@@ -66,7 +67,7 @@ const Settings = () => {
   const [storyReplies, setStoryReplies] = useState<"everyone" | "following" | "off">("everyone");
   const [tagsAllowedFrom, setTagsAllowedFrom] = useState<"everyone" | "following" | "none">("everyone");
   const [mentionRequests, setMentionRequests] = useState(true);
-  const [closeFriendsQuery, setCloseFriendsQuery] = useState("");
+  // closeFriendsQuery declared above with hooks
   const [adPersonalization, setAdPersonalization] = useState(true);
   const [adsPartnerData, setAdsPartnerData] = useState(true);
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
