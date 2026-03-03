@@ -1,63 +1,45 @@
-import { Home, Search, MessageCircle, User, Play, Bell } from "lucide-react";
+import { Home, Search, User, Play, PlusSquare } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useUnreadNotificationsCount } from "@/hooks/useData";
-import { useConversations } from "@/hooks/useMessages";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
+  { icon: Search, label: "Search", path: "/discover" },
+  { icon: PlusSquare, label: "Create", path: "/create" },
   { icon: Play, label: "Clippy", path: "/clipy" },
-  { icon: MessageCircle, label: "Message", path: "/inbox" },
-  { icon: Bell, label: "Activity", path: "/notifications" },
   { icon: User, label: "Profile", path: "/profile" },
 ];
 
 const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: unreadNotifications = 0 } = useUnreadNotificationsCount();
-  const { data: conversations = [] } = useConversations();
-  const messageRequestCount = (conversations as any[]).filter((convo) => convo?.isMessageRequest).length;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/80 backdrop-blur-xl pb-safe">
-      <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/90 backdrop-blur-xl pb-safe">
+      <div className="mx-auto flex max-w-lg items-center justify-around px-3 py-2">
         {navItems.map((item) => {
           const isActive = item.path === "/"
             ? location.pathname === "/"
             : location.pathname.startsWith(item.path);
+          const Icon = item.icon;
+          const isCreate = item.path === "/create";
 
           return (
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`lift-on-tap flex min-w-14 flex-col items-center gap-0.5 rounded-xl px-3 py-1.5 ${
-                isActive ? "bg-secondary/80" : ""
+              aria-label={item.label}
+              className={`ig-tap relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-200 ${
+                isActive ? "bg-secondary text-foreground" : "text-muted-foreground"
               }`}
             >
-              <div className="relative">
-                <item.icon
-                  className={`h-6 w-6 transition-colors ${
-                    isActive ? "text-foreground" : "text-muted-foreground"
-                  }`}
-                />
-                {item.path === "/notifications" && unreadNotifications > 0 && (
-                  <span className="absolute -right-2 -top-2 min-w-4 rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">
-                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
-                  </span>
-                )}
-                {item.path === "/inbox" && messageRequestCount > 0 && (
-                  <span className="absolute -left-2 -top-2 min-w-4 rounded-full bg-secondary px-1 text-[9px] font-bold text-foreground">
-                    {messageRequestCount > 9 ? "9+" : messageRequestCount}
-                  </span>
-                )}
-              </div>
-              <span
-                className={`text-[10px] transition-colors ${
-                  isActive ? "text-foreground font-medium" : "text-muted-foreground"
-                }`}
-              >
-                {item.label}
-              </span>
+              <Icon
+                className={`transition-transform duration-200 ${
+                  isCreate ? "h-6 w-6" : "h-5.5 w-5.5"
+                } ${isActive ? "scale-110" : "scale-100"}`}
+              />
+              {isActive && !isCreate && (
+                <span className="absolute -bottom-1.5 h-1 w-1 rounded-full bg-foreground" />
+              )}
             </button>
           );
         })}

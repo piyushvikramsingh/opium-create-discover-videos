@@ -120,7 +120,7 @@ function updateVideosCommentsCount(
   });
 }
 
-type ReliableMutationType = "like" | "bookmark" | "comment";
+type ReliableMutationType = "like" | "bookmark" | "comment" | "share";
 
 type ReliableLikePayload = {
   videoId: string;
@@ -138,7 +138,11 @@ type ReliableCommentPayload = {
   clientRequestId: string;
 };
 
-type ReliableMutationPayload = ReliableLikePayload | ReliableBookmarkPayload | ReliableCommentPayload;
+type ReliableSharePayload = {
+  videoId: string;
+};
+
+type ReliableMutationPayload = ReliableLikePayload | ReliableBookmarkPayload | ReliableCommentPayload | ReliableSharePayload;
 
 type ReliableMutationResult = {
   queued?: boolean;
@@ -334,6 +338,30 @@ const createCommentIdempotent = async (
   if (fallbackInsert.error) throw fallbackInsert.error;
 };
 
+const incrementVideoShareState = async (userId: string, videoId: string) => {
+  const rpc = await supabase.rpc("increment_video_share", {
+    p_video_id: videoId,
+  });
+
+  if (!rpc.error) return;
+  if (!isSchemaMismatchError(rpc.error)) throw rpc.error;
+
+  const { data: current, error: readError } = await supabase
+    .from("videos")
+    .select("shares_count")
+    .eq("id", videoId)
+    .maybeSingle();
+  if (readError) throw readError;
+
+  const next = (current?.shares_count || 0) + 1;
+  const { error } = await supabase
+    .from("videos")
+    .update({ shares_count: next })
+    .eq("id", videoId)
+    .eq("user_id", userId);
+  if (error) throw error;
+};
+
 const runReliableAction = async (action: ReliableMutationAction) => {
   if (action.type === "like") {
     const payload = action.payload as ReliableLikePayload;
@@ -344,6 +372,12 @@ const runReliableAction = async (action: ReliableMutationAction) => {
   if (action.type === "bookmark") {
     const payload = action.payload as ReliableBookmarkPayload;
     await setVideoBookmarkState(action.userId, payload.videoId, payload.shouldBookmark);
+    return;
+  }
+
+  if (action.type === "share") {
+    const payload = action.payload as ReliableSharePayload;
+    await incrementVideoShareState(action.userId, payload.videoId);
     return;
   }
 
@@ -976,11 +1010,13 @@ export function useAddComment() {
       if (data?.queued) return;
       qc.invalidateQueries({ queryKey: ["video-comments", variables.videoId] });
       qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
     },
     onSettled: (data, _error, variables) => {
       if (data?.queued) return;
       qc.invalidateQueries({ queryKey: ["video-comments", variables.videoId] });
       qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
     },
   });
 }
@@ -1028,10 +1064,12 @@ export function useDeleteComment() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ["video-comments", variables.videoId] });
       qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
     },
     onSettled: (_data, _error, variables) => {
       qc.invalidateQueries({ queryKey: ["video-comments", variables.videoId] });
       qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
     },
   });
 }
@@ -1135,25 +1173,38 @@ export function useUpdateVideo() {
 }
 
 export function useShareVideo() {
+  const { user } = useAuth();
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ videoId }: { videoId: string }) => {
-      const { data: current, error: readError } = await supabase
-        .from("videos")
-        .select("shares_count")
-        .eq("id", videoId)
-        .maybeSingle();
-      if (readError) throw readError;
+    mutationFn: async ({ videoId }: { videoId: string }): Promise<ReliableMutationResult> => {
+      if (!user) throw new Error("Not authenticated");
 
-      const next = (current?.shares_count || 0) + 1;
-      const { error } = await supabase
-        .from("videos")
-        .update({ shares_count: next })
-        .eq("id", videoId);
-      if (error) throw error;
+      try {
+        await incrementVideoShareState(user.id, videoId);
+        return { queued: false };
+      } catch (error) {
+        if (!isRetryableMutationError(error)) throw error;
+
+        upsertReliableQueueAction({
+          id: makeReliableActionId(),
+          userId: user.id,
+          type: "share",
+          dedupeKey: `share:${user.id}:${videoId}:${Date.now()}`,
+          payload: {
+            videoId,
+          },
+          createdAt: Date.now(),
+          attemptCount: 0,
+          nextAttemptAt: Date.now() + getRetryDelayMs(0),
+          lastErrorMessage: String(error instanceof Error ? error.message : "queued"),
+        });
+
+        return { queued: true };
+      }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.queued) return;
       qc.invalidateQueries({ queryKey: ["videos"] });
       qc.invalidateQueries({ queryKey: ["for-you-videos"] });
     },

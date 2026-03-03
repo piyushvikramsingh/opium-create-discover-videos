@@ -3,14 +3,11 @@ import BottomNav from "@/components/BottomNav";
 import TopMoreMenu from "@/components/TopMoreMenu";
 
 const AppLayout = () => {
-  const gitSha = __APP_GIT_SHA__ || "unknown";
-
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-lg bg-background shadow-2xl shadow-black/20">
+    <div className="relative mx-auto min-h-screen w-full max-w-lg bg-background lg:border lg:border-border/60 lg:shadow-2xl lg:shadow-black/10">
       <TopMoreMenu />
-      <Outlet />
-      <div className="border-t border-border/40 bg-background/95 px-4 py-1 text-center text-[10px] font-medium tracking-wide text-muted-foreground">
-        rev {gitSha}
+      <div className="ig-screen">
+        <Outlet />
       </div>
       <BottomNav />
     </div>

@@ -1285,7 +1285,7 @@ const Create = () => {
     lines.push(`Comments: ${commentsEnabled ? "On" : "Off"}`);
     lines.push(`Visibility: ${visibility}`);
     lines.push(`Content warning: ${contentWarning ? "Yes" : "No"}`);
-    lines.push(`Cross-post: story=${crossPostStory}, reel=${crossPostReel}, profile=${crossPostProfile}`);
+    lines.push(`Cross-post: story=${crossPostStory}, clippy=${crossPostReel}, profile=${crossPostProfile}`);
     lines.push(`Clip trim: ${clip.trimStart.toFixed(1)}s - ${clip.trimEnd.toFixed(1)}s`);
     lines.push(`Filters: b${clip.brightness} c${clip.contrast} s${clip.saturation}`);
 
@@ -1641,12 +1641,12 @@ const Create = () => {
 
   if (isStoryCreateMode) {
     return (
-      <div className="min-h-screen bg-background pb-24">
-        <div className="sticky top-0 z-20 border-b border-border bg-background/95 backdrop-blur">
+      <div className="ig-screen min-h-screen bg-background pb-24">
+        <div className="ig-header sticky top-0 z-20">
           <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
             <button
               onClick={() => navigate(-1)}
-              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm"
+              className="ig-tap inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm"
             >
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
@@ -1716,18 +1716,18 @@ const Create = () => {
   }
 
   return (
-    <div className={`fade-in min-h-screen bg-background pb-24 ${isSelectStep ? "px-0 pt-0" : "px-4 pt-4"}`}>
+    <div className={`ig-screen min-h-screen bg-background pb-24 ${isSelectStep ? "px-0 pt-0" : "px-4 pt-4"}`}>
       <div className={`${isSelectStep ? "w-full" : "mx-auto w-full max-w-4xl"}`}>
-        <div className={`mb-4 flex items-center justify-between ${isSelectStep ? "px-4 pt-4" : ""}`}>
+        <div className={`ig-header mb-4 flex items-center justify-between ${isSelectStep ? "px-4 pt-3" : "px-2 py-2"}`}>
           {isSelectStep ? (
             <>
               <div className="w-10" />
-              <h1 className="text-sm font-semibold uppercase tracking-wide text-white/90">New</h1>
+              <h1 className="text-sm font-semibold tracking-wide text-foreground">New</h1>
               <div ref={createOverflowRef} className="relative">
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="border border-white/20 bg-black/35 text-white hover:bg-black/55"
+                  className="ig-tap border border-border bg-secondary text-foreground hover:bg-secondary/80"
                   onClick={() => setShowCreateOverflow((prev) => !prev)}
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -1759,7 +1759,7 @@ const Create = () => {
             <>
               <div className="flex items-center gap-2">
                 {(step as string) !== "select" && step !== "success" && (
-                  <Button variant="ghost" size="icon" onClick={() => setStep("select")}>
+                  <Button variant="ghost" size="icon" className="ig-tap" onClick={() => setStep("select")}>
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 )}
@@ -1767,7 +1767,7 @@ const Create = () => {
                   {step === "edit" ? "Edit" : step === "share" ? "Share" : "Done"}
                 </h1>
               </div>
-              <Button variant="outline" onClick={clearAll}>
+              <Button variant="outline" className="ig-tap" onClick={clearAll}>
                 Reset
               </Button>
             </>
@@ -1775,11 +1775,12 @@ const Create = () => {
         </div>
 
         {!isSelectStep && step !== "success" && (
-          <div className="mb-4 flex items-center justify-center gap-8 border-b border-border/70 pb-2 text-xs font-semibold uppercase tracking-wide">
+          <div className="mb-4 flex items-center justify-center gap-2 border-b border-border/70 pb-2 text-xs font-semibold">
             <button
               onClick={() => setStep("select")}
-              className={`pb-2 transition-colors ${
-                step === ("select" as string) ? "border-b-2 border-foreground text-foreground" : "text-muted-foreground"
+              data-active={step === ("select" as string)}
+              className={`ig-tab-pill ig-tap min-w-[84px] px-3 py-1.5 transition-colors ${
+                step === ("select" as string) ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               Select
@@ -1787,8 +1788,9 @@ const Create = () => {
             <button
               onClick={() => clips.length && setStep("edit")}
               disabled={!clips.length}
-              className={`pb-2 transition-colors disabled:opacity-40 ${
-                step === "edit" ? "border-b-2 border-foreground text-foreground" : "text-muted-foreground"
+              data-active={step === "edit"}
+              className={`ig-tab-pill ig-tap min-w-[84px] px-3 py-1.5 transition-colors disabled:opacity-40 ${
+                step === "edit" ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               Edit
@@ -1796,8 +1798,9 @@ const Create = () => {
             <button
               onClick={() => clips.length && setStep("share")}
               disabled={!clips.length}
-              className={`pb-2 transition-colors disabled:opacity-40 ${
-                step === "share" ? "border-b-2 border-foreground text-foreground" : "text-muted-foreground"
+              data-active={step === "share"}
+              className={`ig-tab-pill ig-tap min-w-[84px] px-3 py-1.5 transition-colors disabled:opacity-40 ${
+                step === "share" ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               Share
@@ -1858,7 +1861,7 @@ const Create = () => {
               )}
 
               <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/90">Instagram-style create flow</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/90">Create flow</p>
               </div>
 
               <div className="absolute inset-x-0 top-0 z-10 px-4 pt-10">
@@ -1880,7 +1883,7 @@ const Create = () => {
                       onClick={() => applyCreateIntentPreset("reel")}
                     >
                       <Film className="h-4 w-4" />
-                      Reel
+                      Clippy
                     </Button>
                     <Button
                       type="button"
@@ -1899,7 +1902,7 @@ const Create = () => {
                 <div className="mb-3 rounded-lg border border-white/20 bg-black/35 p-2 text-[11px] text-white/80 backdrop-blur">
                   {createIntent === "post"
                     ? "Post mode prioritizes profile feed publishing defaults."
-                    : "Reel mode keeps vertical-first and reel cross-post defaults."}
+                    : "Clippy mode keeps vertical-first and clippy cross-post defaults."}
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
@@ -2363,7 +2366,7 @@ const Create = () => {
                       <Switch checked={crossPostStory} onCheckedChange={setCrossPostStory} />
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm">Reel</span>
+                      <span className="text-sm">Clippy</span>
                       <Switch checked={crossPostReel} onCheckedChange={setCrossPostReel} />
                     </div>
                     <div className="flex items-center justify-between">

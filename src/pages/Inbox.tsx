@@ -603,20 +603,20 @@ const Inbox = () => {
           }}
           onTouchStart={(event) => handleConversationTouchStart(event, convo.id)}
           onTouchEnd={(event) => handleConversationTouchEnd(event, convo.id)}
-          className={`lift-on-tap group relative mx-2 my-1.5 flex w-[calc(100%-1rem)] items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors active:bg-secondary/50 ${
+          className={`ig-tap group relative mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors active:bg-secondary/50 ${
             isUnread
               ? "border-primary/30 bg-primary/8"
               : "border-border/70 bg-secondary/35"
           } ${isSwiped ? "-translate-x-36" : "translate-x-0"}`}
         >
           <div className="relative">
-            <img src={avatarUrl} alt={other.display_name} className="h-12 w-12 rounded-full object-cover ring-2 ring-background transition-transform duration-200 group-hover:scale-[1.02]" />
+            <img src={avatarUrl} alt={other.display_name} className="h-11 w-11 rounded-full object-cover ring-2 ring-background transition-transform duration-200 group-hover:scale-[1.02]" />
             {isUnread && <Circle className="absolute -right-0.5 top-0 h-3.5 w-3.5 fill-primary text-primary" />}
           </div>
           <div className="flex-1 overflow-hidden text-left">
             <div className="flex items-center justify-between">
               <div className="flex min-w-0 items-center gap-1.5">
-                <p className={`truncate text-sm font-semibold ${isUnread ? "text-foreground" : "text-foreground/90"}`}>
+                <p className={`truncate text-[13px] font-semibold ${isUnread ? "text-foreground" : "text-foreground/90"}`}>
                   {other.display_name}
                 </p>
                 {settings.pinned && <Pin className="h-3 w-3 text-primary" />}
@@ -625,7 +625,7 @@ const Inbox = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 {lastMsg?.created_at && (
-                  <span className={`text-[11px] ${isUnread ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  <span className={`text-[10px] ${isUnread ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
                     {formatTime(lastMsg.created_at)}
                   </span>
                 )}
@@ -758,7 +758,7 @@ const Inbox = () => {
                 <button
                   key={item.convoId}
                   onClick={() => setActiveConversation({ id: item.convoId, otherUser: other })}
-                  className="lift-on-tap relative shrink-0 rounded-2xl border border-border/60 bg-secondary/25 p-2 transition-colors hover:bg-secondary/35"
+                  className="ig-tap relative shrink-0 rounded-xl border border-border/60 bg-secondary/25 p-2 transition-colors hover:bg-secondary/35"
                 >
                   <img
                     src={avatarUrl}
@@ -947,7 +947,7 @@ const Inbox = () => {
                     onClick={() => {
                       if (convo) setActiveConversation({ id: convo.id, otherUser: other });
                     }}
-                    className="lift-on-tap flex shrink-0 flex-col items-center gap-1"
+                    className="ig-tap flex shrink-0 flex-col items-center gap-1"
                   >
                     <div className="relative">
                       <img
@@ -992,7 +992,7 @@ const Inbox = () => {
                     },
                   });
                 }}
-                className="lift-on-tap flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-secondary/50"
+                className="ig-tap flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-secondary/50"
               >
                 <div className="relative">
                   <img src={avatarUrl} alt={group.name} className="h-12 w-12 rounded-xl object-cover" />
@@ -1109,21 +1109,21 @@ const Inbox = () => {
   // ── Main return ────────────────────────────────────────────────────
 
   return (
-    <div className={`${isReturningFromChat ? "inbox-return" : "fade-in"} relative min-h-screen bg-background pb-24`}>
+    <div className={`${isReturningFromChat ? "inbox-return" : "ig-screen"} relative min-h-screen bg-background pb-24`}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-28 right-[-14%] h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
         <div className="absolute bottom-[-14%] left-[-16%] h-72 w-72 rounded-full bg-secondary/45 blur-3xl" />
       </div>
 
       {/* Top Bar */}
-      <div className="sticky top-0 z-10 border-b border-border/70 bg-background/90 backdrop-blur-xl">
+      <div className="ig-header sticky top-0 z-10">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate(-1)} className="rounded-full p-1.5 transition-colors hover:bg-secondary/70">
+            <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1.5 transition-colors hover:bg-secondary/70">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
             <div>
-              <h1 className="text-xl font-bold text-foreground">Messages</h1>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">Messages</h1>
               <p className="text-[11px] text-muted-foreground">Stay synced across chats, communities, and requests</p>
             </div>
             {unreadTotal > 0 && (
@@ -1135,7 +1135,7 @@ const Inbox = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowNewChat(true)}
-              className="rounded-full bg-secondary/85 p-2.5 text-foreground transition-colors hover:bg-secondary"
+              className="ig-tap rounded-full bg-secondary/85 p-2.5 text-foreground transition-colors hover:bg-secondary"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -1147,7 +1147,7 @@ const Inbox = () => {
                   setShowNewChat(true);
                 }
               }}
-              className="rounded-full bg-primary p-2.5 text-primary-foreground"
+              className="ig-tap rounded-full bg-primary p-2.5 text-primary-foreground"
             >
               <Edit3 className="h-4 w-4" />
             </button>
@@ -1200,11 +1200,12 @@ const Inbox = () => {
         </div>
 
         {/* Tabs: Primary | Community | Requests */}
-        <div className="mx-4 mb-3 flex items-center gap-1 rounded-2xl border border-border/70 bg-secondary/50 p-1">
+        <div className="mx-4 mb-3 flex items-center gap-1 rounded-2xl p-1">
           <button
             onClick={() => setActiveTab("primary")}
-              className={`flex-1 rounded-full px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
-              activeTab === "primary" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            data-active={activeTab === "primary"}
+              className={`ig-tab-pill flex-1 px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
+              activeTab === "primary" ? "text-foreground shadow-sm" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1">
@@ -1214,8 +1215,9 @@ const Inbox = () => {
           </button>
           <button
             onClick={() => setActiveTab("community")}
-              className={`flex-1 rounded-full px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
-              activeTab === "community" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            data-active={activeTab === "community"}
+              className={`ig-tab-pill flex-1 px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
+              activeTab === "community" ? "text-foreground shadow-sm" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1">
@@ -1230,8 +1232,9 @@ const Inbox = () => {
           </button>
           <button
             onClick={() => setActiveTab("requests")}
-              className={`flex-1 rounded-full px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
-              activeTab === "requests" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+            data-active={activeTab === "requests"}
+              className={`ig-tab-pill flex-1 px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
+              activeTab === "requests" ? "text-foreground shadow-sm" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1">
@@ -1261,21 +1264,21 @@ const Inbox = () => {
             setShowNewChat(true);
           }
         }}
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
+        className="ig-tap fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
       >
         <Plus className="h-6 w-6" />
       </button>
 
       {/* New Chat Modal */}
       {showNewChat && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background">
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
+        <div className="ig-screen fixed inset-0 z-50 flex flex-col bg-background">
+          <div className="ig-header flex items-center gap-3 px-4 py-3.5">
             <button
               onClick={() => {
                 setShowNewChat(false);
                 setNewChatQuery("");
               }}
-              className="rounded-full p-1.5 hover:bg-secondary"
+              className="ig-tap rounded-full p-1.5 hover:bg-secondary"
             >
               <X className="h-5 w-5 text-foreground" />
             </button>
@@ -1300,7 +1303,7 @@ const Inbox = () => {
                 <button
                   key={u.user_id}
                   onClick={() => handleStartChat(u)}
-                  className="lift-on-tap flex w-full items-center gap-3 px-4 py-3.5 transition-colors active:bg-secondary/50"
+                  className="ig-tap flex w-full items-center gap-3 px-4 py-3.5 transition-colors active:bg-secondary/50"
                 >
                   <img
                     src={u.avatar_url || `https://i.pravatar.cc/100?u=${u.user_id}`}
@@ -1324,15 +1327,15 @@ const Inbox = () => {
 
       {/* New Community Modal */}
       {showNewCommunity && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-background">
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3.5">
+        <div className="ig-screen fixed inset-0 z-50 flex flex-col bg-background">
+          <div className="ig-header flex items-center gap-3 px-4 py-3.5">
             <button
               onClick={() => {
                 setShowNewCommunity(false);
                 setCommunityName("");
                 setCommunityDesc("");
               }}
-              className="rounded-full p-1.5 hover:bg-secondary"
+              className="ig-tap rounded-full p-1.5 hover:bg-secondary"
             >
               <X className="h-5 w-5 text-foreground" />
             </button>

@@ -154,7 +154,7 @@ const Profile = () => {
   const tabs = useMemo(
     () => [
       { id: "posts" as const, icon: Grid3X3, label: "Posts", count: tabCounts.posts },
-      { id: "reels" as const, icon: Play, label: "Reels", count: tabCounts.reels },
+      { id: "reels" as const, icon: Play, label: "Clippy", count: tabCounts.reels },
       { id: "tagged" as const, icon: UserRound, label: "Tagged", count: tabCounts.tagged },
       ...(isOwnProfile ? [{ id: "saved" as const, icon: Bookmark, label: "Saved", count: tabCounts.saved }] : []),
     ],
@@ -417,7 +417,7 @@ const Profile = () => {
   return (
     <div 
       ref={containerRef}
-      className="fade-in min-h-screen bg-background pb-20 overflow-y-auto"
+      className="ig-screen min-h-screen bg-background pb-20 overflow-y-auto"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -432,22 +432,22 @@ const Profile = () => {
           </div>
         </div>
       )}
-      <div className="flex items-center justify-between px-4 pt-4">
+      <div className="ig-header sticky top-0 z-20 flex items-center justify-between px-4 py-2.5">
         <div className="flex items-center gap-3 min-w-0">
           {!isOwnProfile && (
-            <button onClick={() => navigate(-1)} className="lift-on-tap rounded-lg p-1">
+            <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1.5">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
           )}
-          <div className="truncate text-lg font-bold text-foreground">@{profile?.username || "user"}</div>
+          <div className="truncate text-[1.05rem] font-semibold tracking-tight text-foreground">@{profile?.username || "user"}</div>
           {profile?.is_verified && <BadgeCheck className="h-4 w-4 text-primary" />}
         </div>
         {isOwnProfile ? (
-          <button onClick={() => navigate("/settings")} className="lift-on-tap rounded-lg bg-secondary p-2">
+          <button onClick={() => navigate("/settings")} className="ig-tap rounded-full bg-secondary p-2">
             <Settings className="h-4 w-4 text-foreground" />
           </button>
         ) : (
-          <button onClick={() => navigate("/discover")} className="lift-on-tap rounded-lg bg-secondary p-2">
+          <button onClick={() => navigate("/discover")} className="ig-tap rounded-full bg-secondary p-2">
             <Users className="h-4 w-4 text-foreground" />
           </button>
         )}
@@ -455,7 +455,7 @@ const Profile = () => {
 
       <div className="px-4 pt-5">
         <div className="flex items-start gap-4">
-          <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center text-2xl font-bold text-muted-foreground overflow-hidden shrink-0">
+          <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-border/70 text-2xl font-bold text-muted-foreground">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -465,15 +465,15 @@ const Profile = () => {
 
           <div className="flex-1">
             <div className="grid grid-cols-3 gap-3 text-center">
-              <button onClick={() => setActiveTab("posts")} className="rounded-lg p-1 hover:bg-secondary/60">
+              <button onClick={() => setActiveTab("posts")} className="ig-tap p-1">
                 <p className="text-lg font-bold text-foreground">{displayStats.posts}</p>
                 <p className="text-xs text-muted-foreground">Posts</p>
               </button>
-              <button onClick={() => setShowFollowersModal(true)} className="rounded-lg p-1 hover:bg-secondary/60">
+              <button onClick={() => setShowFollowersModal(true)} className="ig-tap p-1">
                 <p className="text-lg font-bold text-foreground">{displayStats.followers}</p>
                 <p className="text-xs text-muted-foreground">Followers</p>
               </button>
-              <button onClick={() => setShowFollowingModal(true)} className="rounded-lg p-1 hover:bg-secondary/60">
+              <button onClick={() => setShowFollowingModal(true)} className="ig-tap p-1">
                 <p className="text-lg font-bold text-foreground">{displayStats.following}</p>
                 <p className="text-xs text-muted-foreground">Following</p>
               </button>
@@ -508,7 +508,7 @@ const Profile = () => {
             <>
               <button
                 onClick={() => setShowEditModal(true)}
-                className="lift-on-tap flex-1 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap flex-1 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Edit profile
               </button>
@@ -517,7 +517,7 @@ const Profile = () => {
                   navigator.clipboard.writeText(window.location.origin + `/profile/${viewingUserId}`);
                   toast.success("Profile link copied");
                 }}
-                className="lift-on-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Share
               </button>
@@ -538,13 +538,13 @@ const Profile = () => {
                   }
                 }}
                 disabled={createReferral.isPending}
-                className="lift-on-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 {createReferral.isPending ? "Creating..." : "Invite"}
               </button>
               <button
                 onClick={() => setShowHiddenVideosModal(true)}
-                className="lift-on-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Hidden {hiddenVideos?.length ? `(${hiddenVideos.length})` : ""}
               </button>
@@ -554,7 +554,7 @@ const Profile = () => {
               <button
                 onClick={handleFollow}
                 disabled={toggleFollow.isPending}
-                className={`lift-on-tap flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${
+                className={`ig-tap flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${
                   isFollowing || hasPendingRequest
                     ? "bg-secondary text-secondary-foreground"
                     : "bg-primary text-primary-foreground"
@@ -564,7 +564,7 @@ const Profile = () => {
               </button>
               <button
                 onClick={handleMessageUser}
-                className="lift-on-tap flex-1 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap flex-1 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Message
               </button>
@@ -794,7 +794,7 @@ const Profile = () => {
 
         {!isOwnProfile && !!suggestedUsers?.length && (
           <div className="mt-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Suggested for you</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Suggested Accounts</p>
             <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-1">
               {suggestedUsers.map((suggested: any) => (
                 <button
@@ -812,21 +812,22 @@ const Profile = () => {
         )}
       </div>
 
-      <div className="mt-4 border-y border-border bg-background/95 px-2 py-2">
+      <div className="ig-header mt-4 px-2 py-2">
         <div className="scrollbar-hide flex gap-2 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 transition-colors ${
+              data-active={activeTab === tab.id}
+              className={`ig-tab-pill flex shrink-0 items-center gap-2 px-3 py-1.5 transition-colors ${
                 activeTab === tab.id
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-secondary/40 text-foreground"
+                  ? "text-foreground"
+                  : "text-foreground"
               }`}
             >
               <tab.icon className="h-3.5 w-3.5" />
               <span className="text-xs font-semibold">{tab.label}</span>
-              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeTab === tab.id ? "bg-background/20 text-background" : "bg-secondary text-muted-foreground"}`}>
+              <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${activeTab === tab.id ? "bg-secondary text-foreground" : "bg-secondary text-muted-foreground"}`}>
                 {tab.count}
               </span>
             </button>
@@ -915,13 +916,13 @@ const Profile = () => {
             </div>
           )}
 
-        <div className={`gap-0.5 p-0.5 ${
-          gridLayout === "grid-3" ? "grid grid-cols-3" : gridLayout === "grid-2" ? "grid grid-cols-2" : "flex flex-col gap-2 px-2"
+        <div className={`gap-px bg-border ${
+          gridLayout === "grid-3" ? "grid grid-cols-3" : gridLayout === "grid-2" ? "grid grid-cols-2" : "flex flex-col gap-2 bg-transparent px-2"
         }`}>
           {currentVideos.map((video: any) => (
             <div 
               key={video.id} 
-              className={`relative overflow-hidden bg-secondary group cursor-pointer transition-transform hover:scale-[1.02] ${
+              className={`group relative cursor-pointer overflow-hidden bg-background ${
                 gridLayout === "list" ? "rounded-lg" : "aspect-[9/16]"
               }`}
               onClick={() => navigate("/clipy", { state: { focusVideoId: video.id, focusSource: "profile" } })}
@@ -1056,7 +1057,7 @@ const Profile = () => {
                 {activeTab === "posts"
                   ? "No posts yet"
                   : activeTab === "reels"
-                  ? "No reels yet"
+                  ? "No Clippy yet"
                   : activeTab === "tagged"
                   ? "No tagged posts"
                   : "No saved posts"}

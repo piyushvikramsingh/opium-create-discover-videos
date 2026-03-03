@@ -5,6 +5,8 @@ import {
   Heart,
   Sparkles,
   PlusSquare,
+  Clapperboard,
+  Images,
   Bookmark,
   Share2,
   RefreshCcw,
@@ -39,9 +41,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { useConversations } from "@/hooks/useMessages";
 import CommentsSheet from "@/components/CommentsSheet";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
 
 const HomeTan = () => {
   const navigate = useNavigate();
+  const { autoplayVideos, autoplaySound, loopVideos, hideLikeCount } = useRuntimeSettings();
   const { user } = useAuth();
   const { data: profile } = useProfile(user?.id);
   const { data: videos = [], isLoading, isFetching, refetch } = useForYouVideos();
@@ -68,6 +72,7 @@ const HomeTan = () => {
   const [pendingBookmarkIds, setPendingBookmarkIds] = useState<Set<string>>(() => new Set());
   const [loadedImageIds, setLoadedImageIds] = useState<Set<string>>(() => new Set());
   const [activeCommentsVideoId, setActiveCommentsVideoId] = useState<string | null>(null);
+  const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [activePostActions, setActivePostActions] = useState<any | null>(null);
   const [postActionPending, setPostActionPending] = useState<"report" | "hide" | "copy" | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -78,13 +83,19 @@ const HomeTan = () => {
   const pullStartYRef = useRef(0);
   const pullTriggeredRef = useRef(false);
   const pullThresholdHapticSentRef = useRef(false);
+  const videoElementsRef = useRef<Map<string, HTMLVideoElement>>(new Map());
+  const videoObserverRef = useRef<IntersectionObserver | null>(null);
+  const videoVisibilityRef = useRef<Map<string, number>>(new Map());
+  const activeVideoIdRef = useRef<string | null>(null);
 
   const PULL_REFRESH_TRIGGER = 78;
   const PULL_REFRESH_MAX = 112;
+  const ACTIVE_VIDEO_KEEP_VISIBILITY = 0.45;
+  const ACTIVE_VIDEO_SWITCH_VISIBILITY = 0.65;
   const topIconButtonClass =
-    "relative lift-on-tap rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70 active:scale-95";
+    "relative ig-tap rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
   const feedIconButtonClass =
-    "lift-on-tap rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70 active:scale-95";
+    "ig-tap rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
 
   const followingIds = useMemo(() => {
     return new Set((followingList || []).map((p: any) => p.user_id));
@@ -177,6 +188,109 @@ const HomeTan = () => {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    videoObserverRef.current = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const element = entry.target as HTMLVideoElement;
+          const postId = element.dataset.postId;
+          if (!postId) continue;
+
+          if (entry.isIntersecting) {
+            videoVisibilityRef.current.set(postId, entry.intersectionRatio);
+          } else {
+            videoVisibilityRef.current.set(postId, 0);
+          }
+        }
+
+        const currentActiveId = activeVideoIdRef.current;
+        const currentActiveRatio = currentActiveId
+          ? videoVisibilityRef.current.get(currentActiveId) ?? 0
+          : 0;
+
+        let bestPostId: string | null = null;
+        let bestRatio = ACTIVE_VIDEO_SWITCH_VISIBILITY;
+        videoVisibilityRef.current.forEach((ratio, postId) => {
+          if (ratio >= bestRatio) {
+            bestRatio = ratio;
+            bestPostId = postId;
+          }
+        });
+
+        let nextActiveId: string | null = null;
+        if (currentActiveId && currentActiveRatio >= ACTIVE_VIDEO_KEEP_VISIBILITY) {
+          nextActiveId = currentActiveId;
+        }
+
+        if (bestPostId) {
+          const shouldSwitchFromCurrent =
+            !nextActiveId ||
+            nextActiveId !== bestPostId ||
+            (nextActiveId === bestPostId && currentActiveRatio < ACTIVE_VIDEO_SWITCH_VISIBILITY);
+          if (shouldSwitchFromCurrent) {
+            nextActiveId = bestPostId;
+          }
+        }
+
+        activeVideoIdRef.current = nextActiveId;
+
+        videoElementsRef.current.forEach((element, postId) => {
+          if (postId === nextActiveId) {
+            if (!autoplayVideos) {
+              element.pause();
+              return;
+            }
+            element.muted = !autoplaySound;
+            const playAttempt = element.play();
+            if (playAttempt && typeof playAttempt.catch === "function") {
+              playAttempt.catch(() => undefined);
+            }
+          } else {
+            element.pause();
+          }
+        });
+
+      },
+      {
+        threshold: [0, 0.25, ACTIVE_VIDEO_KEEP_VISIBILITY, ACTIVE_VIDEO_SWITCH_VISIBILITY, 0.8, 1],
+      },
+    );
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) return;
+      videoVisibilityRef.current.forEach((_, postId) => {
+        videoVisibilityRef.current.set(postId, 0);
+      });
+      activeVideoIdRef.current = null;
+      videoElementsRef.current.forEach((element) => element.pause());
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      videoObserverRef.current?.disconnect();
+      videoObserverRef.current = null;
+    };
+  }, [autoplaySound, autoplayVideos]);
+
+  useEffect(() => {
+    const activeIds = new Set(feedPosts.map((post: any) => post.id));
+    const observer = videoObserverRef.current;
+
+    videoElementsRef.current.forEach((element, postId) => {
+      if (!activeIds.has(postId)) {
+        observer?.unobserve(element);
+        element.pause();
+        videoElementsRef.current.delete(postId);
+        videoVisibilityRef.current.delete(postId);
+        if (activeVideoIdRef.current === postId) {
+          activeVideoIdRef.current = null;
+        }
+      }
+    });
+  }, [feedPosts]);
 
   const handleDoubleTapLike = async (postId: string) => {
     if (likedPosts.has(postId)) return;
@@ -293,6 +407,15 @@ const HomeTan = () => {
       next.add(postId);
       return next;
     });
+  };
+
+  const handleOpenCreate = (createType?: "story") => {
+    setShowCreateOptions(false);
+    if (createType === "story") {
+      navigate("/create", { state: { createType: "story" } });
+      return;
+    }
+    navigate("/create");
   };
 
   const handleCopyPostLink = async (postId: string) => {
@@ -462,7 +585,7 @@ const HomeTan = () => {
 
   return (
     <div
-      className="min-h-screen bg-background pb-24 pt-safe fade-in"
+      className="ig-screen min-h-screen bg-background pb-24 pt-safe"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={() => {
@@ -474,7 +597,7 @@ const HomeTan = () => {
         pullThresholdHapticSentRef.current = false;
       }}
     >
-      <div className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur-xl">
+      <div className="ig-header sticky top-0 z-30">
         <div
           className="overflow-hidden transition-all duration-200"
           style={{ height: `${isPullRefreshing ? 44 : Math.min(44, pullDistance)}px` }}
@@ -492,9 +615,9 @@ const HomeTan = () => {
             </span>
           </div>
         </div>
-        <div className="px-4 py-3">
+        <div className="px-4 py-2.5">
           <div className="flex items-center justify-between">
-            <div className="text-xl font-bold italic text-foreground">
+            <div className="text-[1.25rem] font-semibold tracking-tight text-foreground">
               Opium
             </div>
             <div className="flex items-center gap-2">
@@ -507,7 +630,7 @@ const HomeTan = () => {
                 <RefreshCcw className={`h-5 w-5 ${isFetching || isPullRefreshing ? "animate-spin" : ""}`} />
               </button>
               <button
-                onClick={() => navigate("/create")}
+                onClick={() => setShowCreateOptions(true)}
                 className={topIconButtonClass}
                 aria-label="Create"
               >
@@ -538,24 +661,26 @@ const HomeTan = () => {
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-center gap-8 border-t border-border/70 px-4 pb-2 pt-2 text-xs font-semibold uppercase tracking-wide">
+        <div className="flex items-center justify-center gap-2 border-t border-border/70 px-4 pb-2 pt-2 text-xs font-semibold">
           <button
             onClick={() => setFeedMode("forYou")}
             aria-pressed={feedMode === "forYou"}
-            className={`pb-2 transition-colors ${
+            data-active={feedMode === "forYou"}
+            className={`ig-tab-pill min-w-[92px] px-3 py-1.5 transition-colors ${
               feedMode === "forYou"
-                ? "border-b-2 border-foreground text-foreground"
+                ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            For you
+            For You
           </button>
           <button
             onClick={() => setFeedMode("following")}
             aria-pressed={feedMode === "following"}
-            className={`pb-2 transition-colors ${
+            data-active={feedMode === "following"}
+            className={`ig-tab-pill min-w-[92px] px-3 py-1.5 transition-colors ${
               feedMode === "following"
-                ? "border-b-2 border-foreground text-foreground"
+                ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -595,7 +720,7 @@ const HomeTan = () => {
         <div className="space-y-4 px-3 pt-4">
           {feedPosts.map((post: any, index: number) => (
             <Fragment key={post.id}>
-              <article className="overflow-hidden rounded-2xl border border-border bg-background">
+              <article className="overflow-hidden rounded-xl border border-border/80 bg-background transition-shadow duration-200 hover:shadow-sm">
                 <div className="flex items-center justify-between px-4 py-3">
                   <button
                     onClick={() => navigate(`/profile/${post.user_id}`)}
@@ -621,7 +746,7 @@ const HomeTan = () => {
                     </div>
                   </button>
                   <button
-                    className="lift-on-tap rounded-full p-2 text-muted-foreground hover:text-foreground"
+                    className="ig-tap rounded-full p-2 text-muted-foreground hover:text-foreground"
                     onClick={() => setActivePostActions(post)}
                     aria-label="Post actions"
                   >
@@ -629,7 +754,7 @@ const HomeTan = () => {
                   </button>
                 </div>
 
-                {!!post.thumbnail_url && (
+                {(post.video_url || post.thumbnail_url) && (
                   <div
                     className="relative aspect-[4/5] overflow-hidden bg-secondary"
                     onDoubleClick={() => handleDoubleTapLike(post.id)}
@@ -637,17 +762,55 @@ const HomeTan = () => {
                     {!loadedImageIds.has(post.id) && (
                       <div className="absolute inset-0 animate-pulse bg-secondary" />
                     )}
-                    <img
-                      src={post.thumbnail_url}
-                      alt=""
-                      loading={index < 2 ? "eager" : "lazy"}
-                      decoding="async"
-                      onLoad={() => markImageLoaded(post.id)}
-                      onError={() => markImageLoaded(post.id)}
-                      className={`h-full w-full object-cover transition-opacity duration-300 ${
-                        loadedImageIds.has(post.id) ? "opacity-100" : "opacity-0"
-                      }`}
-                    />
+                    {post.video_url ? (
+                      <video
+                        data-post-id={post.id}
+                        ref={(node) => {
+                          const current = videoElementsRef.current.get(post.id);
+                          if (current && current !== node) {
+                            videoObserverRef.current?.unobserve(current);
+                          }
+
+                          if (!node) {
+                            if (current) {
+                              videoObserverRef.current?.unobserve(current);
+                              current.pause();
+                            }
+                            videoElementsRef.current.delete(post.id);
+                            videoVisibilityRef.current.delete(post.id);
+                            return;
+                          }
+
+                          videoElementsRef.current.set(post.id, node);
+                          videoVisibilityRef.current.set(post.id, 0);
+                          videoObserverRef.current?.observe(node);
+                        }}
+                        src={post.video_url}
+                        poster={post.thumbnail_url || undefined}
+                        autoPlay={autoplayVideos}
+                        muted={!autoplaySound}
+                        loop={loopVideos}
+                        playsInline
+                        preload={index < 2 ? "auto" : "metadata"}
+                        onLoadedData={() => markImageLoaded(post.id)}
+                        onError={() => markImageLoaded(post.id)}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          loadedImageIds.has(post.id) ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                    ) : (
+                      <img
+                        src={post.thumbnail_url}
+                        alt=""
+                        loading={index < 2 ? "eager" : "lazy"}
+                        decoding="async"
+                        onLoad={() => markImageLoaded(post.id)}
+                        onError={() => markImageLoaded(post.id)}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          loadedImageIds.has(post.id) ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                    )}
                     {heartBurstId === post.id && (
                       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                         <div className="heart-burst">
@@ -658,7 +821,7 @@ const HomeTan = () => {
                   </div>
                 )}
 
-                <div className="px-4 py-3">
+                <div className="px-4 py-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <button
@@ -695,11 +858,11 @@ const HomeTan = () => {
                     </button>
                   </div>
 
-                  <p className="mt-2 text-sm font-semibold text-foreground">
-                    {getLikeCount(post).toLocaleString()} likes
+                  <p className="mt-1.5 text-sm font-semibold text-foreground">
+                    {hideLikeCount ? "Liked by others" : `${getLikeCount(post).toLocaleString()} likes`}
                   </p>
 
-                  <p className="mt-1 text-sm text-foreground/90">
+                  <p className="mt-1 text-sm leading-snug text-foreground/90">
                     <span className="font-semibold text-foreground">
                       {post.profiles?.username || "user"}
                     </span>{" "}
@@ -725,7 +888,7 @@ const HomeTan = () => {
                 <section className="rounded-2xl border border-border bg-background p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Suggested for you
+                      Suggested accounts
                     </p>
                     <button
                       className="text-[11px] font-semibold text-foreground/80 hover:text-foreground"
@@ -885,6 +1048,34 @@ const HomeTan = () => {
           if (!open) setActiveCommentsVideoId(null);
         }}
       />
+
+      <Sheet open={showCreateOptions} onOpenChange={setShowCreateOptions}>
+        <SheetContent side="bottom" className="rounded-t-2xl border-border bg-background p-0">
+          <div className="border-b border-border px-4 py-3 text-center">
+            <SheetTitle className="text-sm font-semibold">Upload</SheetTitle>
+          </div>
+          <div className="space-y-1 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+            <button
+              onClick={() => handleOpenCreate()}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-foreground hover:bg-secondary"
+            >
+              <Images className="h-4 w-4" /> Upload post or Clippy
+            </button>
+            <button
+              onClick={() => handleOpenCreate("story")}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-foreground hover:bg-secondary"
+            >
+              <Clapperboard className="h-4 w-4" /> Upload story
+            </button>
+            <button
+              onClick={() => setShowCreateOptions(false)}
+              className="w-full rounded-xl bg-secondary px-3 py-3 text-sm font-semibold text-foreground"
+            >
+              Cancel
+            </button>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={!!activePostActions} onOpenChange={(open) => !open && setActivePostActions(null)}>
         <SheetContent side="bottom" className="rounded-t-2xl border-border bg-background p-0">

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useReliableMutationPipelineWorker } from "@/hooks/useData";
+import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
 import AppLayout from "@/layouts/AppLayout";
 
 const HomeTan = lazy(() => import("./pages/HomeTan"));
@@ -92,6 +93,24 @@ function BackgroundWorkers() {
   return null;
 }
 
+function RuntimeSettingsBridge() {
+  const { themePreference, reduceMotion } = useRuntimeSettings();
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dark", themePreference === "dark");
+    root.classList.toggle("light", themePreference === "light");
+    root.classList.toggle("reduce-motion", reduceMotion);
+
+    return () => {
+      root.classList.remove("light");
+      root.classList.remove("reduce-motion");
+    };
+  }, [reduceMotion, themePreference]);
+
+  return null;
+}
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -141,6 +160,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <BackgroundWorkers />
+        <RuntimeSettingsBridge />
         <TooltipProvider>
           <Toaster />
           <Sonner />

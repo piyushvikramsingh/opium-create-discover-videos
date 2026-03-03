@@ -9,6 +9,7 @@ import {
   useUserLikes,
 } from "@/hooks/useData";
 import { useAuth } from "@/hooks/useAuth";
+import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
 import { ChevronUp, RefreshCw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -46,6 +47,7 @@ function isSlowConnection() {
 
 const Index = () => {
   const { user } = useAuth();
+  const { autoplaySound } = useRuntimeSettings();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -106,18 +108,18 @@ const Index = () => {
     return (music.split(/[\s|,-]/).filter(Boolean)[0] || "discover").toLowerCase();
   }, [activeVideo]);
   const activeEngagementLabel = useMemo(() => {
-    if (!activeVideo) return "Fresh picks";
+    if (!activeVideo) return "Recommended";
 
     if ((activeVideo.likes_count || 0) >= 25000 || (activeVideo.shares_count || 0) >= 4000) {
-      return "Exploding now";
+      return "Trending now";
     }
     if ((activeVideo.comments_count || 0) >= 500) {
-      return "High discussion";
+      return "Most discussed";
     }
     if ((activeVideo.shares_count || 0) >= 1000) {
       return "Highly shared";
     }
-    return "Fresh picks";
+    return "Recommended";
   }, [activeVideo]);
   const shouldShowInterestOnboarding = !!user && interests !== null && (interests?.length ?? 0) === 0;
 
@@ -140,6 +142,10 @@ const Index = () => {
       // ignore storage errors
     }
   }, [isFeedMuted]);
+
+  useEffect(() => {
+    setIsFeedMuted(!autoplaySound);
+  }, [autoplaySound]);
 
   const toggleFeedMute = useCallback(() => {
     setIsFeedMuted((prev) => !prev);
@@ -337,7 +343,7 @@ const Index = () => {
   };
 
   return (
-    <div ref={containerRef} className="snap-container scrollbar-hide fade-in" aria-label="video-feed">
+    <div ref={containerRef} className="ig-screen snap-container scrollbar-hide" aria-label="video-feed">
       <TopNav
         activeTab={activeFeedTab}
         onTabChange={setActiveFeedTab}
@@ -359,7 +365,7 @@ const Index = () => {
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground/80">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
-                  {activeFeedTab === "following" ? "Following updates" : "For You picks"}
+                  {activeFeedTab === "following" ? "Following" : "Recommended"}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   #{activeTopic} • {activeEngagementLabel}
@@ -370,7 +376,7 @@ const Index = () => {
                 <button
                   onClick={handleRefreshFeed}
                   disabled={isVideosFetching}
-                  className="lift-on-tap rounded-full bg-secondary/80 p-2 text-foreground disabled:opacity-60"
+                  className="ig-tap rounded-full bg-secondary/80 p-2 text-foreground disabled:opacity-60"
                   aria-label="Refresh feed"
                 >
                   <RefreshCw className={`h-4 w-4 ${isVideosFetching ? "animate-spin" : ""}`} />
@@ -378,7 +384,7 @@ const Index = () => {
                 {activeIndex > 0 && (
                   <button
                     onClick={jumpToTop}
-                    className="lift-on-tap rounded-full bg-secondary/80 p-2 text-foreground"
+                    className="ig-tap rounded-full bg-secondary/80 p-2 text-foreground"
                     aria-label="Back to top"
                   >
                     <ChevronUp className="h-4 w-4" />

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import Hls from "hls.js";
 import { useEngagementLoop } from "@/hooks/useEngagementLoop";
 import type { EngagementActionType } from "@/lib/engagementLoop";
+import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
 
 const getNetworkTier = (): "slow" | "normal" => {
   const connection = (navigator as Navigator & {
@@ -83,6 +84,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const [isSpeedBoosted, setIsSpeedBoosted] = useState(false);
   const [showLikeBurst, setShowLikeBurst] = useState(false);
   const { state: engagementState, recordAction } = useEngagementLoop();
+  const { autoplayVideos, loopVideos, hideLikeCount } = useRuntimeSettings();
   const longPressTimeoutRef = useRef<number | null>(null);
   const singleTapTimeoutRef = useRef<number | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
@@ -221,6 +223,12 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     if (!vid || !hasLoadedMedia) return;
 
     if (isActive) {
+      if (!autoplayVideos) {
+        vid.pause();
+        setIsPlaying(false);
+        return;
+      }
+
       if (activatePlayTimeoutRef.current) {
         window.clearTimeout(activatePlayTimeoutRef.current);
       }
@@ -250,7 +258,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     vid.playbackRate = 1;
     setIsPlaying(false);
     setIsSpeedBoosted(false);
-  }, [isActive, hasLoadedMedia, safePlay]);
+  }, [autoplayVideos, isActive, hasLoadedMedia, safePlay]);
 
   useEffect(() => {
     const onVisibilityChange = () => {
@@ -844,7 +852,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
           src={isHlsSource ? undefined : video.video_url}
           poster={posterUrl}
           className="feed-media absolute inset-0 h-full w-full object-cover"
-          loop
+          loop={loopVideos}
           playsInline
           webkit-playsinline="true"
           disablePictureInPicture
@@ -941,7 +949,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         </div>
       )}
 
-      {/* Muted indicator — like Instagram Reels */}
+      {/* Muted indicator */}
       {isVideo && isMuted && isPlaying && (
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/40 backdrop-blur-sm">
@@ -1008,14 +1016,6 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         </div>
       )}
 
-      {engagementState.fatigueScore >= 70 && (
-        <div className="absolute left-3 top-[17.5rem] z-20">
-          <div className="rounded-full bg-secondary/90 px-3 py-1.5 text-[11px] font-medium text-foreground backdrop-blur-sm">
-            Calm mode: fewer reward prompts for now
-          </div>
-        </div>
-      )}
-
       {/* Right side actions */}
       <div className="absolute bottom-28 right-3 z-10 flex flex-col items-center gap-5">
         <div className="relative">
@@ -1033,7 +1033,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
 
         <button onClick={handleLike} className="lift-on-tap flex flex-col items-center gap-1">
           <Heart className={`h-7 w-7 transition-all ${isLiked ? "fill-primary text-primary scale-110" : "text-foreground"}`} />
-          <span className="text-xs text-foreground font-medium">{formatCount(video.likes_count)}</span>
+          <span className="text-xs text-foreground font-medium">{hideLikeCount ? "•" : formatCount(video.likes_count)}</span>
         </button>
 
         <button onClick={handleOpenComments} className="lift-on-tap flex flex-col items-center gap-1">
