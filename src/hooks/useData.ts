@@ -2,6 +2,8 @@ import { supabase as _supabase } from "@/integrations/supabase/client";
 const supabase: any = _supabase;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
+import { getEngagementPersonalizationBoost, loadEngagementLoopState } from "@/lib/engagementLoop";
 
 const isSchemaMismatchError = (error: any) => {
   const message = String(error?.message || "").toLowerCase();
@@ -118,6 +120,334 @@ function updateVideosCommentsCount(
   });
 }
 
+type ReliableMutationType = "like" | "bookmark" | "comment";
+
+type ReliableLikePayload = {
+  videoId: string;
+  shouldLike: boolean;
+};
+
+type ReliableBookmarkPayload = {
+  videoId: string;
+  shouldBookmark: boolean;
+};
+
+type ReliableCommentPayload = {
+  videoId: string;
+  content: string;
+  clientRequestId: string;
+};
+
+type ReliableMutationPayload = ReliableLikePayload | ReliableBookmarkPayload | ReliableCommentPayload;
+
+type ReliableMutationResult = {
+  queued?: boolean;
+  clientRequestId?: string;
+};
+
+type ReliableMutationAction = {
+  id: string;
+  userId: string;
+  type: ReliableMutationType;
+  dedupeKey: string;
+  payload: ReliableMutationPayload;
+  createdAt: number;
+  attemptCount: number;
+  nextAttemptAt: number;
+  lastErrorMessage?: string;
+};
+
+const RELIABLE_QUEUE_STORAGE_KEY = "opium.reliable-mutation-queue.v1";
+const RELIABLE_QUEUE_MAX_SIZE = 150;
+const RELIABLE_RETRY_BACKOFF_MS = [1500, 4500, 12000, 30000, 60000, 120000, 300000];
+
+const getBrowserWindow = () => {
+  if (typeof window === "undefined") return null;
+  return window;
+};
+
+const makeReliableActionId = () => {
+  const browserWindow = getBrowserWindow();
+  const random = browserWindow?.crypto?.randomUUID?.();
+  if (random) return random;
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const getRetryDelayMs = (attemptCount: number) =>
+  RELIABLE_RETRY_BACKOFF_MS[Math.min(Math.max(0, attemptCount), RELIABLE_RETRY_BACKOFF_MS.length - 1)];
+
+const readReliableQueue = (): ReliableMutationAction[] => {
+  const browserWindow = getBrowserWindow();
+  if (!browserWindow) return [];
+
+  try {
+    const raw = browserWindow.localStorage.getItem(RELIABLE_QUEUE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((entry) => !!entry && typeof entry === "object");
+  } catch {
+    return [];
+  }
+};
+
+const writeReliableQueue = (actions: ReliableMutationAction[]) => {
+  const browserWindow = getBrowserWindow();
+  if (!browserWindow) return;
+
+  try {
+    const bounded = actions
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .slice(-RELIABLE_QUEUE_MAX_SIZE);
+    browserWindow.localStorage.setItem(RELIABLE_QUEUE_STORAGE_KEY, JSON.stringify(bounded));
+  } catch {
+    // ignore storage errors to keep app functional in private mode / strict browsers
+  }
+};
+
+const upsertReliableQueueAction = (action: ReliableMutationAction) => {
+  const existing = readReliableQueue();
+  const filtered = existing.filter((entry) => {
+    if (entry.userId !== action.userId) return true;
+    if (entry.dedupeKey !== action.dedupeKey) return true;
+    // Always keep latest intent per user+resource for like/bookmark.
+    return action.type === "comment";
+  });
+  filtered.push(action);
+  writeReliableQueue(filtered);
+};
+
+const isRetryableMutationError = (error: any) => {
+  const message = String(error?.message || "").toLowerCase();
+  const code = String(error?.code || "").toLowerCase();
+  const status = Number(error?.status || 0);
+
+  if (status >= 500) return true;
+  if (status === 0) return true;
+  if (message.includes("failed to fetch") || message.includes("network")) return true;
+  if (message.includes("timeout") || message.includes("timed out")) return true;
+  if (code.startsWith("08")) return true;
+  if (["57014", "53300"].includes(code)) return true;
+
+  if (code === "22023") return false; // validation/safety rule failure
+  if (status === 401 || status === 403) return false;
+  if (message.includes("not authenticated")) return false;
+  if (message.includes("blocked term")) return false;
+
+  return false;
+};
+
+const setVideoLikeState = async (userId: string, videoId: string, shouldLike: boolean) => {
+  const rpc = await supabase.rpc("set_video_like", {
+    p_video_id: videoId,
+    p_should_like: shouldLike,
+  });
+
+  if (!rpc.error) return;
+  if (!isSchemaMismatchError(rpc.error)) throw rpc.error;
+
+  if (shouldLike) {
+    const { error } = await supabase.from("likes").insert({ user_id: userId, video_id: videoId });
+    if (error) {
+      const code = String(error.code || "");
+      const message = String(error.message || "").toLowerCase();
+      const duplicate = code === "23505" || message.includes("duplicate key");
+      if (!duplicate) throw error;
+    }
+    return;
+  }
+
+  const { error } = await supabase
+    .from("likes")
+    .delete()
+    .eq("user_id", userId)
+    .eq("video_id", videoId);
+  if (error) throw error;
+};
+
+const setVideoBookmarkState = async (userId: string, videoId: string, shouldBookmark: boolean) => {
+  const rpc = await supabase.rpc("set_video_bookmark", {
+    p_video_id: videoId,
+    p_should_bookmark: shouldBookmark,
+  });
+
+  if (!rpc.error) return;
+  if (!isSchemaMismatchError(rpc.error)) throw rpc.error;
+
+  if (shouldBookmark) {
+    const { error } = await supabase.from("bookmarks").insert({ user_id: userId, video_id: videoId });
+    if (error) {
+      const code = String(error.code || "");
+      const message = String(error.message || "").toLowerCase();
+      const duplicate = code === "23505" || message.includes("duplicate key");
+      if (!duplicate) throw error;
+    }
+    return;
+  }
+
+  const { error } = await supabase
+    .from("bookmarks")
+    .delete()
+    .eq("user_id", userId)
+    .eq("video_id", videoId);
+  if (error) throw error;
+};
+
+const createCommentIdempotent = async (
+  userId: string,
+  videoId: string,
+  content: string,
+  clientRequestId: string,
+) => {
+  const trimmed = content.trim();
+  if (!trimmed) throw new Error("Comment cannot be empty");
+
+  const rpc = await supabase.rpc("create_comment_idempotent", {
+    p_video_id: videoId,
+    p_content: trimmed,
+    p_client_request_id: clientRequestId,
+  });
+  if (!rpc.error) return;
+  if (!isSchemaMismatchError(rpc.error)) throw rpc.error;
+
+  const insertWithRequestId = await supabase.from("comments").insert({
+    user_id: userId,
+    video_id: videoId,
+    content: trimmed,
+    client_request_id: clientRequestId,
+  });
+
+  if (!insertWithRequestId.error) return;
+  if (!isSchemaMismatchError(insertWithRequestId.error)) {
+    const code = String(insertWithRequestId.error.code || "");
+    const message = String(insertWithRequestId.error.message || "").toLowerCase();
+    const duplicate = code === "23505" || message.includes("duplicate key");
+    if (!duplicate) throw insertWithRequestId.error;
+    return;
+  }
+
+  const fallbackInsert = await supabase.from("comments").insert({
+    user_id: userId,
+    video_id: videoId,
+    content: trimmed,
+  });
+  if (fallbackInsert.error) throw fallbackInsert.error;
+};
+
+const runReliableAction = async (action: ReliableMutationAction) => {
+  if (action.type === "like") {
+    const payload = action.payload as ReliableLikePayload;
+    await setVideoLikeState(action.userId, payload.videoId, payload.shouldLike);
+    return;
+  }
+
+  if (action.type === "bookmark") {
+    const payload = action.payload as ReliableBookmarkPayload;
+    await setVideoBookmarkState(action.userId, payload.videoId, payload.shouldBookmark);
+    return;
+  }
+
+  const payload = action.payload as ReliableCommentPayload;
+  await createCommentIdempotent(action.userId, payload.videoId, payload.content, payload.clientRequestId);
+};
+
+const flushReliableActionQueue = async (userId: string, maxActions = 8) => {
+  const browserWindow = getBrowserWindow();
+  if (!browserWindow) return { processed: 0, remaining: 0 };
+  if (browserWindow.navigator && browserWindow.navigator.onLine === false) {
+    return { processed: 0, remaining: readReliableQueue().filter((entry) => entry.userId === userId).length };
+  }
+
+  const sourceQueue = readReliableQueue();
+  if (sourceQueue.length === 0) return { processed: 0, remaining: 0 };
+
+  const now = Date.now();
+  let processed = 0;
+  const nextQueue: ReliableMutationAction[] = [];
+
+  for (const action of sourceQueue) {
+    if (action.userId !== userId) {
+      nextQueue.push(action);
+      continue;
+    }
+
+    if (processed >= maxActions) {
+      nextQueue.push(action);
+      continue;
+    }
+
+    if (action.nextAttemptAt > now) {
+      nextQueue.push(action);
+      continue;
+    }
+
+    try {
+      await runReliableAction(action);
+      processed += 1;
+    } catch (error) {
+      const attempts = (action.attemptCount || 0) + 1;
+      if (!isRetryableMutationError(error) || attempts > 8) {
+        continue;
+      }
+
+      nextQueue.push({
+        ...action,
+        attemptCount: attempts,
+        nextAttemptAt: Date.now() + getRetryDelayMs(attempts),
+        lastErrorMessage: String(error instanceof Error ? error.message : "mutation failed"),
+      });
+    }
+  }
+
+  writeReliableQueue(nextQueue);
+  return {
+    processed,
+    remaining: nextQueue.filter((entry) => entry.userId === userId).length,
+  };
+};
+
+const invalidateReliableQueries = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: ["user-likes"] });
+  queryClient.invalidateQueries({ queryKey: ["user-bookmarks"] });
+  queryClient.invalidateQueries({ queryKey: ["videos"] });
+  queryClient.invalidateQueries({ queryKey: ["for-you-videos"] });
+  queryClient.invalidateQueries({ queryKey: ["video-comments"] });
+};
+
+export function useReliableMutationPipelineWorker() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!user) return;
+
+    let disposed = false;
+    const drain = async () => {
+      const result = await flushReliableActionQueue(user.id, 10);
+      if (!disposed && result.processed > 0) {
+        invalidateReliableQueries(queryClient);
+      }
+    };
+
+    void drain();
+
+    const intervalId = window.setInterval(() => {
+      void drain();
+    }, 8000);
+    const onOnline = () => {
+      void drain();
+    };
+
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("online", onOnline);
+    };
+  }, [queryClient, user]);
+}
+
 export function useVideos() {
   const { user } = useAuth();
 
@@ -153,6 +483,8 @@ export function useForYouVideos() {
   return useQuery({
     queryKey: ["for-you-videos", user?.id],
     queryFn: async () => {
+      const engagementState = loadEngagementLoopState();
+
       const { data: videos, error } = await supabase
         .from("videos")
         .select("*, profiles!videos_user_id_fkey(username, display_name, avatar_url)")
@@ -193,33 +525,68 @@ export function useForYouVideos() {
       const rpcResult = await supabase.rpc("get_for_you_video_ids", { limit_count: 150 });
       if (!rpcResult.error && rpcResult.data) {
         const orderedIds = rpcResult.data.map((row: any) => row.video_id).filter(Boolean);
-        if (orderedIds.length === 0) return [];
+        if (orderedIds.length === 0) {
+          // Fall through to client-side ranking fallback instead of returning empty feed.
+        } else {
+          logForYouTelemetry(
+            rpcResult.data.map((row: any, index: number) => ({
+              video_id: row.video_id,
+              score: Number(row.score || 0),
+              rank_position: index + 1,
+              components: { source: "rpc" },
+            })),
+          );
 
-        logForYouTelemetry(
-          rpcResult.data.map((row: any, index: number) => ({
-            video_id: row.video_id,
-            score: Number(row.score || 0),
-            rank_position: index + 1,
-            components: { source: "rpc" },
-          })),
-        );
+          const { data: rankedVideos, error: rankedVideosError } = await supabase
+            .from("videos")
+            .select("*, profiles!videos_user_id_fkey(username, display_name, avatar_url)")
+            .in("id", orderedIds);
 
-        const { data: rankedVideos, error: rankedVideosError } = await supabase
-          .from("videos")
-          .select("*, profiles!videos_user_id_fkey(username, display_name, avatar_url)")
-          .in("id", orderedIds);
+          if (rankedVideosError) throw rankedVideosError;
 
-        if (rankedVideosError) throw rankedVideosError;
+          const byId = new Map(
+            (rankedVideos || []).map((video: any) => {
+              const normalizedVideo = withPlayableVideoUrl(video);
+              return [normalizedVideo.id, normalizedVideo];
+            }),
+          );
 
-        const byId = new Map(
-          (rankedVideos || []).map((video: any) => {
-            const normalizedVideo = withPlayableVideoUrl(video);
-            return [normalizedVideo.id, normalizedVideo];
-          }),
-        );
-        return orderedIds
-          .map((id: string) => byId.get(id))
-          .filter((video: any) => !!video?.video_url);
+          const rpcRanked = orderedIds
+            .map((id: string) => byId.get(id))
+            .filter((video: any) => !!video?.video_url);
+
+          if (rpcRanked.length > 0) {
+            const personalizedRpcRanked = rpcRanked
+              .map((video: any, index: number) => {
+                const baseScore = rpcRanked.length - index;
+                const personalized = getEngagementPersonalizationBoost(video, engagementState, {
+                  baseScore,
+                });
+
+                return {
+                  ...video,
+                  _score: personalized.score,
+                  _personalization: personalized.components,
+                };
+              })
+              .sort((a: any, b: any) => b._score - a._score);
+
+            logForYouTelemetry(
+              personalizedRpcRanked.map((video: any, index: number) => ({
+                video_id: video.id,
+                score: Number(video._score || 0),
+                rank_position: index + 1,
+                components: {
+                  source: "rpc_plus_local",
+                  ...(video._personalization || {}),
+                },
+              })),
+            );
+
+            return personalizedRpcRanked;
+          }
+          // If RPC ranking resolves to no playable videos, continue to client fallback.
+        }
       }
 
       if (rpcResult.error && !isSchemaMismatchError(rpcResult.error)) {
@@ -230,10 +597,10 @@ export function useForYouVideos() {
         loadSafetyFilters(user.id),
         supabase
           .from("video_events")
-          .select("video_id, event_type")
+          .select("video_id, event_type, watch_ms")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
-          .limit(400),
+          .limit(600),
         supabase.from("follows").select("following_id").eq("follower_id", user.id),
         supabase
           .from("profiles")
@@ -247,33 +614,61 @@ export function useForYouVideos() {
       if (interestsRes.error && !isSchemaMismatchError(interestsRes.error)) throw interestsRes.error;
 
       const interactionWeights: Record<string, number> = {
-        view_start: 0.4,
-        view_3s: 1.5,
-        view_complete: 7,
-        like: 8,
-        share: 14,
+        view_start: 0.5,
+        view_3s: 2,
+        view_complete: 8.8,
+        like: 9.5,
+        share: 16,
         follow: 18,
-        hide: -20,
-        report: -28,
+        hide: -22,
+        report: -30,
       };
 
-      const perVideoAffinity = new Map<string, number>();
+      const perVideoStats = new Map<
+        string,
+        {
+          affinity: number;
+          starts: number;
+          completes: number;
+          maxWatchMs: number;
+        }
+      >();
+
       (eventsRes.data || []).forEach((event: any, index: number) => {
         const baseWeight = interactionWeights[event.event_type] ?? 0;
-        if (!baseWeight) return;
+        const decay = Math.max(0.18, 1 - index * 0.0022);
+        const watchDepthBoost = ["view_3s", "view_complete"].includes(event.event_type)
+          ? Math.min(Number(event.watch_ms || 0) / 1000, 30) * 0.085
+          : 0;
 
-        const rankDecay = Math.max(0.2, 1 - index * 0.0025);
-        const weighted = baseWeight * rankDecay;
+        const entry = perVideoStats.get(event.video_id) || {
+          affinity: 0,
+          starts: 0,
+          completes: 0,
+          maxWatchMs: 0,
+        };
 
-        perVideoAffinity.set(event.video_id, (perVideoAffinity.get(event.video_id) || 0) + weighted);
+        entry.affinity += (baseWeight + watchDepthBoost) * decay;
+        if (event.event_type === "view_start") entry.starts += 1;
+        if (event.event_type === "view_complete") entry.completes += 1;
+        entry.maxWatchMs = Math.max(entry.maxWatchMs, Number(event.watch_ms || 0));
+        perVideoStats.set(event.video_id, entry);
       });
 
       const followedSet = new Set((followsRes.data || []).map((row: any) => row.following_id));
       const interests = (interestsRes.data?.interests || []).map((interest: string) => interest.toLowerCase());
 
+      const creatorAffinity = new Map<string, number>();
+
       const filtered = (videos || [])
         .map((video: any) => withPlayableVideoUrl(video))
         .filter((video: any) => !!video.video_url)
+        .filter((video: any) => {
+          if (!video?.scheduled_for) return true;
+          const scheduledAt = new Date(video.scheduled_for).getTime();
+          if (Number.isNaN(scheduledAt)) return true;
+          return scheduledAt <= Date.now();
+        })
         .filter(
         (video: any) =>
           !hiddenVideoIds.has(video.id) &&
@@ -281,43 +676,86 @@ export function useForYouVideos() {
           !mutedUserIds.has(video.user_id),
       );
 
+      filtered.forEach((video: any) => {
+        const stats = perVideoStats.get(video.id);
+        if (!stats) return;
+        creatorAffinity.set(video.user_id, (creatorAffinity.get(video.user_id) || 0) + stats.affinity);
+      });
+
       const ranked = filtered
         .map((video: any) => {
+          const stats = perVideoStats.get(video.id) || {
+            affinity: 0,
+            starts: 0,
+            completes: 0,
+            maxWatchMs: 0,
+          };
           const hoursSinceCreated = Math.max(
             1,
             (Date.now() - new Date(video.created_at).getTime()) / (1000 * 60 * 60),
           );
           const recencyBoost = 18 / Math.sqrt(hoursSinceCreated);
           const popularity =
-            (video.likes_count || 0) * 1.3 +
-            (video.comments_count || 0) * 1.8 +
-            (video.shares_count || 0) * 2.5;
-          const affinity = (perVideoAffinity.get(video.id) || 0) * 2.1;
-          const followingBoost = followedSet.has(video.user_id) ? 12 : 0;
+            (video.likes_count || 0) * 1.15 +
+            (video.comments_count || 0) * 1.7 +
+            (video.shares_count || 0) * 2.45 +
+            (video.bookmarks_count || 0) * 2.05;
+          const affinity = stats.affinity * 2.35;
+          const completionBoost = stats.starts > 0 ? Math.min(10, (stats.completes / stats.starts) * 11) : 0;
+          const creatorBoost = (creatorAffinity.get(video.user_id) || 0) * 0.75;
+          const watchDepthBoost = Math.min(stats.maxWatchMs / 1000, 30) * 0.12;
+          const followingBoost = followedSet.has(video.user_id) ? 10 : 0;
           const textBlob = `${video.description || ""} ${video.music || ""}`.toLowerCase();
           const interestMatches = interests.reduce(
             (sum: number, interest: string) => (textBlob.includes(interest) ? sum + 1 : sum),
             0,
           );
-          const interestBoost = interestMatches * 14;
+          const interestBoost = interestMatches * 10.5;
+          const stalePenalty = hoursSinceCreated > 24 * 14 ? 4 : 0;
 
           return {
             ...video,
-            _score: popularity + affinity + followingBoost + recencyBoost + interestBoost,
+            _score:
+              popularity +
+              affinity +
+              followingBoost +
+              recencyBoost +
+              interestBoost +
+              completionBoost +
+              creatorBoost +
+              watchDepthBoost -
+              stalePenalty,
+          };
+        })
+        .sort((a: any, b: any) => b._score - a._score);
+
+      const personalizedRanked = ranked
+        .map((video: any) => {
+          const personalized = getEngagementPersonalizationBoost(video, engagementState, {
+            baseScore: Number(video._score || 0),
+          });
+
+          return {
+            ...video,
+            _score: personalized.score,
+            _personalization: personalized.components,
           };
         })
         .sort((a: any, b: any) => b._score - a._score);
 
       logForYouTelemetry(
-        ranked.map((video: any, index: number) => ({
+        personalizedRanked.map((video: any, index: number) => ({
           video_id: video.id,
           score: Number(video._score || 0),
           rank_position: index + 1,
-          components: { source: "client_fallback" },
+          components: {
+            source: "client_fallback",
+            ...(video._personalization || {}),
+          },
         })),
       );
 
-      return ranked;
+      return personalizedRanked;
     },
   });
 }
@@ -444,7 +882,7 @@ export function useAddComment() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ videoId, content }: { videoId: string; content: string }) => {
+    mutationFn: async ({ videoId, content }: { videoId: string; content: string }): Promise<ReliableMutationResult> => {
       if (!user) throw new Error("Not authenticated");
 
       const trimmedContent = content.trim();
@@ -475,15 +913,31 @@ export function useAddComment() {
       const mentionUsernames = extractMentionUsernames(trimmedContent);
       await ensureMentionTargetsAllowMentions(mentionUsernames);
 
-      const { error } = await supabase
-        .from("comments")
-        .insert({
-          user_id: user.id,
-          video_id: videoId,
-          content: trimmedContent,
+      const clientRequestId = makeReliableActionId();
+      try {
+        await createCommentIdempotent(user.id, videoId, trimmedContent, clientRequestId);
+        return { queued: false, clientRequestId };
+      } catch (error) {
+        if (!isRetryableMutationError(error)) throw error;
+
+        upsertReliableQueueAction({
+          id: makeReliableActionId(),
+          userId: user.id,
+          type: "comment",
+          dedupeKey: `comment:${user.id}:${clientRequestId}`,
+          payload: {
+            videoId,
+            content: trimmedContent,
+            clientRequestId,
+          },
+          createdAt: Date.now(),
+          attemptCount: 0,
+          nextAttemptAt: Date.now() + getRetryDelayMs(0),
+          lastErrorMessage: String(error instanceof Error ? error.message : "queued"),
         });
 
-      if (error) throw error;
+        return { queued: true, clientRequestId };
+      }
     },
     onMutate: async ({ videoId, content }) => {
       await qc.cancelQueries({ queryKey: ["video-comments", videoId] });
@@ -518,11 +972,13 @@ export function useAddComment() {
         qc.setQueryData(["videos"], context.previousVideos);
       }
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (data, variables) => {
+      if (data?.queued) return;
       qc.invalidateQueries({ queryKey: ["video-comments", variables.videoId] });
       qc.invalidateQueries({ queryKey: ["videos"] });
     },
-    onSettled: (_data, _error, variables) => {
+    onSettled: (data, _error, variables) => {
+      if (data?.queued) return;
       qc.invalidateQueries({ queryKey: ["video-comments", variables.videoId] });
       qc.invalidateQueries({ queryKey: ["videos"] });
     },
@@ -585,23 +1041,36 @@ export function useToggleLike() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ videoId, isLiked }: { videoId: string; isLiked: boolean }) => {
+    mutationFn: async ({ videoId, isLiked }: { videoId: string; isLiked: boolean }): Promise<ReliableMutationResult> => {
       if (!user) throw new Error("Not authenticated");
-      if (isLiked) {
-        const { error } = await supabase
-          .from("likes")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("video_id", videoId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("likes")
-          .insert({ user_id: user.id, video_id: videoId });
-        if (error) throw error;
+      const shouldLike = !isLiked;
+
+      try {
+        await setVideoLikeState(user.id, videoId, shouldLike);
+        return { queued: false };
+      } catch (error) {
+        if (!isRetryableMutationError(error)) throw error;
+
+        upsertReliableQueueAction({
+          id: makeReliableActionId(),
+          userId: user.id,
+          type: "like",
+          dedupeKey: `like:${user.id}:${videoId}`,
+          payload: {
+            videoId,
+            shouldLike,
+          },
+          createdAt: Date.now(),
+          attemptCount: 0,
+          nextAttemptAt: Date.now() + getRetryDelayMs(0),
+          lastErrorMessage: String(error instanceof Error ? error.message : "queued"),
+        });
+
+        return { queued: true };
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.queued) return;
       qc.invalidateQueries({ queryKey: ["user-likes"] });
       qc.invalidateQueries({ queryKey: ["videos"] });
       qc.invalidateQueries({ queryKey: ["for-you-videos"] });
@@ -622,6 +1091,45 @@ export function useTrackVideoEvent() {
         watch_ms: watchMs ?? null,
       });
       if (error && !isSchemaMismatchError(error)) throw error;
+    },
+  });
+}
+
+export function useUpdateVideo() {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async ({
+      videoId,
+      description,
+      music,
+      hashtags,
+    }: {
+      videoId: string;
+      description?: string;
+      music?: string;
+      hashtags?: string[];
+    }) => {
+      if (!user) throw new Error("Not authenticated");
+      const updates: Record<string, any> = {};
+      if (description !== undefined) updates.description = description;
+      if (music !== undefined) updates.music = music;
+      if (hashtags !== undefined) updates.hashtags = hashtags;
+
+      if (Object.keys(updates).length === 0) return;
+
+      const { error } = await supabase
+        .from("videos")
+        .update(updates)
+        .eq("id", videoId)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["for-you-videos"] });
+      qc.invalidateQueries({ queryKey: ["user-videos"] });
     },
   });
 }
@@ -909,10 +1417,72 @@ export function useReportVideo() {
   });
 }
 
+const BUNDLABLE_NOTIFICATION_TYPES = new Set(["like", "save", "follow", "comment", "reply"]);
+const NOTIFICATION_BUNDLE_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+const toTimestamp = (value?: string | null) => {
+  if (!value) return Number.NaN;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? Number.NaN : parsed;
+};
+
+const buildNotificationBundleKey = (notification: any) => {
+  return `${notification.type || "unknown"}:${notification.actor_id || "system"}:${notification.entity_id || "none"}`;
+};
+
+const bundleNotifications = (rows: any[]) => {
+  const sorted = [...rows].sort((a: any, b: any) => {
+    const right = toTimestamp(b.created_at);
+    const left = toTimestamp(a.created_at);
+    const safeRight = Number.isNaN(right) ? 0 : right;
+    const safeLeft = Number.isNaN(left) ? 0 : left;
+    return safeRight - safeLeft;
+  });
+
+  const bundled: any[] = [];
+  const bundleMeta = new Map<string, { index: number; leadTimestamp: number }>();
+
+  sorted.forEach((notification) => {
+    const bundleType = String(notification.type || "");
+    const createdAtMs = toTimestamp(notification.created_at);
+    if (!BUNDLABLE_NOTIFICATION_TYPES.has(bundleType) || Number.isNaN(createdAtMs)) {
+      bundled.push({
+        ...notification,
+        bundle_count: 1,
+        bundled_ids: [notification.id],
+      });
+      return;
+    }
+
+    const key = buildNotificationBundleKey(notification);
+    const existing = bundleMeta.get(key);
+    if (existing && existing.leadTimestamp - createdAtMs <= NOTIFICATION_BUNDLE_WINDOW_MS) {
+      const lead = bundled[existing.index];
+      lead.bundle_count = Number(lead.bundle_count || 1) + 1;
+      lead.bundled_ids = [...(lead.bundled_ids || [lead.id]), notification.id];
+      lead.is_read = !!lead.is_read && !!notification.is_read;
+      return;
+    }
+
+    bundled.push({
+      ...notification,
+      bundle_count: 1,
+      bundled_ids: [notification.id],
+    });
+    bundleMeta.set(key, {
+      index: bundled.length - 1,
+      leadTimestamp: createdAtMs,
+    });
+  });
+
+  return bundled;
+};
+
 export function useNotifications(limit = 30) {
   const { user } = useAuth();
+  const qc = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["notifications", user?.id, limit],
     enabled: !!user,
     queryFn: async () => {
@@ -926,10 +1496,42 @@ export function useNotifications(limit = 30) {
         if (isSchemaMismatchError(error)) return [];
         throw error;
       }
-      return data || [];
+      return bundleNotifications(data || []);
     },
     refetchInterval: 10000,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`notifications-${user.id}-${limit}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["notifications", user.id, limit] });
+          qc.invalidateQueries({ queryKey: ["notifications-unread-count", user.id] });
+        },
+      )
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          qc.invalidateQueries({ queryKey: ["notifications", user.id, limit] });
+          qc.invalidateQueries({ queryKey: ["notifications-unread-count", user.id] });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [limit, qc, user]);
+
+  return query;
 }
 
 export function useMarkAllNotificationsRead() {
@@ -996,6 +1598,30 @@ export function useMarkNotificationRead() {
   });
 }
 
+export function useMarkNotificationsReadBatch() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ notificationIds }: { notificationIds: string[] }) => {
+      if (!user) throw new Error("Not authenticated");
+      const ids = Array.from(new Set(notificationIds.filter(Boolean)));
+      if (ids.length === 0) return;
+
+      const { error } = await supabase
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .in("id", ids);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+  });
+}
+
 export function useDeleteNotification() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -1008,6 +1634,30 @@ export function useDeleteNotification() {
         .delete()
         .eq("id", notificationId)
         .eq("user_id", user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      qc.invalidateQueries({ queryKey: ["notifications-unread-count"] });
+    },
+  });
+}
+
+export function useDeleteNotificationsBatch() {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ notificationIds }: { notificationIds: string[] }) => {
+      if (!user) throw new Error("Not authenticated");
+      const ids = Array.from(new Set(notificationIds.filter(Boolean)));
+      if (ids.length === 0) return;
+
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("user_id", user.id)
+        .in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -1101,8 +1751,9 @@ export function useUpsertInboxNote() {
 
 export function useUnreadNotificationsCount() {
   const { user } = useAuth();
+  const qc = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["notifications-unread-count", user?.id],
     enabled: !!user,
     queryFn: async () => {
@@ -1121,6 +1772,36 @@ export function useUnreadNotificationsCount() {
     },
     refetchInterval: 10000,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`notifications-unread-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["notifications-unread-count", user.id] });
+        },
+      )
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          qc.invalidateQueries({ queryKey: ["notifications-unread-count", user.id] });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [qc, user]);
+
+  return query;
 }
 
 export function useCreateReferral() {
@@ -1281,23 +1962,36 @@ export function useToggleBookmark() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async ({ videoId, isBookmarked }: { videoId: string; isBookmarked: boolean }) => {
+    mutationFn: async ({ videoId, isBookmarked }: { videoId: string; isBookmarked: boolean }): Promise<ReliableMutationResult> => {
       if (!user) throw new Error("Not authenticated");
-      if (isBookmarked) {
-        const { error } = await supabase
-          .from("bookmarks")
-          .delete()
-          .eq("user_id", user.id)
-          .eq("video_id", videoId);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("bookmarks")
-          .insert({ user_id: user.id, video_id: videoId });
-        if (error) throw error;
+      const shouldBookmark = !isBookmarked;
+
+      try {
+        await setVideoBookmarkState(user.id, videoId, shouldBookmark);
+        return { queued: false };
+      } catch (error) {
+        if (!isRetryableMutationError(error)) throw error;
+
+        upsertReliableQueueAction({
+          id: makeReliableActionId(),
+          userId: user.id,
+          type: "bookmark",
+          dedupeKey: `bookmark:${user.id}:${videoId}`,
+          payload: {
+            videoId,
+            shouldBookmark,
+          },
+          createdAt: Date.now(),
+          attemptCount: 0,
+          nextAttemptAt: Date.now() + getRetryDelayMs(0),
+          lastErrorMessage: String(error instanceof Error ? error.message : "queued"),
+        });
+
+        return { queued: true };
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.queued) return;
       qc.invalidateQueries({ queryKey: ["user-bookmarks"] });
       qc.invalidateQueries({ queryKey: ["videos"] });
       qc.invalidateQueries({ queryKey: ["for-you-videos"] });

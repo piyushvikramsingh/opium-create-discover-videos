@@ -270,3 +270,118 @@ export const useCreatorGrowthInsights = (days: number = 30) => {
     },
   });
 };
+
+// Best posting windows from creator's historical performance.
+export const useBestPostingWindows = (days: number = 30, limit: number = 4) => {
+  return useQuery({
+    queryKey: ["best-posting-windows", days, limit],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+
+      const { data: videos, error } = await supabase
+        .from("videos")
+        .select("id, created_at, likes_count, comments_count, shares_count, bookmarks_count")
+        .eq("user_id", user.id)
+        .gte("created_at", since.toISOString())
+        .limit(200);
+      if (error) throw error;
+
+      const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+      const windows = new Map<string, { day: string; hour: number; count: number; score: number }>();
+
+      (videos || []).forEach((video: any) => {
+        const createdAt = new Date(video.created_at);
+        if (Number.isNaN(createdAt.getTime())) return;
+
+        const day = dayLabels[createdAt.getDay()];
+        const hour = createdAt.getHours();
+        const key = `${day}-${hour}`;
+        const base = windows.get(key) || { day, hour, count: 0, score: 0 };
+
+        const performanceScore =
+          (video.likes_count || 0) * 1.2 +
+          (video.comments_count || 0) * 1.8 +
+          (video.shares_count || 0) * 2.4 +
+          (video.bookmarks_count || 0) * 2;
+
+        base.count += 1;
+        base.score += performanceScore;
+        windows.set(key, base);
+      });
+
+      return [...windows.values()]
+        .filter((slot) => slot.count > 0)
+        .map((slot) => ({
+          ...slot,
+          avgScore: slot.score / slot.count,
+          label: `${slot.day} ${String(slot.hour).padStart(2, "0")}:00`,
+        }))
+        .sort((a, b) => b.avgScore - a.avgScore)
+        .slice(0, limit);
+    },
+  });
+};
+
+// Lightweight per-video retention highlights from events.
+export const useVideoRetentionHighlights = (limit: number = 6, days: number = 30) => {
+  return useQuery({
+    queryKey: ["video-retention-highlights", limit, days],
+    queryFn: async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const since = new Date();
+      since.setDate(since.getDate() - days);
+
+      const { data: videos, error: videosError } = await supabase
+        .from("videos")
+        .select("id, description, thumbnail_url, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      if (videosError) throw videosError;
+
+      const videoIds = (videos || []).map((video: any) => video.id);
+      if (videoIds.length === 0) return [];
+
+      const { data: events, error: eventsError } = await db
+        .from("video_events")
+        .select("video_id, event_type")
+        .in("video_id", videoIds)
+        .gte("created_at", since.toISOString())
+        .in("event_type", ["view_start", "view_complete"]);
+      if (eventsError) throw eventsError;
+
+      const statsMap = new Map<string, { starts: number; completes: number }>();
+      (events || []).forEach((event: any) => {
+        const stats = statsMap.get(event.video_id) || { starts: 0, completes: 0 };
+        if (event.event_type === "view_start") stats.starts += 1;
+        if (event.event_type === "view_complete") stats.completes += 1;
+        statsMap.set(event.video_id, stats);
+      });
+
+      return (videos || [])
+        .map((video: any) => {
+          const stats = statsMap.get(video.id) || { starts: 0, completes: 0 };
+          const completionRate = stats.starts > 0 ? (stats.completes / stats.starts) * 100 : 0;
+          return {
+            ...video,
+            starts: stats.starts,
+            completes: stats.completes,
+            completionRate,
+          };
+        })
+        .filter((video: any) => video.starts >= 5)
+        .sort((a: any, b: any) => b.completionRate - a.completionRate)
+        .slice(0, limit);
+    },
+  });
+};

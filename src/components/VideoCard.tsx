@@ -6,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import CommentsSheet from "@/components/CommentsSheet";
 import { toast } from "sonner";
 import Hls from "hls.js";
+import { useEngagementLoop } from "@/hooks/useEngagementLoop";
+import type { EngagementActionType } from "@/lib/engagementLoop";
 
 const getNetworkTier = (): "slow" | "normal" => {
   const connection = (navigator as Navigator & {
@@ -76,14 +78,17 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const [showSafetyMenu, setShowSafetyMenu] = useState(false);
   const [showFollowPrompt, setShowFollowPrompt] = useState(false);
   const [showMoreLikeChip, setShowMoreLikeChip] = useState(false);
+  const [rewardChipText, setRewardChipText] = useState<string | null>(null);
   const [sessionStreakCount, setSessionStreakCount] = useState(0);
   const [isSpeedBoosted, setIsSpeedBoosted] = useState(false);
   const [showLikeBurst, setShowLikeBurst] = useState(false);
+  const { state: engagementState, recordAction } = useEngagementLoop();
   const longPressTimeoutRef = useRef<number | null>(null);
   const singleTapTimeoutRef = useRef<number | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
   const activatePlayTimeoutRef = useRef<number | null>(null);
   const waitingTimeoutRef = useRef<number | null>(null);
+  const rewardChipTimeoutRef = useRef<number | null>(null);
   const isActiveRef = useRef(isActive);
   const hasLoadedMediaRef = useRef(hasLoadedMedia);
   const lastTapAtRef = useRef(0);
@@ -94,6 +99,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const watchStartAtRef = useRef<number | null>(null);
   const tracked3sRef = useRef(false);
   const trackedCompleteRef = useRef(false);
+  const trackedSkipRef = useRef(false);
   const playRequestInFlightRef = useRef(false);
   const autoplayRecoveryRef = useRef(false);
 
@@ -152,6 +158,9 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
       }
       if (waitingTimeoutRef.current) {
         window.clearTimeout(waitingTimeoutRef.current);
+      }
+      if (rewardChipTimeoutRef.current) {
+        window.clearTimeout(rewardChipTimeoutRef.current);
       }
     };
   }, []);
@@ -270,6 +279,11 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         if (watchMs > 500) {
           trackEvent.mutate({ videoId: video.id, eventType: "view_start", watchMs });
         }
+
+        if (!tracked3sRef.current && !trackedSkipRef.current && watchMs < 1800) {
+          trackedSkipRef.current = true;
+          recordAction("skip");
+        }
       }
       watchStartAtRef.current = null;
       return;
@@ -278,6 +292,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     watchStartAtRef.current = Date.now();
     tracked3sRef.current = false;
     trackedCompleteRef.current = false;
+    trackedSkipRef.current = false;
     if (user) {
       trackEvent.mutate({ videoId: video.id, eventType: "view_start" });
     }
@@ -288,22 +303,55 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         if (watchMs > 500) {
           trackEvent.mutate({ videoId: video.id, eventType: "view_start", watchMs });
         }
+
+        if (!tracked3sRef.current && !trackedSkipRef.current && watchMs < 1800) {
+          trackedSkipRef.current = true;
+          recordAction("skip");
+        }
       }
       watchStartAtRef.current = null;
     };
-  }, [isActive, trackEvent, user, video.id]);
+  }, [isActive, recordAction, trackEvent, user, video.id]);
+
+  const triggerEngagementReward = useCallback((actionType: EngagementActionType) => {
+    const result = recordAction(actionType, {
+      topic: discoveryTopic,
+      creatorId: video.user_id,
+    });
+
+    if (typeof navigator !== "undefined" && "vibrate" in navigator && result.deltaScore > 0) {
+      navigator.vibrate(10);
+    }
+
+    if (result.rewards.length > 0) {
+      const reward = result.rewards[0];
+      setRewardChipText(`${reward.title}: ${reward.description}`);
+      if (rewardChipTimeoutRef.current) {
+        window.clearTimeout(rewardChipTimeoutRef.current);
+      }
+      rewardChipTimeoutRef.current = window.setTimeout(() => {
+        setRewardChipText(null);
+      }, 3500);
+    }
+
+    if (result.canNotify && result.rewards.length > 0) {
+      const reward = result.rewards[0];
+      toast.success(reward.title, { description: reward.description });
+    }
+  }, [discoveryTopic, recordAction, video.user_id]);
 
   const handleLike = useCallback(() => {
     if (!user) { navigate("/auth"); return; }
     toggleLike.mutate({ videoId: video.id, isLiked });
     if (!isLiked) {
       trackEvent.mutate({ videoId: video.id, eventType: "like" });
+      triggerEngagementReward("like");
       if (video.user_id !== user.id) {
         setShowFollowPrompt(true);
         window.setTimeout(() => setShowFollowPrompt(false), 4500);
       }
     }
-  }, [user, navigate, toggleLike, video.id, isLiked, trackEvent, video.user_id]);
+  }, [user, navigate, toggleLike, video.id, isLiked, trackEvent, triggerEngagementReward, video.user_id]);
 
   const profile = video.profiles;
   const avatarUrl = profile?.avatar_url || `https://i.pravatar.cc/100?u=${video.user_id}`;
@@ -326,18 +374,22 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         hasPendingRequest: false,
       });
       trackEvent.mutate({ videoId: video.id, eventType: "follow" });
+      triggerEngagementReward("follow");
       toast.success(`Following @${profile?.username || "creator"}`);
       setShowFollowPrompt(false);
     } catch {
       toast.error("Already following or unable to follow right now");
       setShowFollowPrompt(false);
     }
-  }, [navigate, profile?.username, toggleFollow, trackEvent, user, video.id, video.user_id]);
+  }, [navigate, profile?.username, toggleFollow, trackEvent, triggerEngagementReward, user, video.id, video.user_id]);
 
   const handleBookmark = useCallback(() => {
     if (!user) { navigate("/auth"); return; }
     toggleBookmark.mutate({ videoId: video.id, isBookmarked });
-  }, [user, navigate, toggleBookmark, video.id, isBookmarked]);
+    if (!isBookmarked) {
+      triggerEngagementReward("bookmark");
+    }
+  }, [user, navigate, toggleBookmark, video.id, isBookmarked, triggerEngagementReward]);
 
   const handleShare = useCallback(async () => {
     const link = `${window.location.origin}/profile/${video.user_id}`;
@@ -355,11 +407,17 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
       shareVideo.mutate({ videoId: video.id });
       if (user) {
         trackEvent.mutate({ videoId: video.id, eventType: "share" });
+        triggerEngagementReward("share");
       }
     } catch {
       // user cancelled share
     }
-  }, [profile?.username, shareVideo, trackEvent, user, video.description, video.id, video.user_id]);
+  }, [profile?.username, shareVideo, trackEvent, triggerEngagementReward, user, video.description, video.id, video.user_id]);
+
+  const handleOpenComments = useCallback(() => {
+    setShowComments(true);
+    triggerEngagementReward("comment_open");
+  }, [triggerEngagementReward]);
 
   const handleHide = useCallback(() => {
     if (!user) {
@@ -743,6 +801,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     if (!tracked3sRef.current && vid.currentTime >= 3) {
       tracked3sRef.current = true;
       trackEvent.mutate({ videoId: video.id, eventType: "view_3s" });
+      triggerEngagementReward("view_3s");
     }
 
     const duration = vid.duration || 0;
@@ -753,6 +812,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         eventType: "view_complete",
         watchMs: Math.round(vid.currentTime * 1000),
       });
+      triggerEngagementReward("view_complete");
 
       setShowMoreLikeChip(true);
       window.setTimeout(() => setShowMoreLikeChip(false), 4500);
@@ -773,7 +833,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         }
       }
     }
-  }, [isActive, trackEvent, user, video.id]);
+  }, [isActive, trackEvent, triggerEngagementReward, user, video.id]);
 
   return (
     <div className="feed-item relative h-full w-full overflow-hidden bg-background">
@@ -940,6 +1000,22 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         </div>
       )}
 
+      {rewardChipText && (
+        <div className="absolute left-3 top-56 z-20">
+          <div className="rounded-full bg-primary/90 px-3 py-1.5 text-xs font-semibold text-primary-foreground">
+            {rewardChipText}
+          </div>
+        </div>
+      )}
+
+      {engagementState.fatigueScore >= 70 && (
+        <div className="absolute left-3 top-[17.5rem] z-20">
+          <div className="rounded-full bg-secondary/90 px-3 py-1.5 text-[11px] font-medium text-foreground backdrop-blur-sm">
+            Calm mode: fewer reward prompts for now
+          </div>
+        </div>
+      )}
+
       {/* Right side actions */}
       <div className="absolute bottom-28 right-3 z-10 flex flex-col items-center gap-5">
         <div className="relative">
@@ -960,7 +1036,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
           <span className="text-xs text-foreground font-medium">{formatCount(video.likes_count)}</span>
         </button>
 
-        <button onClick={() => setShowComments(true)} className="lift-on-tap flex flex-col items-center gap-1">
+        <button onClick={handleOpenComments} className="lift-on-tap flex flex-col items-center gap-1">
           <MessageCircle className="h-7 w-7 text-foreground" />
           <span className="text-xs text-foreground font-medium">{formatCount(video.comments_count)}</span>
         </button>
@@ -973,6 +1049,32 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         <button onClick={handleShare} className="lift-on-tap flex flex-col items-center gap-1">
           <Share2 className="h-7 w-7 text-foreground" />
           <span className="text-xs text-foreground font-medium">{formatCount(video.shares_count)}</span>
+        </button>
+
+        {/* Stitch */}
+        <button
+          onClick={() => navigate(`/create?stitch=${video.id}`)}
+          className="lift-on-tap flex flex-col items-center gap-1"
+          title="Stitch"
+        >
+          <svg className="h-7 w-7 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 12h8m4 0h4" />
+            <path d="M12 4v16" />
+          </svg>
+          <span className="text-xs text-foreground font-medium">Stitch</span>
+        </button>
+
+        {/* Duet */}
+        <button
+          onClick={() => navigate(`/create?duet=${video.id}`)}
+          className="lift-on-tap flex flex-col items-center gap-1"
+          title="Duet"
+        >
+          <svg className="h-7 w-7 text-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="8" height="18" rx="1" />
+            <rect x="14" y="3" width="8" height="18" rx="1" />
+          </svg>
+          <span className="text-xs text-foreground font-medium">Duet</span>
         </button>
 
         <div className={`mt-1 h-10 w-10 rounded-full border-2 border-muted bg-secondary overflow-hidden ${isNearActive ? "animate-spin-slow" : ""}`}>

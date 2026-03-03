@@ -45,6 +45,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import SnapCamera from "@/components/SnapCamera";
 import SnapViewer from "@/components/SnapViewer";
+import { useToggleVanishMode, useReportScreenshot } from "@/hooks/useGroupChat";
+import {
+  usePinnedMessages,
+  usePinMessage,
+  useUnpinMessage,
+  useChatStreak,
+  useDisappearingMode,
+  useToggleDisappearingMode,
+  useSmartReplySuggestions,
+} from "@/hooks/useCommunityChat";
+import { GifStickerKeyboard } from "@/components/GifStickerKeyboard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,6 +106,46 @@ type TimelineRow =
   | { type: "day"; key: string; label: string }
   | { type: "message"; key: string; message: ChatMessage };
 
+// Smart Reply Suggestions inline component
+const SmartReplySuggestions = ({
+  messages,
+  userId,
+  text,
+  editingMessageId,
+  onSelect,
+}: {
+  messages?: ChatMessage[];
+  userId?: string;
+  text: string;
+  editingMessageId: string | null;
+  onSelect: (reply: string) => void;
+}) => {
+  // Find last incoming message
+  const lastIncoming = useMemo(() => {
+    if (!messages || !userId) return null;
+    return [...messages].reverse().find((m) => m.sender_id !== userId && !m.deleted_at);
+  }, [messages, userId]);
+
+  const suggestions = useSmartReplySuggestions(lastIncoming?.content);
+
+  if (!suggestions.length || text.trim() || editingMessageId) return null;
+
+  return (
+    <div className="mb-2 flex gap-1.5 overflow-x-auto scrollbar-hide">
+      {suggestions.map((reply) => (
+        <button
+          key={reply}
+          type="button"
+          onClick={() => onSelect(reply)}
+          className="lift-on-tap shrink-0 rounded-full border border-primary/35 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary transition-all duration-200 hover:-translate-y-0.5 hover:bg-primary/15 hover:shadow-[0_6px_18px_hsl(var(--primary)/0.22)] active:scale-[0.98]"
+        >
+          {reply}
+        </button>
+      ))}
+    </div>
+  );
+};
+
 const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   const { user } = useAuth();
   const { data: messages, isLoading } = useMessages(conversationId);
@@ -132,6 +183,19 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showSnapCamera, setShowSnapCamera] = useState(false);
+  const [vanishMode, setVanishMode] = useState(false);
+  const [showGifKeyboard, setShowGifKeyboard] = useState(false);
+  const toggleVanishMode = useToggleVanishMode();
+  const reportScreenshot = useReportScreenshot();
+
+  // Community chat features
+  const { data: pinnedMessages = [] } = usePinnedMessages(conversationId);
+  const pinMessage = usePinMessage();
+  const unpinMessage = useUnpinMessage();
+  const { data: chatStreak } = useChatStreak(conversationId);
+  const { data: disappearingMode } = useDisappearingMode(conversationId);
+  const toggleDisappearingMode = useToggleDisappearingMode();
+  const [showPinnedBar, setShowPinnedBar] = useState(true);
   const [viewingSnap, setViewingSnap] = useState<{
     imageUrl: string;
     senderName: string;
@@ -967,7 +1031,12 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   };
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="relative flex h-full flex-col bg-background">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute -top-24 right-[-16%] h-60 w-60 rounded-full bg-primary/12 blur-3xl" />
+        <div className="absolute bottom-[-14%] left-[-18%] h-72 w-72 rounded-full bg-secondary/40 blur-3xl" />
+        <div className="absolute inset-x-8 top-[28%] h-40 rounded-full bg-primary/8 blur-3xl" />
+      </div>
       {showSnapCamera && (
         <SnapCamera
           onCapture={handleSnapCapture}
@@ -1063,10 +1132,13 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
 
       <div className="sticky top-0 z-10 border-b border-border/70 bg-background/90 px-3 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
-          <button onClick={onBack} className="rounded-full p-1.5 hover:bg-secondary/70">
+          <button onClick={onBack} className="rounded-full p-2 transition-all duration-200 hover:-translate-x-0.5 hover:bg-secondary/70">
             <ArrowLeft className="h-5 w-5 text-foreground" />
           </button>
-          <img src={avatarUrl} alt={safeOtherUser.display_name} className="h-9 w-9 rounded-full object-cover" />
+          <div className="relative">
+            <img src={avatarUrl} alt={safeOtherUser.display_name} className="h-9 w-9 rounded-full object-cover ring-2 ring-primary/30" />
+            {!!typingUsers?.length && <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-background bg-emerald-400" />}
+          </div>
           <div className="flex-1">
             <p className="text-sm font-semibold text-foreground">{safeOtherUser.display_name}</p>
             <p className="text-xs text-muted-foreground">@{safeOtherUser.username}</p>
@@ -1074,8 +1146,8 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
           <button
             onClick={() => setSnapMode(!snapMode)}
             className={`rounded-full p-2 transition-colors ${
-              snapMode ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-            }`}
+              snapMode ? "bg-primary text-primary-foreground" : "bg-secondary/85 text-muted-foreground"
+            } hover:scale-105 active:scale-95`}
           >
             <Flame className="h-4 w-4" />
           </button>
@@ -1083,7 +1155,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             type="button"
             disabled={isCallConnecting || callStatus !== "idle"}
             onClick={() => handleStartCall("voice")}
-            className="rounded-full bg-secondary p-2 text-muted-foreground disabled:opacity-60"
+            className="rounded-full bg-secondary/85 p-2.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-60"
           >
             <Phone className="h-4 w-4" />
           </button>
@@ -1091,13 +1163,13 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             type="button"
             disabled={isCallConnecting || callStatus !== "idle"}
             onClick={() => handleStartCall("video")}
-            className="rounded-full bg-secondary p-2 text-muted-foreground disabled:opacity-60"
+            className="rounded-full bg-secondary/85 p-2.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-60"
           >
             <Video className="h-4 w-4" />
           </button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="rounded-full bg-secondary p-2 text-muted-foreground">
+              <button className="rounded-full bg-secondary/85 p-2.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                 <MoreVertical className="h-4 w-4" />
               </button>
             </DropdownMenuTrigger>
@@ -1114,41 +1186,99 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                 <Archive className="mr-2 h-4 w-4" />
                 {conversationSettings.archived ? "Unarchive chat" : "Archive chat"}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const newVal = !vanishMode;
+                  setVanishMode(newVal);
+                  toggleVanishMode.mutate({ conversationId, enabled: newVal });
+                  toast(newVal ? "Vanish mode on — messages disappear after viewing" : "Vanish mode off");
+                }}
+              >
+                <Flame className="mr-2 h-4 w-4" />
+                {vanishMode ? "Turn off vanish mode" : "Turn on vanish mode"}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  const isEnabled = disappearingMode?.enabled ?? false;
+                  toggleDisappearingMode.mutate({ conversationId, enabled: !isEnabled, durationHours: 24 });
+                }}
+              >
+                <Circle className="mr-2 h-4 w-4" />
+                {disappearingMode?.enabled ? "Turn off disappearing (24h)" : "Disappearing messages (24h)"}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
+        {/* Streak Badge */}
+        {chatStreak && chatStreak.streak_count > 0 && (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-orange-400/20 bg-orange-500/10 px-2.5 py-1 text-[11px] font-semibold text-orange-500">
+            <Flame className="h-3 w-3" />
+            {chatStreak.streak_count} day streak
+            {chatStreak.streak_count === chatStreak.longest_streak && chatStreak.streak_count >= 7 && " 🏆"}
+          </div>
+        )}
+
+        {/* Disappearing mode indicator */}
+        {disappearingMode?.enabled && (
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-blue-400/25 bg-blue-500/15 px-2.5 py-1 text-[11px] font-semibold text-blue-500">
+            <Circle className="h-3 w-3" />
+            Disappearing · {disappearingMode.duration_hours}h
+          </div>
+        )}
+
         {snapMode && (
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary">
+          <div className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary">
             <Flame className="h-3 w-3" />
             Snap mode active
           </div>
         )}
 
+        {/* Pinned messages banner */}
+        {showPinnedBar && (pinnedMessages as any[]).length > 0 && (
+          <button
+            onClick={() => setShowPinnedBar(false)}
+            className="mt-2 flex w-full items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-2.5 py-2 text-left transition-colors hover:bg-primary/10"
+          >
+            <Pin className="h-3.5 w-3.5 text-primary" />
+            <p className="flex-1 truncate text-[11px] font-medium text-foreground">
+              {(pinnedMessages as any[])[0]?.message_content || "Pinned message"}
+            </p>
+            <span className="text-[11px] text-muted-foreground">
+              {(pinnedMessages as any[]).length > 1 ? `+${(pinnedMessages as any[]).length - 1} more` : ""}
+            </span>
+          </button>
+        )}
+
         {!!typingUsers?.length && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {typingUsers.length > 1 ? "People are typing..." : `${safeOtherUser.display_name} is typing...`}
-          </p>
+          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border/70 bg-secondary/45 px-2.5 py-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:120ms]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:240ms]" />
+            </span>
+            <span>{typingUsers.length > 1 ? "People are typing..." : `${safeOtherUser.display_name} is typing...`}</span>
+          </div>
         )}
 
         {isMessageRequestChat && (
           <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-border bg-secondary/40 px-2.5 py-2">
             <div>
               <p className="text-[11px] font-semibold text-foreground">Message request</p>
-              <p className="text-[10px] text-muted-foreground">Accept to move this chat into your inbox</p>
+              <p className="text-[11px] text-muted-foreground">Accept to move this chat into your inbox</p>
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => handleMessageRequestAction("delete")}
-                className="rounded-md border border-border px-2 py-1 text-[10px] font-semibold text-muted-foreground"
+                className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground"
               >
                 Delete
               </button>
               <button
                 type="button"
                 onClick={() => handleMessageRequestAction("accept")}
-                className="rounded-md bg-primary px-2 py-1 text-[10px] font-semibold text-primary-foreground"
+                className="rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground"
               >
                 Accept
               </button>
@@ -1171,8 +1301,8 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
 
               if (row.type === "day") {
                 return (
-                  <div key={row.key} className="flex justify-center py-1.5">
-                    <span className="rounded-full bg-secondary/70 px-2.5 py-1 text-[10px] font-medium text-muted-foreground">
+                  <div key={row.key} className="flex justify-center py-2">
+                    <span className="rounded-full border border-border/70 bg-secondary/65 px-3 py-1 text-[11px] font-medium text-muted-foreground">
                       {row.label}
                     </span>
                   </div>
@@ -1220,7 +1350,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                     <div className="flex items-center gap-2 rounded-2xl border border-primary/30 bg-primary/20 px-4 py-2.5">
                       <Flame className="h-4 w-4 text-primary" />
                       <span className="text-xs font-medium text-primary">{snapViewed ? "Snap opened" : "Snap sent"}</span>
-                      <span className="text-[10px] text-muted-foreground">{formatTime(msg.created_at)}</span>
+                      <span className="text-[11px] text-muted-foreground">{formatTime(msg.created_at)}</span>
                     </div>
                   </div>
                 );
@@ -1230,8 +1360,10 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                 <div key={row.key} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                   <div className="group max-w-[78%]">
                     <div
-                      className={`rounded-[20px] px-3 py-2 ${
-                        isMine ? "bg-primary/90 text-primary-foreground" : "border border-border/50 bg-secondary/60 text-foreground"
+                      className={`rounded-[20px] px-3 py-2 transition-colors ${
+                        isMine
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border/60 bg-secondary/75 text-foreground"
                       }`}
                     >
                       {msgReply && (
@@ -1281,7 +1413,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                           {renderedMessageContent && <p className="break-words text-[14px] leading-5">{renderedMessageContent}</p>}
                         </>
                       )}
-                      <div className={`mt-1.5 flex items-center gap-1 text-[10px] ${isMine ? "text-primary-foreground/75" : "text-muted-foreground"}`}>
+                      <div className={`mt-1.5 flex items-center gap-1 text-[11px] ${isMine ? "text-primary-foreground/85" : "text-muted-foreground"}`}>
                         <span>{msg.created_at ? formatTime(msg.created_at) : ""}</span>
                         {msg.edited_at && <span>· edited</span>}
                         {isMine && msg.id === lastOutgoingMessageId && (
@@ -1303,7 +1435,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                           <button
                             key={`${msg.id}-${emoji}`}
                             onClick={() => handleReaction(msg, emoji)}
-                            className="rounded-full bg-secondary px-2 py-0.5 text-xs text-foreground"
+                            className="rounded-full bg-secondary px-2 py-0.5 text-xs text-foreground transition-colors hover:bg-secondary/90"
                           >
                             {emoji} {count as number}
                           </button>
@@ -1311,13 +1443,13 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                       </div>
                     )}
 
-                    <div className={`mt-1 hidden gap-1 group-hover:flex ${isMine ? "justify-end" : "justify-start"}`}>
+                    <div className={`mt-1 flex gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 ${isMine ? "justify-end" : "justify-start"}`}>
                       {["❤️", "🔥", "😂", "👍"].map((emoji) => (
                         <button
                           key={`${msg.id}-${emoji}`}
                           type="button"
                           onClick={() => handleReaction(msg, emoji)}
-                          className="rounded-full bg-secondary px-2 py-0.5 text-xs"
+                          className="rounded-full bg-secondary px-2 py-0.5 text-xs transition-colors hover:bg-secondary/90"
                         >
                           {emoji}
                         </button>
@@ -1328,11 +1460,29 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                           setReplyTo(msg);
                           setEditingMessageId(null);
                         }}
-                        className="rounded-full bg-secondary p-1.5 text-muted-foreground"
+                        className="rounded-full bg-secondary p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                         aria-label="Reply"
                       >
                         <Reply className="h-3.5 w-3.5" />
                       </button>
+                      {/* Pin message */}
+                      {!msg.deleted_at && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isPinned = (pinnedMessages as any[]).some((p: any) => p.message_id === msg.id);
+                            if (isPinned) {
+                              unpinMessage.mutate({ conversationId, messageId: msg.id });
+                            } else {
+                              pinMessage.mutate({ conversationId, messageId: msg.id });
+                            }
+                          }}
+                          className="rounded-full bg-secondary p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                          aria-label="Pin"
+                        >
+                          <Pin className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                       {isMine && !msg.deleted_at && (
                         <>
                           <button
@@ -1342,7 +1492,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                               setReplyTo(null);
                               setText(msg.content || "");
                             }}
-                            className="rounded-full bg-secondary p-1.5 text-muted-foreground"
+                            className="rounded-full bg-secondary p-1.5 text-muted-foreground transition-colors hover:text-foreground"
                             aria-label="Edit"
                           >
                             <Pencil className="h-3.5 w-3.5" />
@@ -1350,7 +1500,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                           <button
                             type="button"
                             onClick={() => handleDeleteMessage(msg.id)}
-                            className="rounded-full bg-secondary p-1.5 text-destructive"
+                            className="rounded-full bg-secondary p-1.5 text-destructive transition-colors hover:bg-destructive/15"
                             aria-label="Delete"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -1365,14 +1515,14 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-            <img src={avatarUrl} alt="" className="mb-3 h-16 w-16 rounded-full object-cover" />
+            <img src={avatarUrl} alt="" className="mb-3 h-16 w-16 rounded-full object-cover ring-2 ring-primary/30" />
             <p className="text-sm font-medium text-foreground">{safeOtherUser.display_name}</p>
             <p className="mt-1 text-xs">Send a message to start chatting</p>
           </div>
         )}
       </div>
 
-      <div className="border-t border-border/60 bg-background px-3 py-2 pb-safe">
+      <div className="border-t border-border/60 bg-background/95 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
         <input
           ref={fileInputRef}
           type="file"
@@ -1381,8 +1531,28 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
           onChange={handleMedia}
         />
 
+        {/* Smart Reply Suggestions */}
+        <SmartReplySuggestions
+          messages={messages as ChatMessage[] | undefined}
+          userId={user?.id}
+          text={text}
+          editingMessageId={editingMessageId}
+          onSelect={(reply) => {
+            setText(reply);
+            // Auto-send if tapped
+            if (!editingMessageId && conversationId && user) {
+              sendMessage.mutate({
+                conversationId,
+                content: reply,
+                isSnap: snapMode,
+                snapDuration: snapMode ? 5 : undefined,
+              });
+            }
+          }}
+        />
+
         {showEmojiTray && (
-          <div className="mb-2 flex flex-wrap gap-2 rounded-2xl border border-border/60 bg-secondary/40 p-2.5">
+          <div className="mb-2 flex flex-wrap gap-2 rounded-2xl border border-border/60 bg-secondary/50 p-2.5">
             {quickEmojis.map((emoji) => (
               <button
                 key={emoji}
@@ -1391,7 +1561,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                   handleTypingChange(`${text}${emoji}`);
                   setShowEmojiTray(false);
                 }}
-                className="rounded-full bg-secondary px-2.5 py-1 text-sm"
+                className="rounded-full border border-border/70 bg-background/70 px-2.5 py-1 text-sm transition-colors hover:border-primary/35 hover:bg-background"
               >
                 {emoji}
               </button>
@@ -1400,7 +1570,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         )}
 
         {(replyTo || editingMessageId) && (
-          <div className="mb-2 flex items-center justify-between rounded-xl bg-secondary/60 px-3 py-2 text-xs">
+          <div className="mb-2 flex items-center justify-between rounded-xl border border-border/60 bg-secondary/60 px-3 py-2 text-xs">
             <div className="min-w-0">
               <p className="font-semibold text-foreground">{editingMessageId ? "Editing message" : "Replying"}</p>
               {replyTo && <p className="truncate text-muted-foreground">{replyTo.content || "Media"}</p>}
@@ -1412,7 +1582,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                 setEditingMessageId(null);
                 setText("");
               }}
-              className="text-muted-foreground"
+              className="rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-secondary"
             >
               Cancel
             </button>
@@ -1422,26 +1592,35 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         <div className="mb-1 flex items-center gap-2">
           <button
             onClick={() => setShowSnapCamera(true)}
-            className={`rounded-full p-2 transition-colors ${
+            className={`rounded-full p-2.5 transition-colors ${
               snapMode ? "bg-primary text-primary-foreground" : "bg-secondary/80 text-muted-foreground"
-            }`}
+            } hover:bg-secondary`}
             aria-label="Open camera"
           >
             <Camera className="h-4 w-4" />
           </button>
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-border/60 bg-secondary/65 px-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border/60 bg-secondary/70 px-3 transition-colors focus-within:border-primary/40 focus-within:bg-secondary/85">
             <input
               type="text"
               value={text}
               onChange={(e) => handleTypingChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={editingMessageId ? "Edit message" : snapMode ? "Send a snap message..." : "Message"}
-              className="h-9 w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
+              className="h-10 w-full bg-transparent text-[14px] text-foreground placeholder:text-muted-foreground outline-none"
             />
             <button
               type="button"
-              onClick={() => setShowEmojiTray((prev) => !prev)}
-              className="text-muted-foreground"
+              onClick={() => { setShowGifKeyboard((prev) => !prev); setShowEmojiTray(false); }}
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="GIF & Stickers"
+              title="GIFs & Stickers"
+            >
+              <span className="rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] font-bold leading-none">GIF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowEmojiTray((prev) => !prev); setShowGifKeyboard(false); }}
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="Emoji"
             >
               <Smile className="h-4 w-4" />
@@ -1449,7 +1628,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="text-muted-foreground"
+              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="Upload media"
             >
               <Image className="h-4 w-4" />
@@ -1460,7 +1639,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             <button
               onClick={handleSend}
               disabled={!text.trim() || sending}
-              className="rounded-full bg-primary p-2 text-primary-foreground disabled:opacity-40"
+              className="rounded-full bg-primary p-2.5 text-primary-foreground transition-opacity disabled:opacity-40"
               aria-label={editingMessageId ? "Save message" : "Send message"}
             >
               <Send className="h-4 w-4" />
@@ -1477,7 +1656,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                 }
               }}
               disabled={sending}
-              className={`rounded-full p-2 text-primary-foreground disabled:opacity-40 ${
+              className={`rounded-full p-2.5 text-primary-foreground transition-opacity disabled:opacity-40 ${
                 isRecordingVoice ? "bg-destructive" : "bg-primary"
               }`}
               aria-label={isRecordingVoice ? "Release to send voice note" : "Hold to record voice note"}
@@ -1486,6 +1665,42 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             </button>
           )}
         </div>
+
+        {showGifKeyboard && (
+          <div className="mb-2 rounded-2xl border border-border/60 bg-secondary/35 p-2">
+            <GifStickerKeyboard
+              isOpen={true}
+              onSelectGif={(gif) => {
+                sendMessage.mutate({
+                  conversationId,
+                  content: gif.url,
+                  mediaUrl: gif.url,
+                  mediaType: "image",
+                  isSnap: false,
+                });
+                setShowGifKeyboard(false);
+              }}
+              onSelectSticker={(sticker) => {
+                sendMessage.mutate({
+                  conversationId,
+                  content: sticker.image_url,
+                  mediaUrl: sticker.image_url,
+                  mediaType: "image",
+                  isSnap: false,
+                });
+                setShowGifKeyboard(false);
+              }}
+              onClose={() => setShowGifKeyboard(false)}
+            />
+          </div>
+        )}
+
+        {vanishMode && (
+          <div className="mb-1 flex items-center gap-1.5 pl-1 text-[11px] text-primary">
+            <Flame className="h-3 w-3" />
+            Vanish mode · Messages disappear after viewing
+          </div>
+        )}
 
         {sending && (
           <div className="flex items-center gap-1.5 pl-1 text-[11px] text-muted-foreground">
@@ -1507,7 +1722,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             <button
               type="button"
               onClick={() => stopVoiceRecording(true)}
-              className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground"
+              className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground transition-colors hover:bg-secondary/85"
             >
               Cancel
             </button>

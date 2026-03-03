@@ -8,14 +8,17 @@ import {
   Video,
   BarChart3,
   Calendar,
+  Clock3,
   Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   useAnalyticsSummary,
+  useBestPostingWindows,
   useCreatorGrowthInsights,
   useUserAnalytics,
+  useVideoRetentionHighlights,
   useTopVideos,
 } from "@/hooks/useAnalytics";
 import { useNavigate } from "react-router-dom";
@@ -29,6 +32,8 @@ const Analytics = () => {
     useUserAnalytics(undefined, timeRange);
   const { data: topVideos, isLoading: topLoading } = useTopVideos(5);
   const { data: growthInsights, isLoading: growthLoading } = useCreatorGrowthInsights(timeRange);
+  const { data: bestPostingWindows, isLoading: windowsLoading } = useBestPostingWindows(timeRange, 4);
+  const { data: retentionHighlights, isLoading: retentionLoading } = useVideoRetentionHighlights(5, timeRange);
 
   if (summaryLoading) {
     return (
@@ -344,6 +349,65 @@ const Analytics = () => {
             )}
           </CardContent>
         </Card>
+
+        <div className="grid gap-6 md:grid-cols-2 mt-6">
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock3 className="w-5 h-5 text-orange-600" />
+                Best Time to Post
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {windowsLoading ? (
+                <div className="h-24 bg-gray-100 rounded-lg animate-pulse" />
+              ) : bestPostingWindows && bestPostingWindows.length > 0 ? (
+                <div className="space-y-2">
+                  {bestPostingWindows.map((slot: any) => (
+                    <div key={slot.label} className="flex items-center justify-between rounded-lg border border-border/70 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{slot.label}</p>
+                        <p className="text-xs text-muted-foreground">{slot.count} posts analyzed</p>
+                      </div>
+                      <p className="text-sm font-semibold text-primary">{slot.avgScore.toFixed(1)} score</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Post more consistently to unlock timing insights.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-emerald-600" />
+                Retention Highlights
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {retentionLoading ? (
+                <div className="h-24 bg-gray-100 rounded-lg animate-pulse" />
+              ) : retentionHighlights && retentionHighlights.length > 0 ? (
+                <div className="space-y-2">
+                  {retentionHighlights.map((video: any) => (
+                    <div key={video.id} className="rounded-lg border border-border/70 px-3 py-2">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {video.description || "Untitled video"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {video.completionRate.toFixed(1)}% completion ({video.completes}/{video.starts})
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Need more watch events to compute retention highlights.</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

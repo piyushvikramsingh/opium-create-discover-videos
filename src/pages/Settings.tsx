@@ -88,6 +88,7 @@ const Settings = () => {
   const [messagePreview, setMessagePreview] = useState(true);
   const [readReceipts, setReadReceipts] = useState(true);
   const [typingIndicators, setTypingIndicators] = useState(true);
+  const [commentBlockedWords, setCommentBlockedWords] = useState("");
   // closeFriendsQuery declared above with hooks
   const [adPersonalization, setAdPersonalization] = useState(true);
   const [adsPartnerData, setAdsPartnerData] = useState(true);
@@ -129,6 +130,7 @@ const Settings = () => {
     setTwoFactorEnabled(!!profile?.two_factor_enabled);
     setLoginAlerts(profile?.login_alerts !== false);
     setAccountEmail(session?.user?.email || "");
+    setCommentBlockedWords("");
   }, [profile, session?.user?.email]);
 
   useEffect(() => {
@@ -176,6 +178,17 @@ const Settings = () => {
     setMessagePreview(interactions.message_preview !== false);
     setReadReceipts(interactions.read_receipts !== false);
     setTypingIndicators(interactions.typing_indicators !== false);
+    const blockedWordsValue = interactions.comment_blocked_words;
+    if (Array.isArray(blockedWordsValue)) {
+      setCommentBlockedWords(
+        blockedWordsValue
+          .map((word) => String(word || "").trim())
+          .filter(Boolean)
+          .join(", "),
+      );
+    } else {
+      setCommentBlockedWords("");
+    }
 
     setAdPersonalization(ads.personalization !== false);
     setAdsPartnerData(ads.partner_data !== false);
@@ -901,6 +914,18 @@ const Settings = () => {
                   <p className="text-sm text-foreground">Typing indicators</p>
                   <Switch checked={typingIndicators} onCheckedChange={setTypingIndicators} />
                 </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Comment blocked words</p>
+                  <Textarea
+                    value={commentBlockedWords}
+                    onChange={(event) => setCommentBlockedWords(event.target.value)}
+                    placeholder="Add words separated by commas (for example: spam, scam)"
+                    className="mt-1 min-h-[88px]"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Comments containing these words will be blocked before posting.
+                  </p>
+                </div>
               </div>
               <Button
                 className="mt-4 w-full"
@@ -914,6 +939,11 @@ const Settings = () => {
                         message_preview: messagePreview,
                         read_receipts: readReceipts,
                         typing_indicators: typingIndicators,
+                        comment_blocked_words: commentBlockedWords
+                          .split(/[,\n]/)
+                          .map((word) => word.trim().toLowerCase())
+                          .filter((word, index, arr) => !!word && arr.indexOf(word) === index)
+                          .slice(0, 50),
                       },
                     },
                     "Interaction settings saved",

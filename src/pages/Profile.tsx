@@ -31,6 +31,7 @@ import {
   LayoutGrid,
   Clock,
   MoreHorizontal,
+  Pencil,
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
@@ -64,6 +65,7 @@ import {
   useHiddenVideos,
   useHideVideo,
   useUnhideVideo,
+  useUpdateVideo,
 } from "@/hooks/useData";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,6 +135,8 @@ const Profile = () => {
   const createReferral = useCreateReferral();
   const hideVideo = useHideVideo();
   const unhideVideo = useUnhideVideo();
+  const updateVideo = useUpdateVideo();
+  const [editVideoId, setEditVideoId] = useState<string | null>(null);
 
   const hasPendingRequest = followRequest?.status === "pending";
   const canViewPrivateContent = isOwnProfile || !profile?.is_private || !!isFollowing;
@@ -920,6 +924,7 @@ const Profile = () => {
               className={`relative overflow-hidden bg-secondary group cursor-pointer transition-transform hover:scale-[1.02] ${
                 gridLayout === "list" ? "rounded-lg" : "aspect-[9/16]"
               }`}
+              onClick={() => navigate("/clipy", { state: { focusVideoId: video.id, focusSource: "profile" } })}
               onContextMenu={(e) => {
                 if (isOwnProfile) {
                   e.preventDefault();
@@ -1182,6 +1187,26 @@ const Profile = () => {
               toast.error("Could not delete video");
             }
           }}
+          onEdit={(videoId) => {
+            setLongPressVideoId(null);
+            setEditVideoId(videoId);
+          }}
+        />
+      )}
+
+      {editVideoId && isOwnProfile && (
+        <EditVideoModal
+          video={currentVideos.find((v: any) => v.id === editVideoId) || { id: editVideoId }}
+          onClose={() => setEditVideoId(null)}
+          onSave={async (videoId, description) => {
+            try {
+              await updateVideo.mutateAsync({ videoId, description });
+              toast.success("Post updated");
+              setEditVideoId(null);
+            } catch (err: any) {
+              toast.error(err.message || "Could not update post");
+            }
+          }}
         />
       )}
     </div>
@@ -1197,6 +1222,7 @@ function VideoContextMenu({
   onDownload,
   onHide,
   onDelete,
+  onEdit,
 }: {
   videoId: string;
   video: any;
@@ -1206,6 +1232,7 @@ function VideoContextMenu({
   onDownload: (video: any) => void;
   onHide: (videoId: string) => Promise<void>;
   onDelete: (videoId: string) => Promise<void>;
+  onEdit: (videoId: string) => void;
 }) {
   const [pendingAction, setPendingAction] = useState<"pin" | "download" | "hide" | "delete" | null>(null);
 
@@ -1230,6 +1257,14 @@ function VideoContextMenu({
           >
             <Pin className="h-4 w-4 text-foreground" />
             <span className="text-sm font-medium text-foreground">{video?.is_pinned ? "Unpin from profile" : "Pin to profile"}</span>
+          </button>
+          <button
+            onClick={() => onEdit(videoId)}
+            disabled={!!pendingAction}
+            className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-secondary"
+          >
+            <Pencil className="h-4 w-4 text-foreground" />
+            <span className="text-sm font-medium text-foreground">Edit post</span>
           </button>
           <button
             onClick={() => onShare(videoId)}
@@ -1588,6 +1623,69 @@ function EditProfileModal({
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditVideoModal({
+  video,
+  onClose,
+  onSave,
+}: {
+  video: any;
+  onClose: () => void;
+  onSave: (videoId: string, description: string) => Promise<void>;
+}) {
+  const [description, setDescription] = useState(video?.description || "");
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onSave(video.id, description.trim());
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <button onClick={onClose}>
+          <X className="h-5 w-5 text-foreground" />
+        </button>
+        <h2 className="text-base font-semibold text-foreground">Edit Post</h2>
+        <Button size="sm" onClick={handleSave} disabled={saving}>
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+        {(video?.thumbnail_url || video?.video_url) && (
+          <div className="mx-auto h-48 w-32 overflow-hidden rounded-lg bg-secondary">
+            {video.thumbnail_url ? (
+              <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <video src={video.video_url} className="h-full w-full object-cover" muted preload="metadata" />
+            )}
+          </div>
+        )}
+        <div>
+          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Caption
+          </label>
+          <Textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            maxLength={2200}
+            rows={5}
+            className="resize-none"
+            placeholder="Write a caption..."
+          />
+          <p className="mt-1 text-right text-[10px] text-muted-foreground">{description.length}/2200</p>
         </div>
       </div>
     </div>

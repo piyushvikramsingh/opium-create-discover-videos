@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
+import { useReliableMutationPipelineWorker } from "@/hooks/useData";
 import AppLayout from "@/layouts/AppLayout";
 
 const HomeTan = lazy(() => import("./pages/HomeTan"));
@@ -23,6 +24,9 @@ const LiveStreaming = lazy(() => import("./pages/LiveStreaming"));
 const Monetization = lazy(() => import("./pages/Monetization"));
 const Auth = lazy(() => import("./pages/Auth"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Sounds = lazy(() => import("./pages/Sounds"));
+const SoundDetail = lazy(() => import("./pages/Sounds").then(m => ({ default: m.SoundDetailPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +57,7 @@ const RouteWarmup = () => {
       void import("./pages/Engagement");
       void import("./pages/LiveStreaming");
       void import("./pages/Monetization");
+      void import("./pages/Sounds");
     };
 
     const withIdle = window as Window & {
@@ -81,6 +86,11 @@ const RouteFallback = () => (
     <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
   </div>
 );
+
+function BackgroundWorkers() {
+  useReliableMutationPipelineWorker();
+  return null;
+}
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -130,6 +140,7 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <BackgroundWorkers />
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -144,6 +155,7 @@ const App = () => (
                   <Route path="/discover" element={<Discover />} />
                   <Route path="/create" element={<Create />} />
                   <Route path="/inbox" element={<Inbox />} />
+                  <Route path="/notifications" element={<Notifications />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/profile/:userId" element={<Profile />} />
                   <Route path="/settings" element={<Settings />} />
@@ -154,6 +166,8 @@ const App = () => (
                   <Route path="/engagement" element={<Engagement />} />
                   <Route path="/live" element={<LiveStreaming />} />
                   <Route path="/monetization" element={<Monetization />} />
+                  <Route path="/sounds" element={<Sounds />} />
+                  <Route path="/sounds/:id" element={<SoundDetail />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -73,8 +73,9 @@ export type ConversationSettings = {
 
 export function useConversations(includeArchived = false) {
   const { user } = useAuth();
+  const qc = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["conversations", user?.id, includeArchived],
     enabled: !!user,
     queryFn: async () => {
@@ -270,7 +271,50 @@ export function useConversations(includeArchived = false) {
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       });
     },
+    refetchInterval: 15000,
   });
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`conversation-sync-${user.id}-${includeArchived ? "archived" : "active"}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["conversations", user.id, includeArchived] });
+          qc.invalidateQueries({ queryKey: ["typing-conversations", user.id] });
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversation_settings",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          qc.invalidateQueries({ queryKey: ["conversations", user.id, includeArchived] });
+        },
+      )
+      .subscribe((status: string) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          qc.invalidateQueries({ queryKey: ["conversations", user.id, includeArchived] });
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [includeArchived, qc, user]);
+
+  return query;
 }
 
 export function useMessages(conversationId: string | null) {
@@ -331,6 +375,7 @@ export function useMessages(conversationId: string | null) {
         };
       });
     },
+    refetchInterval: 12000,
   });
 
   useEffect(() => {
@@ -351,7 +396,13 @@ export function useMessages(conversationId: string | null) {
           qc.invalidateQueries({ queryKey: ["conversations"] });
         },
       )
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") return;
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          qc.invalidateQueries({ queryKey: ["messages", conversationId] });
+          qc.invalidateQueries({ queryKey: ["conversations"] });
+        }
+      });
 
     const reactionsChannel = supabase
       .channel(`message-reactions-${conversationId}`)
@@ -375,7 +426,12 @@ export function useMessages(conversationId: string | null) {
           qc.invalidateQueries({ queryKey: ["messages", conversationId] });
         },
       )
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") return;
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          qc.invalidateQueries({ queryKey: ["messages", conversationId] });
+        }
+      });
 
     return () => {
       supabase.removeChannel(messagesChannel);
@@ -425,7 +481,12 @@ export function useTypingStatus(conversationId: string | null) {
           qc.invalidateQueries({ queryKey: ["typing-status", conversationId] });
         },
       )
-      .subscribe();
+      .subscribe((status: string) => {
+        if (status === "SUBSCRIBED") return;
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          qc.invalidateQueries({ queryKey: ["typing-status", conversationId] });
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

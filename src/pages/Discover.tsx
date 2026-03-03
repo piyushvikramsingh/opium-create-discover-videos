@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { buildOrIlikeClause, normalizeSearchInput } from "@/lib/search";
+import { getEngagementPersonalizationBoost, loadEngagementLoopState } from "@/lib/engagementLoop";
 
 const trendingTags = [
   "dance", "viral", "foodie", "cats",
@@ -132,26 +133,46 @@ const Discover = () => {
     const source = videos && videos.length > 0 ? videos : null;
     if (!source) return null;
 
+    const engagementState = loadEngagementLoopState();
+
+    const personalizeOrder = (rows: any[]) =>
+      [...rows]
+        .map((video: any) => {
+          const basePopularity =
+            (video.likes_count || 0) * 1 +
+            (video.comments_count || 0) * 1.2 +
+            (video.shares_count || 0) * 1.8 +
+            (video.bookmarks_count || 0) * 1.4;
+          const personalized = getEngagementPersonalizationBoost(video, engagementState, {
+            baseScore: basePopularity,
+          });
+
+          return {
+            ...video,
+            _discoverScore: personalized.score,
+          };
+        })
+        .sort((a: any, b: any) => b._discoverScore - a._discoverScore);
+
     if (isSearching) {
       const q = searchQuery.toLowerCase();
-      return source.filter(
+      return personalizeOrder(source.filter(
         (v: any) =>
           v.description?.toLowerCase().includes(q) ||
           v.music?.toLowerCase().includes(q) ||
           v.profiles?.username?.toLowerCase().includes(q)
-      );
+      ));
     }
 
     if (activeTag) {
       const tag = activeTag.toLowerCase();
-      return source.filter((v: any) =>
+      return personalizeOrder(source.filter((v: any) =>
         v.description?.toLowerCase().includes(`#${tag}`) ||
         v.description?.toLowerCase().includes(tag)
-      );
+      ));
     }
 
-    // Default: show all sorted by popularity
-    return [...source].sort((a: any, b: any) => (b.likes_count || 0) - (a.likes_count || 0));
+    return personalizeOrder(source);
   }, [videos, searchQuery, activeTag, isSearching]);
 
   const hasRealVideos = filteredVideos && filteredVideos.length > 0;

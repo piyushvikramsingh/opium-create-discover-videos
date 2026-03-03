@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { useViewStory, useReplyToStory, useStoryViewers, useStoryReplies } from "@/hooks/useStories";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { useStoryStickers } from "@/hooks/useStoryStickers";
+import { InteractiveSticker } from "@/components/InteractiveStickers";
 
 export interface Story {
   id: string;
@@ -60,6 +62,7 @@ export const StoryViewer = ({
   const isOwnStory = !!user && !!currentStory && currentStory.user_id === user.id;
   const { data: storyViewers = [] } = useStoryViewers(currentStory?.id || "");
   const { data: storyReplies = [] } = useStoryReplies(currentStory?.id || "");
+  const { data: storyStickers = [] } = useStoryStickers(currentStory?.id || "");
   const duration = (currentStory?.duration || 5) * 1000;
 
   useEffect(() => {
@@ -262,6 +265,29 @@ export const StoryViewer = ({
         {currentStory.caption && (
           <div className="absolute bottom-20 left-4 right-4 text-white text-sm">
             {currentStory.caption}
+          </div>
+        )}
+
+        {/* Interactive stickers overlay */}
+        {storyStickers.length > 0 && (
+          <div className="absolute inset-0 z-[15] pointer-events-none">
+            {storyStickers.map((sticker) => (
+              <div
+                key={sticker.id}
+                className="absolute pointer-events-auto"
+                style={{
+                  left: `${(sticker.position_x ?? 50)}%`,
+                  top: `${(sticker.position_y ?? 50)}%`,
+                  transform: `translate(-50%, -50%) rotate(${sticker.rotation ?? 0}deg) scale(${sticker.scale ?? 1})`,
+                }}
+              >
+                <InteractiveSticker
+                  sticker={sticker}
+                  storyId={currentStory.id}
+                  isOwner={isOwnStory}
+                />
+              </div>
+            ))}
           </div>
         )}
       </div>
