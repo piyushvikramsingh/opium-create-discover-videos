@@ -671,9 +671,12 @@ const Create = () => {
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState<string>("Preparing…");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState(0);
   const [lastCreatedVideoId, setLastCreatedVideoId] = useState<string | null>(null);
+  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState<string | null>(null);
+  const thumbnailPreviewRef = useRef<string | null>(null);
 
   const [cameraOpen, setCameraOpen] = useState(false);
   const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("environment");
@@ -768,6 +771,32 @@ const Create = () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [showCreateOverflow]);
+
+  // Generate thumbnail preview when cover frame or filters change
+  useEffect(() => {
+    if (!activeClip) return;
+    let cancelled = false;
+
+    const generatePreview = async () => {
+      try {
+        const blob = await generateThumbnailBlob(activeClip);
+        if (cancelled) return;
+        if (thumbnailPreviewRef.current) URL.revokeObjectURL(thumbnailPreviewRef.current);
+        const url = URL.createObjectURL(blob);
+        thumbnailPreviewRef.current = url;
+        setThumbnailPreviewUrl(url);
+      } catch {
+        // silently fail - preview is non-critical
+      }
+    };
+
+    const timer = setTimeout(() => void generatePreview(), 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeClip?.coverTime, activeClip?.brightness, activeClip?.contrast, activeClip?.saturation, activeClip?.filterStack, activeClip?.thumbnailText]);
 
   const handleStoryFileSelect = (file: File | null) => {
     if (!file) return;
@@ -1017,8 +1046,14 @@ const Create = () => {
     setCurrentDraftId(null);
     setUploadError(null);
     setUploadProgress(0);
+    setUploadStage("Preparing…");
     setSuccessCount(0);
     setLastCreatedVideoId(null);
+    if (thumbnailPreviewRef.current) {
+      URL.revokeObjectURL(thumbnailPreviewRef.current);
+      thumbnailPreviewRef.current = null;
+    }
+    setThumbnailPreviewUrl(null);
     setStep("select");
     setShowCreateOverflow(false);
   };
@@ -1283,6 +1318,7 @@ const Create = () => {
 
     setUploading(true);
     setUploadProgress(0);
+    setUploadStage("Processing clips…");
     setUploadError(null);
     cancelRequestedRef.current = false;
 
@@ -1354,7 +1390,8 @@ const Create = () => {
         const filePath = `${user.id}/${Date.now()}-${index}.${ext}`;
         const thumbnailPath = `${user.id}/thumb-${Date.now()}-${index}.jpg`;
 
-        setUploadProgress(Math.round((index / targets.length) * 100));
+        setUploadStage(`Generating thumbnail ${index + 1}/${targets.length}…`);
+        setUploadProgress(Math.round((index / targets.length) * 40));
 
         let thumbnailUrl = "";
         try {
@@ -1481,11 +1518,13 @@ const Create = () => {
 
             createdCount += 1;
             latestId = createdVideo.id;
-            setUploadProgress(Math.round(((index + 1) / targets.length) * 100));
+            setUploadStage(`Uploaded ${index + 1}/${targets.length}`);
+            setUploadProgress(40 + Math.round(((index + 1) / targets.length) * 55));
             continue;
           }
         }
 
+        setUploadStage(`Uploading video ${index + 1}/${targets.length}…`);
         const { error: videoError } = await supabase.storage
           .from("videos")
           .upload(filePath, file, { contentType: file.type || "video/webm" });
@@ -1529,9 +1568,12 @@ const Create = () => {
 
         createdCount += 1;
         latestId = createdVideo?.id ?? null;
-        setUploadProgress(Math.round(((index + 1) / targets.length) * 100));
+        setUploadStage(`Saved ${index + 1}/${targets.length}`);
+        setUploadProgress(40 + Math.round(((index + 1) / targets.length) * 55));
       }
 
+      setUploadStage("Finishing up…");
+      setUploadProgress(100);
       setSuccessCount(createdCount);
       setLastCreatedVideoId(latestId);
       setStep("success");
@@ -2018,6 +2060,21 @@ const Create = () => {
                   value={[activeClip.coverTime]}
                   onValueChange={(value) => updateActiveClip({ coverTime: value[0] })}
                 />
+                {/* Live thumbnail preview */}
+                <div className="mt-2 flex items-center gap-3">
+                  <div className="h-20 w-[45px] flex-shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+                    {thumbnailPreviewUrl ? (
+                      <img src={thumbnailPreviewUrl} alt="Cover preview" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <Image className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Cover preview updates as you adjust the frame.
+                  </p>
+                </div>
               </div>
 
               <div className="mt-4 grid gap-3">
@@ -2345,10 +2402,13 @@ const Create = () => {
                 {uploading && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>Uploading</span>
+                      <span className="flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {uploadStage}
+                      </span>
                       <span>{uploadProgress}%</span>
                     </div>
-                    <Progress value={uploadProgress} />
+                    <Progress value={uploadProgress} className="transition-all duration-300" />
                   </div>
                 )}
 
