@@ -334,19 +334,19 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return message || fallback;
 };
 
-const runWithRetry = async <T,>({
+const runWithRetry = async <T = any,>({
   task,
   attempts = 3,
   retryDelayMs = 500,
   shouldRetry = isRetryableError,
   onRetry,
 }: {
-  task: () => Promise<T>;
+  task: () => T | Promise<T>;
   attempts?: number;
   retryDelayMs?: number;
   shouldRetry?: (error: unknown) => boolean;
   onRetry?: (attempt: number, error: unknown) => void;
-}) => {
+}): Promise<T> => {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
