@@ -82,12 +82,18 @@ This project is built with:
 3. Vercel will detect `vercel.json` and use:
 	- Build Command: `npm run build`
 	- Output Directory: `dist`
+	- SPA routing fallback is handled by `vercel.json` routes (`filesystem` first, then `/index.html` fallback)
 4. Add these environment variables in Vercel Project Settings:
 	- `VITE_SUPABASE_URL`
 	- `VITE_SUPABASE_PUBLISHABLE_KEY`
+	- `VITE_SUPABASE_PROJECT_ID` (optional)
 5. Deploy.
 
 For local setup, copy `.env.example` to `.env` and set real values.
+
+After deployment, you can run a quick smoke test:
+
+- `APP_URL="https://<your-vercel-domain>" bash scripts/aws-hosting/smoke_test.sh`
 
 ### GitHub auto-deploy setup (Preview + Production)
 
