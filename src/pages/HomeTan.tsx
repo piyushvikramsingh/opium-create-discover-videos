@@ -217,7 +217,8 @@ const HomeTan = () => {
     loggedExposureKeysRef.current.add(key);
 
     void logCreatorRecoExposure.mutateAsync({ suggestedUserIds: ids, surface: "home_following" });
-  }, [feedMode, followRecommendations, logCreatorRecoExposure]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedMode, followRecommendations]);
 
   useEffect(() => {
     const onScroll = () => {

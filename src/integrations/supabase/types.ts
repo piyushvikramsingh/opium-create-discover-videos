@@ -128,6 +128,50 @@ export type Database = {
           },
         ]
       }
+      conversation_settings: {
+        Row: {
+          accepted_request: boolean
+          archived: boolean
+          conversation_id: string
+          created_at: string
+          id: string
+          muted: boolean
+          pinned: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accepted_request?: boolean
+          archived?: boolean
+          conversation_id: string
+          created_at?: string
+          id?: string
+          muted?: boolean
+          pinned?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accepted_request?: boolean
+          archived?: boolean
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          muted?: boolean
+          pinned?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_settings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -173,6 +217,35 @@ export type Database = {
         }
         Relationships: []
       }
+      hidden_videos: {
+        Row: {
+          created_at: string
+          id: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hidden_videos_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       likes: {
         Row: {
           created_at: string
@@ -207,36 +280,42 @@ export type Database = {
           content: string | null
           conversation_id: string
           created_at: string
+          deleted_at: string | null
           id: string
           is_snap: boolean
           media_type: string | null
           media_url: string | null
           sender_id: string
           snap_duration: number | null
+          status: string
           viewed: boolean
         }
         Insert: {
           content?: string | null
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_snap?: boolean
           media_type?: string | null
           media_url?: string | null
           sender_id: string
           snap_duration?: number | null
+          status?: string
           viewed?: boolean
         }
         Update: {
           content?: string | null
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
           id?: string
           is_snap?: boolean
           media_type?: string | null
           media_url?: string | null
           sender_id?: string
           snap_duration?: number | null
+          status?: string
           viewed?: boolean
         }
         Relationships: [
@@ -249,33 +328,78 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          data: Json | null
+          id: string
+          is_read: boolean
+          title: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          title?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          id?: string
+          is_read?: boolean
+          title?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          allow_mentions: boolean
           avatar_url: string | null
           bio: string | null
           created_at: string
           display_name: string
           id: string
+          interests: Json | null
+          is_private: boolean
+          is_verified: boolean
           updated_at: string
           user_id: string
           username: string
         }
         Insert: {
+          allow_mentions?: boolean
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string
           id?: string
+          interests?: Json | null
+          is_private?: boolean
+          is_verified?: boolean
           updated_at?: string
           user_id: string
           username: string
         }
         Update: {
+          allow_mentions?: boolean
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
           display_name?: string
           id?: string
+          interests?: Json | null
+          is_private?: boolean
+          is_verified?: boolean
           updated_at?: string
           user_id?: string
           username?: string
@@ -325,7 +449,15 @@ export type Database = {
           user_id?: string
           view_count?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stories_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       story_replies: {
         Row: {
@@ -384,6 +516,164 @@ export type Database = {
             columns: ["story_id"]
             isOneToOne: false
             referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_views_viewer_id_fkey"
+            columns: ["viewer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      user_blocks: {
+        Row: {
+          blocked_user_id: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          blocked_user_id: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          blocked_user_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_mutes: {
+        Row: {
+          created_at: string
+          id: string
+          muted_user_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          muted_user_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          muted_user_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_settings: {
+        Row: {
+          accessibility: Json | null
+          ads: Json | null
+          app: Json | null
+          content: Json | null
+          created_at: string
+          id: string
+          interactions: Json | null
+          notifications: Json | null
+          privacy: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accessibility?: Json | null
+          ads?: Json | null
+          app?: Json | null
+          content?: Json | null
+          created_at?: string
+          id?: string
+          interactions?: Json | null
+          notifications?: Json | null
+          privacy?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accessibility?: Json | null
+          ads?: Json | null
+          app?: Json | null
+          content?: Json | null
+          created_at?: string
+          id?: string
+          interactions?: Json | null
+          notifications?: Json | null
+          privacy?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      video_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          user_id: string
+          video_id: string
+          watch_ms: number | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          user_id: string
+          video_id: string
+          watch_ms?: number | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          user_id?: string
+          video_id?: string
+          watch_ms?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_events_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_reports: {
+        Row: {
+          created_at: string
+          id: string
+          reason: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reason?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reason?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_reports_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
             referencedColumns: ["id"]
           },
         ]
