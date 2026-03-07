@@ -23,7 +23,7 @@ interface InteractiveStickerProps {
   onResume?: () => void;
 }
 
-export function InteractiveSticker({ sticker, isOwner, onPause, onResume }: InteractiveStickerProps) {
+export function InteractiveSticker({ sticker, storyId, isOwner, onPause, onResume }: InteractiveStickerProps) {
   switch (sticker.sticker_type) {
     case "poll":
       return <PollSticker sticker={sticker} isOwner={isOwner} />;
