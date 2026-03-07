@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT_REF="${SUPABASE_PROJECT_REF:-kjqdscavxjahjcdonhxm}"
+PROJECT_REF="${SUPABASE_PROJECT_REF:-cjxhrnajkaqhwxccfflk}"
 SECRETS_FILE="${SECRETS_FILE:-scripts/.mux.secrets.local}"
 
 prompt_hidden() {
