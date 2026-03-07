@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateSubscription, useCreateSubscriptionTier, useEarnings, useSendTip, useSubscriptionTiers, useSubscriptions, useTips } from "@/hooks/useMonetization";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase } from "@/integrations/supabase/client";
+const supabase: any = _supabase;
 
 type SubscriptionTierItem = {
   id: string;

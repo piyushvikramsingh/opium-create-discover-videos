@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase } from "@/integrations/supabase/client";
+const supabase: any = _supabase;
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateStory } from "@/hooks/useStories";
 import { Button } from "@/components/ui/button";
