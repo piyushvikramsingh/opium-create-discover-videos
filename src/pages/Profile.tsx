@@ -417,7 +417,7 @@ const Profile = () => {
   return (
     <div 
       ref={containerRef}
-      className="ig-screen min-h-screen bg-background pb-20 overflow-y-auto"
+      className="ig-screen ig-modern-page min-h-screen bg-background pb-20 overflow-y-auto"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -432,22 +432,22 @@ const Profile = () => {
           </div>
         </div>
       )}
-      <div className="ig-header sticky top-0 z-20 flex items-center justify-between px-4 py-2.5">
+      <div className="ig-header ig-modern-header sticky top-0 z-20 flex items-center justify-between border-b border-border/60 px-4 py-2.5">
         <div className="flex items-center gap-3 min-w-0">
           {!isOwnProfile && (
-            <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1.5">
+            <button onClick={() => navigate(-1)} className="ig-tap ig-icon-btn rounded-full p-1.5 hover:bg-secondary/70">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
           )}
-          <div className="truncate text-[1.05rem] font-semibold tracking-tight text-foreground">@{profile?.username || "user"}</div>
+          <div className="ig-type-h2 truncate text-foreground">@{profile?.username || "user"}</div>
           {profile?.is_verified && <BadgeCheck className="h-4 w-4 text-primary" />}
         </div>
         {isOwnProfile ? (
-          <button onClick={() => navigate("/settings")} className="ig-tap rounded-full bg-secondary p-2">
+          <button onClick={() => navigate("/settings")} className="ig-tap ig-icon-btn rounded-full p-2 hover:bg-secondary/70">
             <Settings className="h-4 w-4 text-foreground" />
           </button>
         ) : (
-          <button onClick={() => navigate("/discover")} className="ig-tap rounded-full bg-secondary p-2">
+          <button onClick={() => navigate("/discover")} className="ig-tap ig-icon-btn rounded-full p-2 hover:bg-secondary/70">
             <Users className="h-4 w-4 text-foreground" />
           </button>
         )}
@@ -483,7 +483,7 @@ const Profile = () => {
 
         <div className="mt-3">
           <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-foreground">{profile?.display_name || "User"}</p>
+            <p className="ig-type-h2 text-foreground">{profile?.display_name || "User"}</p>
             {profile?.is_private && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
           </div>
           {profile?.category && <p className="mt-0.5 text-xs text-muted-foreground">{profile.category}</p>}
@@ -508,7 +508,7 @@ const Profile = () => {
             <>
               <button
                 onClick={() => setShowEditModal(true)}
-                className="ig-tap flex-1 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap ig-icon-btn ig-modern-chip flex-1 px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Edit profile
               </button>
@@ -517,7 +517,7 @@ const Profile = () => {
                   navigator.clipboard.writeText(window.location.origin + `/profile/${viewingUserId}`);
                   toast.success("Profile link copied");
                 }}
-                className="ig-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap ig-icon-btn ig-modern-chip px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Share
               </button>
@@ -538,13 +538,13 @@ const Profile = () => {
                   }
                 }}
                 disabled={createReferral.isPending}
-                className="ig-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap ig-icon-btn ig-modern-chip px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 {createReferral.isPending ? "Creating..." : "Invite"}
               </button>
               <button
                 onClick={() => setShowHiddenVideosModal(true)}
-                className="ig-tap rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap ig-icon-btn ig-modern-chip px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Hidden {hiddenVideos?.length ? `(${hiddenVideos.length})` : ""}
               </button>
@@ -554,17 +554,17 @@ const Profile = () => {
               <button
                 onClick={handleFollow}
                 disabled={toggleFollow.isPending}
-                className={`ig-tap flex-1 rounded-lg px-4 py-2 text-sm font-semibold ${
+                className={`ig-tap ig-icon-btn flex-1 rounded-xl border px-4 py-2 text-sm font-semibold ${
                   isFollowing || hasPendingRequest
-                    ? "bg-secondary text-secondary-foreground"
-                    : "bg-primary text-primary-foreground"
+                    ? "border-border/70 bg-background text-secondary-foreground"
+                    : "border-primary bg-primary text-primary-foreground"
                 }`}
               >
                 {isFollowing ? "Following" : hasPendingRequest ? "Requested" : "Follow"}
               </button>
               <button
                 onClick={handleMessageUser}
-                className="ig-tap flex-1 rounded-lg bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
+                className="ig-tap ig-icon-btn ig-modern-chip flex-1 px-4 py-2 text-sm font-semibold text-secondary-foreground"
               >
                 Message
               </button>
@@ -573,7 +573,7 @@ const Profile = () => {
         </div>
 
         {isOwnProfile && !!incomingFollowRequests?.length && (
-          <div className="mt-4 rounded-xl panel-surface p-3">
+          <div className="ig-list-item-enter ig-modern-card mt-4 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Follow Requests</p>
             <div className="mt-2 space-y-2">
               {incomingFollowRequests.slice(0, 3).map((request: any) => (
@@ -587,8 +587,8 @@ const Profile = () => {
                     <p className="truncate text-sm font-medium text-foreground">{request.profile?.display_name || "User"}</p>
                     <p className="truncate text-xs text-muted-foreground">@{request.profile?.username || "user"}</p>
                   </div>
-                  <button onClick={() => handleRespondRequest(request.id, request.follower_id, true)} className="rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">Accept</button>
-                  <button onClick={() => handleRespondRequest(request.id, request.follower_id, false)} className="rounded-md bg-secondary px-2 py-1 text-xs font-semibold text-secondary-foreground">Decline</button>
+                  <button onClick={() => handleRespondRequest(request.id, request.follower_id, true)} className="ig-tap ig-icon-btn rounded-md bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground">Accept</button>
+                  <button onClick={() => handleRespondRequest(request.id, request.follower_id, false)} className="ig-tap ig-icon-btn rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-semibold text-secondary-foreground">Decline</button>
                 </div>
               ))}
             </div>
@@ -641,7 +641,7 @@ const Profile = () => {
         </div>
 
         {(profile?.professional_account || isOwnProfile) && !!professionalDashboard && (
-          <div className="mt-5 rounded-xl panel-surface p-4">
+          <div className="ig-list-item-enter ig-modern-card mt-5 p-4">
             <div className="flex items-center justify-between gap-2">
               <div className="inline-flex items-center gap-2">
                 <BarChart3 className="h-4 w-4 text-primary" />
@@ -812,14 +812,14 @@ const Profile = () => {
         )}
       </div>
 
-      <div className="ig-header mt-4 px-2 py-2">
+      <div className="ig-header mt-4 border-t border-border/60 px-3 py-2">
         <div className="scrollbar-hide flex gap-2 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               data-active={activeTab === tab.id}
-              className={`ig-tab-pill flex shrink-0 items-center gap-2 px-3 py-1.5 transition-colors ${
+              className={`ig-tab-pill ig-icon-btn flex shrink-0 items-center gap-2 px-3 py-1.5 transition-colors ${
                 activeTab === tab.id
                   ? "text-foreground"
                   : "text-foreground"

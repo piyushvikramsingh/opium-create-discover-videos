@@ -4,9 +4,9 @@ import TopMoreMenu from "@/components/TopMoreMenu";
 
 const AppLayout = () => {
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-lg bg-background lg:border lg:border-border/60 lg:shadow-2xl lg:shadow-black/10">
+    <div className="ig-app-shell relative mx-auto min-h-screen w-full max-w-lg overflow-x-hidden bg-background lg:min-h-[100dvh] lg:border-x lg:border-border/60">
       <TopMoreMenu />
-      <div className="ig-screen">
+      <div className="ig-screen ig-screen-spring pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
         <Outlet />
       </div>
       <BottomNav />

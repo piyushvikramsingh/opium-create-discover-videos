@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { StoryViewer } from "./StoryViewer";
@@ -16,10 +16,24 @@ export const StoriesBar = () => {
   const { data: storyGroups = [], isLoading } = useStories();
   const [viewerOpen, setViewerOpen] = useState(false);
   const [selectedGroupIndex, setSelectedGroupIndex] = useState(0);
+  const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
+
+  const sortedStoryGroups = useMemo(() => {
+    const groups = [...(storyGroups as StoryGroup[])];
+    return groups.sort((a, b) => {
+      const aUnviewed = !!a.hasUnviewed;
+      const bUnviewed = !!b.hasUnviewed;
+      if (aUnviewed !== bUnviewed) return aUnviewed ? -1 : 1;
+
+      const aLatest = Math.max(...(a.stories || []).map((story) => new Date(story.created_at).getTime()));
+      const bLatest = Math.max(...(b.stories || []).map((story) => new Date(story.created_at).getTime()));
+      return bLatest - aLatest;
+    });
+  }, [storyGroups]);
 
   if (isLoading) {
     return (
-      <div className="flex gap-4 p-4 overflow-x-auto hide-scrollbar">
+      <div className="ig-modern-page flex gap-4 p-4 overflow-x-auto hide-scrollbar">
         {[...Array(5)].map((_, i) => (
           <div key={i} className="flex flex-col items-center gap-1 min-w-[64px]">
             <div className="w-16 h-16 rounded-full bg-gray-200 animate-pulse" />
@@ -31,20 +45,23 @@ export const StoriesBar = () => {
   }
 
   const handleOpenStory = (index: number) => {
+    const group = sortedStoryGroups[index];
+    const firstUnviewedIndex = (group?.stories || []).findIndex((story) => !story.viewed);
     setSelectedGroupIndex(index);
+    setSelectedStoryIndex(firstUnviewedIndex >= 0 ? firstUnviewedIndex : 0);
     setViewerOpen(true);
   };
 
   return (
     <>
-      <div className="flex gap-4 px-4 py-3 overflow-x-auto hide-scrollbar border-b border-border/70">
+      <div className="ig-modern-page flex gap-4 px-4 py-3 overflow-x-auto hide-scrollbar border-b border-border/70">
         {/* Your story / Add story */}
         <button
           onClick={() => navigate("/create", { state: { createType: "story" } })}
           className="flex flex-col items-center gap-1 min-w-[64px] group"
         >
           <div className="relative">
-            <Avatar className="w-16 h-16 border-2 border-border/70 bg-background">
+            <Avatar className="w-16 h-16 border-2 border-border/70 bg-background shadow-sm">
               <AvatarImage src={profile?.avatar_url || undefined} />
               <AvatarFallback>
                 {profile?.display_name?.[0]?.toUpperCase() || "U"}
@@ -54,11 +71,11 @@ export const StoriesBar = () => {
               <Plus className="w-3 h-3 text-white" />
             </div>
           </div>
-          <span className="text-xs text-muted-foreground font-medium">Your story</span>
+          <span className="ig-type-caption font-medium">Your story</span>
         </button>
 
         {/* Other users' stories */}
-        {(storyGroups as StoryGroup[]).map((group, index) => (
+        {sortedStoryGroups.map((group, index) => (
           <button
             key={group.user.id}
             onClick={() => handleOpenStory(index)}
@@ -99,7 +116,7 @@ export const StoriesBar = () => {
             </div>
             <span
               className={cn(
-                "text-xs text-center max-w-[64px] truncate",
+                "ig-type-caption text-center max-w-[64px] truncate",
                 group.hasUnviewed
                   ? "text-foreground font-semibold"
                   : "text-muted-foreground"
@@ -111,10 +128,11 @@ export const StoriesBar = () => {
         ))}
       </div>
 
-      {viewerOpen && storyGroups.length > 0 && (
+      {viewerOpen && sortedStoryGroups.length > 0 && (
         <StoryViewer
-          storyGroups={storyGroups as StoryGroup[]}
+          storyGroups={sortedStoryGroups}
           initialGroupIndex={selectedGroupIndex}
+          initialStoryIndex={selectedStoryIndex}
           onClose={() => setViewerOpen(false)}
         />
       )}

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import {
   MessageCircle,
   Heart,
+  Volume2,
+  VolumeX,
   Sparkles,
   PlusSquare,
   Clapperboard,
@@ -45,11 +47,19 @@ import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
 
 const HomeTan = () => {
   const navigate = useNavigate();
-  const { autoplayVideos, autoplaySound, loopVideos, hideLikeCount } = useRuntimeSettings();
+  const { autoplayVideos, autoplaySound, loopVideos, hideLikeCount, lowBandwidthMode } = useRuntimeSettings();
   const { user } = useAuth();
   const { data: profile } = useProfile(user?.id);
   const { data: videos = [], isLoading, isFetching, refetch } = useForYouVideos();
   const [feedMode, setFeedMode] = useState<"forYou" | "following">("forYou");
+  const [mediaFilter, setMediaFilter] = useState<"all" | "videos" | "photos">(() => {
+    if (typeof window === "undefined") return "all";
+    const stored = window.localStorage.getItem("home:mediaFilter");
+    if (stored === "all" || stored === "videos" || stored === "photos") {
+      return stored;
+    }
+    return "all";
+  });
   const { data: serverLikedPosts } = useUserLikes(user?.id);
   const { data: serverBookmarkedPosts } = useUserBookmarks(user?.id);
   const { data: followRecommendations = [] } = useFollowRecommendations(8, feedMode === "following");
@@ -72,6 +82,7 @@ const HomeTan = () => {
   const [pendingBookmarkIds, setPendingBookmarkIds] = useState<Set<string>>(() => new Set());
   const [loadedImageIds, setLoadedImageIds] = useState<Set<string>>(() => new Set());
   const [activeCommentsVideoId, setActiveCommentsVideoId] = useState<string | null>(null);
+  const [isFeedMuted, setIsFeedMuted] = useState<boolean>(!autoplaySound);
   const [showCreateOptions, setShowCreateOptions] = useState(false);
   const [activePostActions, setActivePostActions] = useState<any | null>(null);
   const [postActionPending, setPostActionPending] = useState<"report" | "hide" | "copy" | null>(null);
@@ -93,9 +104,18 @@ const HomeTan = () => {
   const ACTIVE_VIDEO_KEEP_VISIBILITY = 0.45;
   const ACTIVE_VIDEO_SWITCH_VISIBILITY = 0.65;
   const topIconButtonClass =
-    "relative ig-tap rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
+    "relative ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
   const feedIconButtonClass =
-    "ig-tap rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
+    "ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
+
+  useEffect(() => {
+    setIsFeedMuted(!autoplaySound);
+  }, [autoplaySound]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("home:mediaFilter", mediaFilter);
+  }, [mediaFilter]);
 
   const followingIds = useMemo(() => {
     return new Set((followingList || []).map((p: any) => p.user_id));
@@ -136,6 +156,26 @@ const HomeTan = () => {
 
     return ranked.slice(0, 40);
   }, [videos, feedMode, followingIds]);
+
+  const mediaFilterCounts = useMemo(() => {
+    const videosCount = feedPosts.filter((post: any) => !!post.video_url).length;
+    const photosCount = feedPosts.length - videosCount;
+    return {
+      all: feedPosts.length,
+      videos: videosCount,
+      photos: photosCount,
+    };
+  }, [feedPosts]);
+
+  const filteredFeedPosts = useMemo(() => {
+    if (mediaFilter === "videos") {
+      return feedPosts.filter((post: any) => !!post.video_url);
+    }
+    if (mediaFilter === "photos") {
+      return feedPosts.filter((post: any) => !post.video_url);
+    }
+    return feedPosts;
+  }, [feedPosts, mediaFilter]);
 
   const postById = useMemo(() => {
     return new Map(feedPosts.map((post: any) => [post.id, post]));
@@ -241,7 +281,7 @@ const HomeTan = () => {
               element.pause();
               return;
             }
-            element.muted = !autoplaySound;
+            element.muted = isFeedMuted;
             const playAttempt = element.play();
             if (playAttempt && typeof playAttempt.catch === "function") {
               playAttempt.catch(() => undefined);
@@ -273,7 +313,7 @@ const HomeTan = () => {
       videoObserverRef.current?.disconnect();
       videoObserverRef.current = null;
     };
-  }, [autoplaySound, autoplayVideos]);
+  }, [autoplayVideos, isFeedMuted]);
 
   useEffect(() => {
     const activeIds = new Set(feedPosts.map((post: any) => post.id));
@@ -457,7 +497,8 @@ const HomeTan = () => {
         await registerShare();
         toast.success("Post shared");
         return;
-      } catch {
+      } catch (error) {
+        void error;
       }
     }
 
@@ -585,7 +626,7 @@ const HomeTan = () => {
 
   return (
     <div
-      className="ig-screen min-h-screen bg-background pb-24 pt-safe"
+      className="ig-screen ig-screen-spring ig-modern-page min-h-screen bg-background pb-24 pt-safe"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={() => {
@@ -597,7 +638,7 @@ const HomeTan = () => {
         pullThresholdHapticSentRef.current = false;
       }}
     >
-      <div className="ig-header sticky top-0 z-30">
+      <div className="ig-header ig-modern-header sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur">
         <div
           className="overflow-hidden transition-all duration-200"
           style={{ height: `${isPullRefreshing ? 44 : Math.min(44, pullDistance)}px` }}
@@ -617,7 +658,7 @@ const HomeTan = () => {
         </div>
         <div className="px-4 py-2.5">
           <div className="flex items-center justify-between">
-            <div className="text-[1.25rem] font-semibold tracking-tight text-foreground">
+            <div className="ig-type-h1 text-foreground">
               Opium
             </div>
             <div className="flex items-center gap-2">
@@ -661,54 +702,84 @@ const HomeTan = () => {
             </div>
           </div>
         </div>
-        <div className="flex items-center justify-center gap-2 border-t border-border/70 px-4 pb-2 pt-2 text-xs font-semibold">
+        <div className="flex items-center justify-center gap-6 border-t border-border/70 px-4 pb-2 pt-2 text-sm font-semibold">
           <button
             onClick={() => setFeedMode("forYou")}
             aria-pressed={feedMode === "forYou"}
             data-active={feedMode === "forYou"}
-            className={`ig-tab-pill min-w-[92px] px-3 py-1.5 transition-colors ${
+            className={`relative px-1 py-1 transition-colors duration-200 ${
               feedMode === "forYou"
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             For You
+            {feedMode === "forYou" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 mx-auto h-0.5 w-full rounded-full bg-foreground" />}
           </button>
           <button
             onClick={() => setFeedMode("following")}
             aria-pressed={feedMode === "following"}
             data-active={feedMode === "following"}
-            className={`ig-tab-pill min-w-[92px] px-3 py-1.5 transition-colors ${
+            className={`relative px-1 py-1 transition-colors duration-200 ${
               feedMode === "following"
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
             Following
+            {feedMode === "following" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 mx-auto h-0.5 w-full rounded-full bg-foreground" />}
           </button>
+        </div>
+        <div className="flex items-center gap-2 border-t border-border/60 px-4 pb-2 pt-2">
+          {[
+            { id: "all", label: "All", count: mediaFilterCounts.all },
+            { id: "videos", label: "Videos", count: mediaFilterCounts.videos },
+            { id: "photos", label: "Photos", count: mediaFilterCounts.photos },
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              onClick={() => setMediaFilter(filter.id as "all" | "videos" | "photos")}
+              aria-pressed={mediaFilter === filter.id}
+              className={`ig-modern-chip ig-icon-btn inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold transition-colors ${
+                mediaFilter === filter.id
+                  ? "text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              data-active={mediaFilter === filter.id}
+            >
+              <span>{filter.label}</span>
+              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {filter.count}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="pt-2">
+      <div className="border-b border-border/60 pt-1">
         <StoriesBar />
       </div>
 
       {isLoading ? (
-        <div className="space-y-4 px-3 pt-4">
+        <div className="space-y-0 pt-2">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="overflow-hidden rounded-2xl border border-border bg-background">
-              <div className="flex items-center justify-between px-4 py-3">
+            <div
+              key={index}
+              className="ig-list-item-enter overflow-hidden border-b border-border/60 bg-background"
+              style={{ animationDelay: `${Math.min(index, 6) * 35}ms` }}
+            >
+              <div className="flex items-center justify-between px-3 py-3">
                 <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 animate-pulse rounded-full bg-secondary" />
+                  <div className="ig-shimmer h-9 w-9 animate-pulse rounded-full bg-secondary" />
                   <div className="space-y-1.5">
-                    <div className="h-3 w-24 animate-pulse rounded bg-secondary" />
-                    <div className="h-2.5 w-16 animate-pulse rounded bg-secondary" />
+                    <div className="ig-shimmer h-3 w-24 animate-pulse rounded bg-secondary" />
+                    <div className="ig-shimmer h-2.5 w-16 animate-pulse rounded bg-secondary" />
                   </div>
                 </div>
-                <div className="h-5 w-5 animate-pulse rounded bg-secondary" />
+                <div className="ig-shimmer h-5 w-5 animate-pulse rounded bg-secondary" />
               </div>
-              <div className="aspect-[4/5] w-full animate-pulse bg-secondary" />
-              <div className="space-y-2 px-4 py-3">
+              <div className="ig-shimmer aspect-[4/5] w-full animate-pulse bg-secondary" />
+              <div className="space-y-2 px-3 py-3">
                 <div className="h-3 w-20 animate-pulse rounded bg-secondary" />
                 <div className="h-3 w-4/5 animate-pulse rounded bg-secondary" />
                 <div className="h-2.5 w-12 animate-pulse rounded bg-secondary" />
@@ -717,11 +788,14 @@ const HomeTan = () => {
           ))}
         </div>
       ) : (
-        <div className="space-y-4 px-3 pt-4">
-          {feedPosts.map((post: any, index: number) => (
+        <div className="space-y-0 pt-2">
+          {filteredFeedPosts.map((post: any, index: number) => (
             <Fragment key={post.id}>
-              <article className="overflow-hidden rounded-xl border border-border/80 bg-background transition-shadow duration-200 hover:shadow-sm">
-                <div className="flex items-center justify-between px-4 py-3">
+              <article
+                className="ig-list-item-enter overflow-hidden border-b border-border/60 bg-background"
+                style={{ animationDelay: `${Math.min(index, 8) * 30}ms` }}
+              >
+                <div className="flex items-center justify-between px-3 py-3">
                   <button
                     onClick={() => navigate(`/profile/${post.user_id}`)}
                     className="flex items-center gap-3"
@@ -787,11 +861,11 @@ const HomeTan = () => {
                         }}
                         src={post.video_url}
                         poster={post.thumbnail_url || undefined}
-                        autoPlay={autoplayVideos}
-                        muted={!autoplaySound}
+                        autoPlay={lowBandwidthMode ? false : autoplayVideos}
+                        muted={isFeedMuted}
                         loop={loopVideos}
                         playsInline
-                        preload={index < 2 ? "auto" : "metadata"}
+                        preload={lowBandwidthMode ? (index === 0 ? "metadata" : "none") : index < 2 ? "auto" : "metadata"}
                         onLoadedData={() => markImageLoaded(post.id)}
                         onError={() => markImageLoaded(post.id)}
                         className={`h-full w-full object-cover transition-opacity duration-300 ${
@@ -818,10 +892,23 @@ const HomeTan = () => {
                         </div>
                       </div>
                     )}
+                    {post.video_url && (
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setIsFeedMuted((current) => !current);
+                        }}
+                        className="absolute right-3 top-3 z-10 rounded-full bg-black/45 p-2 text-white backdrop-blur-sm"
+                        aria-label={isFeedMuted ? "Unmute video" : "Mute video"}
+                      >
+                        {isFeedMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                      </button>
+                    )}
                   </div>
                 )}
 
-                <div className="px-4 py-2.5">
+                <div className="px-3 py-2.5">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <button
@@ -884,8 +971,8 @@ const HomeTan = () => {
                 </div>
               </article>
 
-              {shouldShowInlineSuggestions && index === 1 && (
-                <section className="rounded-2xl border border-border bg-background p-3">
+              {shouldShowInlineSuggestions && index === 1 && mediaFilter !== "photos" && (
+                <section className="border-b border-border/60 bg-background px-3 py-3">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Suggested accounts
@@ -901,7 +988,7 @@ const HomeTan = () => {
                     {inlineSuggestedCreators.map((suggested: any) => (
                       <div
                         key={suggested.user_id}
-                        className="flex items-center justify-between rounded-xl border border-border/80 bg-background px-3 py-2"
+                        className="flex items-center justify-between rounded-lg border border-border/80 bg-background px-3 py-2"
                       >
                         <button
                           onClick={() => {
@@ -954,22 +1041,32 @@ const HomeTan = () => {
             </Fragment>
           ))}
 
-          {feedPosts.length > 0 && (
-            <div className="rounded-2xl border border-border/70 bg-background px-4 py-5 text-center">
+          {filteredFeedPosts.length > 0 && (
+            <div className="bg-background px-4 py-6 text-center">
               <p className="text-sm font-semibold text-foreground">You're all caught up</p>
               <p className="mt-1 text-xs text-muted-foreground">You’ve seen the latest posts in Home.</p>
             </div>
           )}
 
-          {feedPosts.length === 0 && (
-            <div className="rounded-2xl panel-surface px-4 py-12 text-center">
+          {filteredFeedPosts.length === 0 && (
+            <div className="panel-surface mx-3 rounded-xl px-4 py-12 text-center">
               <p className="text-sm font-semibold text-foreground">
-                {feedMode === "following" ? "No posts from people you follow" : "No feed posts yet"}
+                {feedMode === "following"
+                  ? "No posts from people you follow"
+                  : mediaFilter === "videos"
+                    ? "No video posts yet"
+                    : mediaFilter === "photos"
+                      ? "No photo posts yet"
+                      : "No feed posts yet"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {feedMode === "following"
                   ? "Follow more creators to personalize your Home feed."
-                  : "Content from creators will appear here."}
+                  : mediaFilter === "videos"
+                    ? "Switch to All or Photos to keep exploring new content."
+                    : mediaFilter === "photos"
+                      ? "Switch to All or Videos to keep exploring new content."
+                      : "Content from creators will appear here."}
               </p>
               <Button className="mt-4" variant="secondary" onClick={() => navigate("/discover")}>
                 Explore Discover
@@ -1118,7 +1215,7 @@ const HomeTan = () => {
       {showBackToTop && (
         <button
           onClick={handleBackToTop}
-          className="fixed bottom-28 right-4 z-40 lift-on-tap rounded-full border border-border/80 bg-background/95 p-3 text-foreground shadow-lg backdrop-blur"
+          className="ig-list-item-enter fixed bottom-28 right-4 z-40 lift-on-tap ig-icon-btn rounded-full border border-border/80 bg-background/95 p-3 text-foreground shadow-lg backdrop-blur"
           aria-label="Back to top"
         >
           <ChevronUp className="h-4 w-4" />

@@ -8,15 +8,46 @@ import { useCreateSubscription, useCreateSubscriptionTier, useEarnings, useSendT
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
+type SubscriptionTierItem = {
+  id: string;
+  name: string;
+  price_cents: number;
+  benefits?: string[] | null;
+};
+
+type SubscriptionItem = {
+  id: string;
+};
+
+type TipItem = {
+  id: string;
+  from_user_id: string;
+  to_user_id: string;
+  amount_cents: number;
+};
+
+type EarningItem = {
+  id: string;
+  source: string;
+  amount_cents: number;
+};
+
+type MonetizedProfile = {
+  id: string;
+  user_id: string;
+  username: string;
+  is_monetized: boolean;
+};
+
 const Monetization = () => {
-  const { data: tiers = [] } = useSubscriptionTiers();
-  const { data: subscriptions = [] } = useSubscriptions();
-  const { data: tips = [] } = useTips();
-  const { data: earnings = [] } = useEarnings();
-  const { data: profiles = [] } = useQuery({
+  const { data: tiersData = [] } = useSubscriptionTiers();
+  const { data: subscriptionsData = [] } = useSubscriptions();
+  const { data: tipsData = [] } = useTips();
+  const { data: earningsData = [] } = useEarnings();
+  const { data: profilesData = [] } = useQuery({
     queryKey: ["monetized-profiles"],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("profiles")
         .select("id, user_id, username, is_monetized")
         .eq("is_monetized", true)
@@ -29,6 +60,11 @@ const Monetization = () => {
   const createTier = useCreateSubscriptionTier();
   const createSubscription = useCreateSubscription();
   const sendTip = useSendTip();
+  const tiers = tiersData as SubscriptionTierItem[];
+  const subscriptions = subscriptionsData as SubscriptionItem[];
+  const tips = tipsData as TipItem[];
+  const earnings = earningsData as EarningItem[];
+  const profiles = profilesData as MonetizedProfile[];
 
   const [tierName, setTierName] = useState("VIP");
   const [tierPrice, setTierPrice] = useState("499");
@@ -38,24 +74,24 @@ const Monetization = () => {
   const [tipAmount, setTipAmount] = useState("100");
 
   const monetizedProfiles = useMemo(
-    () => profiles.filter((profile: any) => profile.is_monetized),
+    () => profiles.filter((profile) => profile.is_monetized),
     [profiles],
   );
 
   const totalEarningsCents = useMemo(
-    () => earnings.reduce((sum: number, entry: any) => sum + (entry.amount_cents ?? 0), 0),
+    () => earnings.reduce((sum, entry) => sum + (entry.amount_cents ?? 0), 0),
     [earnings],
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-20 pt-safe fade-in">
+    <div className="ig-screen-spring ig-modern-page min-h-screen bg-background p-4 pb-20 pt-safe fade-in">
       <div className="mx-auto max-w-5xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Monetization</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage tiers, subscriptions, tips, and earnings.</p>
+          <h1 className="ig-type-h1 text-foreground">Monetization</h1>
+          <p className="ig-type-sub mt-1">Manage tiers, subscriptions, tips, and earnings.</p>
         </div>
 
-        <Card className="rounded-2xl">
+        <Card className="ig-modern-card">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><Wallet className="h-4 w-4" /> Earnings Snapshot</CardTitle>
           </CardHeader>
@@ -66,24 +102,25 @@ const Monetization = () => {
         </Card>
 
         <Tabs defaultValue="tiers" className="w-full">
-          <TabsList className="grid w-full max-w-lg grid-cols-4">
-            <TabsTrigger value="tiers">Tiers</TabsTrigger>
-            <TabsTrigger value="subs">Subscriptions</TabsTrigger>
-            <TabsTrigger value="tips">Tips</TabsTrigger>
-            <TabsTrigger value="earnings">Earnings</TabsTrigger>
+          <TabsList className="flex w-full max-w-lg gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0">
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="tiers">Tiers</TabsTrigger>
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="subs">Subscriptions</TabsTrigger>
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="tips">Tips</TabsTrigger>
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="earnings">Earnings</TabsTrigger>
           </TabsList>
 
           <TabsContent value="tiers" className="space-y-4 mt-4">
-            <Card className="rounded-2xl">
+            <Card className="ig-modern-card">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2"><Plus className="h-4 w-4" /> Create Tier</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 md:grid-cols-3">
-                <Input value={tierName} onChange={(event) => setTierName(event.target.value)} placeholder="Tier name" />
-                <Input value={tierPrice} onChange={(event) => setTierPrice(event.target.value)} placeholder="Price (cents)" />
-                <Input value={tierBenefits} onChange={(event) => setTierBenefits(event.target.value)} placeholder="Benefits comma-separated" />
+                <Input className="ig-control-md" value={tierName} onChange={(event) => setTierName(event.target.value)} placeholder="Tier name" />
+                <Input className="ig-control-md" value={tierPrice} onChange={(event) => setTierPrice(event.target.value)} placeholder="Price (cents)" />
+                <Input className="ig-control-md" value={tierBenefits} onChange={(event) => setTierBenefits(event.target.value)} placeholder="Benefits comma-separated" />
                 <div className="md:col-span-3">
                   <Button
+                    className="ig-control-md"
                     onClick={() => {
                       const price = Number(tierPrice);
                       if (!tierName.trim() || Number.isNaN(price) || price < 0) return;
@@ -102,8 +139,8 @@ const Monetization = () => {
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {tiers.map((tier: any) => (
-                <Card key={tier.id} className="rounded-2xl">
+              {tiers.map((tier) => (
+                <Card key={tier.id} className="ig-modern-card">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2"><Crown className="h-4 w-4 text-yellow-500" /> {tier.name}</CardTitle>
                   </CardHeader>
@@ -121,17 +158,17 @@ const Monetization = () => {
           </TabsContent>
 
           <TabsContent value="subs" className="space-y-4 mt-4">
-            <Card className="rounded-2xl">
+            <Card className="ig-modern-card">
               <CardHeader>
                 <CardTitle className="text-base">Subscribe to Creator</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="grid gap-2 md:grid-cols-2">
-                  {monetizedProfiles.slice(0, 6).map((profile: any) => (
+                  {monetizedProfiles.slice(0, 6).map((profile) => (
                     <Button
                       key={profile.id}
                       variant="outline"
-                      className="justify-between"
+                      className="ig-control-md justify-between"
                       onClick={() =>
                         createSubscription.mutate({
                           creator_id: profile.user_id,
@@ -152,14 +189,15 @@ const Monetization = () => {
           </TabsContent>
 
           <TabsContent value="tips" className="space-y-4 mt-4">
-            <Card className="rounded-2xl">
+            <Card className="ig-modern-card">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2"><DollarSign className="h-4 w-4" /> Send Tip</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-3 md:grid-cols-3">
-                <Input value={tipUserId} onChange={(event) => setTipUserId(event.target.value)} placeholder="Creator user_id" />
-                <Input value={tipAmount} onChange={(event) => setTipAmount(event.target.value)} placeholder="Amount cents" />
+                <Input className="ig-control-md" value={tipUserId} onChange={(event) => setTipUserId(event.target.value)} placeholder="Creator user_id" />
+                <Input className="ig-control-md" value={tipAmount} onChange={(event) => setTipAmount(event.target.value)} placeholder="Amount cents" />
                 <Button
+                  className="ig-control-md"
                   onClick={() => {
                     const amount = Number(tipAmount);
                     if (!tipUserId.trim() || Number.isNaN(amount) || amount <= 0) return;
@@ -174,8 +212,8 @@ const Monetization = () => {
             </Card>
 
             <div className="space-y-2">
-              {tips.slice(0, 12).map((tip: any) => (
-                <Card key={tip.id} className="rounded-2xl">
+              {tips.slice(0, 12).map((tip) => (
+                <Card key={tip.id} className="ig-modern-card">
                   <CardContent className="py-3 text-sm text-muted-foreground">
                     {tip.from_user_id} → {tip.to_user_id} · ${(tip.amount_cents / 100).toFixed(2)}
                   </CardContent>
@@ -185,8 +223,8 @@ const Monetization = () => {
           </TabsContent>
 
           <TabsContent value="earnings" className="space-y-2 mt-4">
-            {earnings.slice(0, 20).map((entry: any) => (
-              <Card key={entry.id} className="rounded-2xl">
+            {earnings.slice(0, 20).map((entry) => (
+              <Card key={entry.id} className="ig-modern-card">
                 <CardContent className="flex items-center justify-between py-3 text-sm">
                   <span className="text-muted-foreground">{entry.source}</span>
                   <span className="font-semibold flex items-center gap-1"><Banknote className="h-4 w-4" /> ${(entry.amount_cents / 100).toFixed(2)}</span>

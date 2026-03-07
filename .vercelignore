@@ -1,0 +1,23 @@
+# Ignore large/non-web artifacts for Vercel deployment
+.git
+.github
+.vscode
+node_modules
+
+# Local/build outputs
+build
+dist
+coverage
+
+# Mobile projects not needed for web deploy
+opium_flutter
+opium_react_android
+
+# Supabase local assets not required in web runtime
+/supabase
+
+# Misc
+*.log
+*.tmp
+*.swp
+*.DS_Store

@@ -1,4 +1,4 @@
-import { ArrowLeft, BadgeCheck, Bell, BellOff, Inbox, Loader2, Lock, LogOut, Shield, UserRound, VideoOff, VolumeX, Wallet } from "lucide-react";
+import { ArrowLeft, BadgeCheck, Bell, BellOff, Briefcase, CreditCard, Download, FileText, HardDrive, HelpCircle, Inbox, Loader2, Lock, LogOut, Shield, ShieldCheck, Smartphone, Trash2, UserRound, VideoOff, VolumeX, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -71,15 +71,20 @@ const Settings = () => {
   const [pushMessageRequests, setPushMessageRequests] = useState(true);
   const [pushSaves, setPushSaves] = useState(true);
   const [pushFollows, setPushFollows] = useState(true);
+  const [pushMentions, setPushMentions] = useState(true);
+  const [pushLiveStreams, setPushLiveStreams] = useState(true);
+  const [pushCreatorUpdates, setPushCreatorUpdates] = useState(true);
   const [dailyRecap, setDailyRecap] = useState(true);
   const [reengagementNudges, setReengagementNudges] = useState(true);
   const [emailMarketing, setEmailMarketing] = useState(false);
+  const [smsNotifications, setSmsNotifications] = useState(false);
   const [quietModeEnabled, setQuietModeEnabled] = useState(false);
   const [quietModeStart, setQuietModeStart] = useState("22:00");
   const [quietModeEnd, setQuietModeEnd] = useState("08:00");
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [loginAlerts, setLoginAlerts] = useState(true);
   const [sensitiveContentLevel, setSensitiveContentLevel] = useState<"more" | "standard" | "less">("standard");
+  const [contentInterests, setContentInterests] = useState("music, travel, fitness");
   const [hideLikeCount, setHideLikeCount] = useState(false);
   const [hideViewCount, setHideViewCount] = useState(false);
   const [storyReplies, setStoryReplies] = useState<"everyone" | "following" | "off">("everyone");
@@ -101,6 +106,9 @@ const Settings = () => {
   const [autoplaySound, setAutoplaySound] = useState(false);
   const [loopVideos, setLoopVideos] = useState(true);
   const [language, setLanguage] = useState("English");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [withdrawalAccount, setWithdrawalAccount] = useState("");
+  const [mediaQuality, setMediaQuality] = useState<"auto" | "high" | "data_saver">("auto");
   const [accountEmail, setAccountEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -149,9 +157,13 @@ const Settings = () => {
     setPushMessageRequests(notifications.push_message_requests !== false);
     setPushSaves(notifications.push_saves !== false);
     setPushFollows(notifications.push_follows !== false);
+    setPushMentions(notifications.push_mentions !== false);
+    setPushLiveStreams(notifications.push_live_streams !== false);
+    setPushCreatorUpdates(notifications.push_creator_updates !== false);
     setDailyRecap(notifications.daily_recap !== false);
     setReengagementNudges(notifications.reengagement_nudges !== false);
     setEmailMarketing(!!notifications.email_marketing);
+    setSmsNotifications(!!notifications.sms_notifications);
     setQuietModeEnabled(!!notifications.quiet_mode_enabled);
     setQuietModeStart(typeof notifications.quiet_mode_start === "string" ? notifications.quiet_mode_start : "22:00");
     setQuietModeEnd(typeof notifications.quiet_mode_end === "string" ? notifications.quiet_mode_end : "08:00");
@@ -161,6 +173,14 @@ const Settings = () => {
         ? content.sensitive_content_level
         : "standard",
     );
+    if (Array.isArray(content.content_interests)) {
+      setContentInterests(
+        content.content_interests
+          .map((topic) => String(topic || "").trim())
+          .filter(Boolean)
+          .join(", "),
+      );
+    }
     setHideLikeCount(!!content.hide_like_count);
     setHideViewCount(!!content.hide_view_count);
 
@@ -203,6 +223,13 @@ const Settings = () => {
     setAutoplaySound(!!app.autoplay_sound);
     setLoopVideos(app.loop_videos !== false);
     setLanguage(typeof app.language === "string" && app.language ? app.language : "English");
+    setPaymentMethod(typeof app.payment_method === "string" && app.payment_method ? app.payment_method : "UPI");
+    setWithdrawalAccount(typeof app.withdrawal_account === "string" ? app.withdrawal_account : "");
+    setMediaQuality(
+      app.media_quality === "high" || app.media_quality === "data_saver"
+        ? app.media_quality
+        : "auto",
+    );
   }, [userSettings, profile?.push_likes, profile?.push_comments, profile?.push_messages]);
 
   if (!user) {
@@ -380,13 +407,40 @@ const Settings = () => {
     }
   };
 
+  const handleDownloadAccountData = () => {
+    toast.success("Your account data export request has been queued");
+  };
+
+  const handleClearLocalCache = () => {
+    try {
+      window.localStorage.removeItem("home:mediaFilter");
+      window.localStorage.removeItem("opium_feed_muted");
+      toast.success("Local cache cleared");
+    } catch {
+      toast.error("Could not clear local cache");
+    }
+  };
+
+  const handleResetRecommendations = () => {
+    try {
+      window.localStorage.removeItem("engagementLoopState");
+      toast.success("Feed recommendation signals reset");
+    } catch {
+      toast.error("Could not reset recommendation signals");
+    }
+  };
+
+  const openHelpSection = (section: "center" | "faq" | "report" | "guidelines" | "contact") => {
+    navigate(`/help?section=${section}`);
+  };
+
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="ig-screen-spring ig-modern-page min-h-screen bg-background pb-24">
+      <div className="ig-modern-header flex items-center justify-between border-b border-border px-4 py-3">
         <button onClick={() => navigate(-1)} className="rounded-lg p-1">
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
-        <h1 className="text-base font-semibold text-foreground">Settings and activity</h1>
+        <h1 className="ig-type-h2 text-foreground">Settings and activity</h1>
         <div className="w-6" />
       </div>
 
@@ -417,7 +471,7 @@ const Settings = () => {
           </div>
         </section>
 
-        <section className="mb-4 rounded-2xl border border-border p-3">
+        <section className="ig-modern-card mb-4 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick access</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <Button variant="secondary" size="sm" onClick={() => navigate("/engagement")}>Engagement</Button>
@@ -431,15 +485,16 @@ const Settings = () => {
         <Tabs defaultValue="account">
           <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-border bg-background px-4 pb-2 pt-1">
             <TabsList className="flex w-full justify-start gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0">
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="account">Account</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="privacy">Privacy</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="notifications">Notifications</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="safety">Safety</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="content">Content</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="interactions">Interactions</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="ads">Ads</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="accessibility">App</TabsTrigger>
-              <TabsTrigger className="shrink-0 rounded-full border border-border px-4 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground" value="creator">Creator</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="account">Account</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="privacy">Privacy</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="security">Security</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="notifications">Notifications</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="content">Content & Feed</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="creator">Creator Tools</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="payments">Payments</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="data">Data & Storage</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="accessibility">Language & Accessibility</TabsTrigger>
+              <TabsTrigger className="ig-tab-trigger shrink-0" value="help">Help & Support</TabsTrigger>
             </TabsList>
           </div>
 
@@ -494,6 +549,39 @@ const Settings = () => {
                 </div>
               </div>
             </section>
+
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account controls</p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="mb-1 text-sm font-medium text-foreground">Linked accounts</p>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <Button variant="secondary" className="w-full">Google</Button>
+                    <Button variant="secondary" className="w-full">Apple</Button>
+                    <Button variant="secondary" className="w-full">Facebook</Button>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-foreground">Account type</p>
+                  <p className="mb-2 text-xs text-muted-foreground">Switch between personal and creator/business tools.</p>
+                  <select
+                    value={professionalAccount ? "creator" : "personal"}
+                    onChange={(event) => setProfessionalAccount(event.target.value !== "personal")}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  >
+                    <option value="personal">Personal</option>
+                    <option value="creator">Creator</option>
+                    <option value="business">Business</option>
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button variant="outline" onClick={() => toast.info("Account deactivation flow will be available in the next update")}>Deactivate account</Button>
+                  <Button variant="destructive" onClick={() => toast.error("Please contact support to permanently delete your account")}>Delete account</Button>
+                </div>
+              </div>
+            </section>
           </TabsContent>
 
           <TabsContent value="notifications" className="space-y-3">
@@ -527,6 +615,18 @@ const Settings = () => {
                   <Switch checked={pushFollows} onCheckedChange={setPushFollows} />
                 </div>
                 <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Mentions</p>
+                  <Switch checked={pushMentions} onCheckedChange={setPushMentions} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Live streams</p>
+                  <Switch checked={pushLiveStreams} onCheckedChange={setPushLiveStreams} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Creator updates</p>
+                  <Switch checked={pushCreatorUpdates} onCheckedChange={setPushCreatorUpdates} />
+                </div>
+                <div className="flex items-center justify-between">
                   <p className="text-sm text-foreground">Daily recap</p>
                   <Switch checked={dailyRecap} onCheckedChange={setDailyRecap} />
                 </div>
@@ -537,6 +637,10 @@ const Settings = () => {
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-foreground">Email notifications</p>
                   <Switch checked={emailMarketing} onCheckedChange={setEmailMarketing} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">SMS notifications</p>
+                  <Switch checked={smsNotifications} onCheckedChange={setSmsNotifications} />
                 </div>
               </div>
 
@@ -565,9 +669,13 @@ const Settings = () => {
                         push_message_requests: pushMessageRequests,
                         push_saves: pushSaves,
                         push_follows: pushFollows,
+                        push_mentions: pushMentions,
+                        push_live_streams: pushLiveStreams,
+                        push_creator_updates: pushCreatorUpdates,
                         daily_recap: dailyRecap,
                         reengagement_nudges: reengagementNudges,
                         email_marketing: emailMarketing,
+                        sms_notifications: smsNotifications,
                         quiet_mode_enabled: quietModeEnabled,
                         quiet_mode_start: quietModeStart,
                         quiet_mode_end: quietModeEnd,
@@ -645,7 +753,34 @@ const Settings = () => {
 
           </TabsContent>
 
-          <TabsContent value="safety" className="space-y-3">
+          <TabsContent value="security" className="space-y-3">
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" /> Account protection
+              </p>
+              <div className="mt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Two-factor authentication (2FA)</p>
+                    <p className="text-xs text-muted-foreground">Require an additional code when signing in.</p>
+                  </div>
+                  <Switch checked={twoFactorEnabled} onCheckedChange={setTwoFactorEnabled} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Suspicious login alerts</p>
+                    <p className="text-xs text-muted-foreground">Get notified when a login looks unusual.</p>
+                  </div>
+                  <Switch checked={loginAlerts} onCheckedChange={setLoginAlerts} />
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button variant="secondary" onClick={() => toast.info("Login activity history is coming soon")}>Login activity</Button>
+                  <Button variant="secondary" onClick={() => toast.info("Device management is coming soon")}>Manage devices</Button>
+                </div>
+                <Button variant="outline" className="w-full" onClick={handleUpdatePassword}>Reset password</Button>
+              </div>
+            </section>
+
             <section className="rounded-2xl panel-surface p-4">
               <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 <BellOff className="h-3.5 w-3.5" /> Inbox controls
@@ -823,10 +958,168 @@ const Settings = () => {
             )}
           </TabsContent>
 
+          <TabsContent value="payments" className="space-y-3">
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <CreditCard className="h-3.5 w-3.5" /> Payments and earnings
+              </p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Payment method</p>
+                  <select
+                    value={paymentMethod}
+                    onChange={(event) => setPaymentMethod(event.target.value)}
+                    className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  >
+                    <option value="UPI">UPI</option>
+                    <option value="bank">Bank account</option>
+                    <option value="card">Card</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Withdrawal account</p>
+                  <Input
+                    value={withdrawalAccount}
+                    onChange={(event) => setWithdrawalAccount(event.target.value)}
+                    placeholder="UPI ID or bank account"
+                  />
+                </div>
+                <Button variant="secondary" className="w-full" onClick={() => navigate("/monetization")}>Open earnings dashboard</Button>
+              </div>
+
+              <Button
+                className="mt-4 w-full"
+                onClick={() =>
+                  saveSettingsSection(
+                    {
+                      app: {
+                        payment_method: paymentMethod,
+                        withdrawal_account: withdrawalAccount,
+                      },
+                    },
+                    "Payment settings saved",
+                  )
+                }
+                disabled={upsertUserSettings.isPending}
+              >
+                {upsertUserSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save payment settings"}
+              </Button>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="data" className="space-y-3">
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <HardDrive className="h-3.5 w-3.5" /> Data and storage
+              </p>
+              <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Media quality</p>
+                  <select
+                    value={mediaQuality}
+                    onChange={(event) => setMediaQuality(event.target.value as "auto" | "high" | "data_saver")}
+                    className="mt-1 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground"
+                  >
+                    <option value="auto">Auto</option>
+                    <option value="high">High quality</option>
+                    <option value="data_saver">Data saver</option>
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button variant="secondary" onClick={handleDownloadAccountData}>
+                    <Download className="mr-2 h-4 w-4" /> Download account data
+                  </Button>
+                  <Button variant="outline" onClick={handleClearLocalCache}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Clear cache
+                  </Button>
+                </div>
+              </div>
+
+              <Button
+                className="mt-4 w-full"
+                onClick={() =>
+                  saveSettingsSection(
+                    {
+                      app: {
+                        data_saver: mediaQuality === "data_saver",
+                        media_quality: mediaQuality,
+                      },
+                    },
+                    "Data and storage settings saved",
+                  )
+                }
+                disabled={upsertUserSettings.isPending}
+              >
+                {upsertUserSettings.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save data settings"}
+              </Button>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="help" className="space-y-3">
+            <section className="rounded-2xl panel-surface p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <HelpCircle className="h-3.5 w-3.5" /> Help and support
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Button variant="secondary" onClick={() => openHelpSection("center")}>Help center</Button>
+                <Button variant="secondary" onClick={() => openHelpSection("faq")}>FAQs</Button>
+                <Button variant="outline" onClick={() => openHelpSection("report")}>Report a problem</Button>
+                <Button variant="outline" onClick={() => openHelpSection("report")}>Report content or user</Button>
+                <Button variant="outline" onClick={() => openHelpSection("guidelines")}>
+                  <FileText className="mr-2 h-4 w-4" /> Community guidelines
+                </Button>
+                <Button variant="outline" onClick={() => openHelpSection("contact")}>
+                  <Smartphone className="mr-2 h-4 w-4" /> Contact support
+                </Button>
+              </div>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="business" className="space-y-3">
+            <section className="ig-modern-card p-4">
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Briefcase className="h-3.5 w-3.5" /> Opium for Business
+              </p>
+              <p className="mt-2 text-sm text-foreground">
+                Built for brands and agencies to run campaigns, promote products, and measure real outcomes.
+              </p>
+
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+                  <p className="text-sm font-semibold text-foreground">Campaign Manager</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Create sponsored campaigns with budget, audience, and timeline controls.</p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+                  <p className="text-sm font-semibold text-foreground">Creator Marketplace</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Find creators by niche, engagement quality, and estimated conversion fit.</p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+                  <p className="text-sm font-semibold text-foreground">Advanced Insights</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Track reach, watch-through, clicks, saves, and attributed revenue in one dashboard.</p>
+                </div>
+                <div className="rounded-xl border border-border/70 bg-background/70 p-3">
+                  <p className="text-sm font-semibold text-foreground">Team Access</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Invite teammates with roles for approvals, publishing, and reporting.</p>
+                </div>
+              </div>
+
+              <Button className="mt-4 w-full" onClick={() => navigate("/monetization")}>Open Business Hub</Button>
+            </section>
+          </TabsContent>
+
           <TabsContent value="content" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Content preferences</p>
               <div className="mt-3 space-y-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Content interests</p>
+                  <p className="mb-2 text-xs text-muted-foreground">Add topics to personalize your home feed.</p>
+                  <Input
+                    value={contentInterests}
+                    onChange={(event) => setContentInterests(event.target.value)}
+                    placeholder="music, comedy, travel"
+                  />
+                </div>
                 <div>
                   <p className="text-sm font-medium text-foreground">Sensitive content</p>
                   <p className="mb-2 text-xs text-muted-foreground">Choose how much potentially sensitive content is shown.</p>
@@ -848,6 +1141,19 @@ const Settings = () => {
                   <p className="text-sm text-foreground">Hide view counts</p>
                   <Switch checked={hideViewCount} onCheckedChange={setHideViewCount} />
                 </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Autoplay videos</p>
+                  <Switch checked={autoplayVideos} onCheckedChange={setAutoplayVideos} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-foreground">Start videos with sound</p>
+                  <Switch checked={autoplaySound} onCheckedChange={setAutoplaySound} />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">Content language</p>
+                  <Input value={language} onChange={(event) => setLanguage(event.target.value)} placeholder="Language" />
+                </div>
+                <Button variant="outline" onClick={handleResetRecommendations}>Reset recommendation algorithm</Button>
               </div>
               <Button
                 className="mt-4 w-full"
@@ -855,9 +1161,19 @@ const Settings = () => {
                   saveSettingsSection(
                     {
                       content: {
+                        content_interests: contentInterests
+                          .split(/[\n,]/)
+                          .map((topic) => topic.trim().toLowerCase())
+                          .filter((topic, index, arr) => !!topic && arr.indexOf(topic) === index)
+                          .slice(0, 30),
                         sensitive_content_level: sensitiveContentLevel,
                         hide_like_count: hideLikeCount,
                         hide_view_count: hideViewCount,
+                      },
+                      app: {
+                        autoplay_videos: autoplayVideos,
+                        autoplay_sound: autoplaySound,
+                        language,
                       },
                     },
                     "Content preferences saved",

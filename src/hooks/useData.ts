@@ -4,6 +4,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import { getEngagementPersonalizationBoost, loadEngagementLoopState } from "@/lib/engagementLoop";
+import { diversifyFeedRanking } from "@/lib/feedDiversity";
+
+const lowBandwidthEnv = String(import.meta.env.VITE_LOW_BANDWIDTH_MODE || "").toLowerCase();
+const LOW_BANDWIDTH_MODE = lowBandwidthEnv === "true";
+
+const getVisibilityAwareRefetchInterval = (visibleMs: number, hiddenMs: number) => {
+  if (typeof document === "undefined") return visibleMs;
+  return document.visibilityState === "visible" ? visibleMs : hiddenMs;
+};
 
 const isSchemaMismatchError = (error: any) => {
   const message = String(error?.message || "").toLowerCase();
@@ -81,6 +90,13 @@ const loadSafetyFilters = async (userId: string) => {
 const withPlayableVideoUrl = (video: any) => {
   const directUrl = String(video?.video_url || "").trim();
   const playbackId = String(video?.stream_playback_id || "").trim();
+
+  if (LOW_BANDWIDTH_MODE && playbackId) {
+    return {
+      ...video,
+      video_url: `https://stream.mux.com/${playbackId}.m3u8`,
+    };
+  }
 
   if (directUrl) {
     return {
@@ -605,19 +621,24 @@ export function useForYouVideos() {
               })
               .sort((a: any, b: any) => b._score - a._score);
 
+            const diversifiedRpcRanked = diversifyFeedRanking(personalizedRpcRanked, {
+              candidateWindow: 20,
+            });
+
             logForYouTelemetry(
-              personalizedRpcRanked.map((video: any, index: number) => ({
+              diversifiedRpcRanked.map((video: any, index: number) => ({
                 video_id: video.id,
-                score: Number(video._score || 0),
+                score: Number(video._finalScore || video._score || 0),
                 rank_position: index + 1,
                 components: {
                   source: "rpc_plus_local",
+                  diversity_adjustment: Number(video._diversityAdjustment || 0),
                   ...(video._personalization || {}),
                 },
               })),
             );
 
-            return personalizedRpcRanked;
+            return diversifiedRpcRanked;
           }
           // If RPC ranking resolves to no playable videos, continue to client fallback.
         }
@@ -777,19 +798,24 @@ export function useForYouVideos() {
         })
         .sort((a: any, b: any) => b._score - a._score);
 
+      const diversifiedRanked = diversifyFeedRanking(personalizedRanked, {
+        candidateWindow: 20,
+      });
+
       logForYouTelemetry(
-        personalizedRanked.map((video: any, index: number) => ({
+        diversifiedRanked.map((video: any, index: number) => ({
           video_id: video.id,
-          score: Number(video._score || 0),
+          score: Number(video._finalScore || video._score || 0),
           rank_position: index + 1,
           components: {
             source: "client_fallback",
+            diversity_adjustment: Number(video._diversityAdjustment || 0),
             ...(video._personalization || {}),
           },
         })),
       );
 
-      return personalizedRanked;
+      return diversifiedRanked;
     },
   });
 }
@@ -1549,7 +1575,8 @@ export function useNotifications(limit = 30) {
       }
       return bundleNotifications(data || []);
     },
-    refetchInterval: 10000,
+    refetchInterval: () => getVisibilityAwareRefetchInterval(20000, 120000),
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -1821,7 +1848,8 @@ export function useUnreadNotificationsCount() {
 
       return count || 0;
     },
-    refetchInterval: 10000,
+    refetchInterval: () => getVisibilityAwareRefetchInterval(20000, 120000),
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -2880,6 +2908,10 @@ export function useUpdateProfile() {
       display_name?: string;
       username?: string;
       bio?: string;
+      location?: string | null;
+      city?: string | null;
+      state?: string | null;
+      country?: string | null;
       avatar_url?: string | null;
       website_url?: string | null;
       category?: string | null;

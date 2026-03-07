@@ -84,7 +84,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const [isSpeedBoosted, setIsSpeedBoosted] = useState(false);
   const [showLikeBurst, setShowLikeBurst] = useState(false);
   const { state: engagementState, recordAction } = useEngagementLoop();
-  const { autoplayVideos, loopVideos, hideLikeCount } = useRuntimeSettings();
+  const { autoplayVideos, loopVideos, hideLikeCount, lowBandwidthMode } = useRuntimeSettings();
   const longPressTimeoutRef = useRef<number | null>(null);
   const singleTapTimeoutRef = useRef<number | null>(null);
   const retryTimeoutRef = useRef<number | null>(null);
@@ -115,7 +115,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     return music.split(/[\s|,-]/).filter(Boolean)[0] || "trending";
   }, [video.description, video.music]);
 
-  const shouldKeepMediaLoaded = isActive || isNearActive;
+  const shouldKeepMediaLoaded = lowBandwidthMode ? isActive : isActive || isNearActive;
 
   const socialProofLabel = useMemo(() => {
     if ((video.likes_count || 0) > 25000 || (video.shares_count || 0) > 4000) {
@@ -568,7 +568,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     const hls = new Hls({
       enableWorker: true,
       lowLatencyMode: false,
-      startFragPrefetch: true,
+      startFragPrefetch: false,
       maxBufferLength: isSlowNetwork ? 16 : 40,
       maxMaxBufferLength: isSlowNetwork ? 24 : 60,
       backBufferLength: isSlowNetwork ? 8 : 16,
@@ -613,7 +613,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         hlsRef.current = null;
       }
     };
-  }, [hasLoadedMedia, isHlsSource, isVideo, video.video_url]);
+  }, [hasLoadedMedia, isHlsSource, isVideo, lowBandwidthMode, video.video_url]);
 
   const handleSingleTapAction = useCallback(() => {
     const vid = videoRef.current;
@@ -858,7 +858,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
           disablePictureInPicture
           controlsList="nodownload noplaybackrate"
           muted={isMuted}
-          preload={shouldKeepMediaLoaded ? "auto" : "metadata"}
+          preload={lowBandwidthMode ? (isActive ? "metadata" : "none") : shouldKeepMediaLoaded ? "auto" : "metadata"}
           onCanPlay={handleCanPlay}
           onLoadedData={() => {
             if (isActive) {
@@ -872,12 +872,14 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
           onTimeUpdate={handleTimeUpdate}
           aria-label="video"
         />
-      ) : (
+      ) : posterUrl ? (
         <img
-          src={posterUrl || video.video_url}
+          src={posterUrl}
           alt=""
           className="feed-media absolute inset-0 h-full w-full object-cover"
         />
+      ) : (
+        <div className="feed-media absolute inset-0 h-full w-full bg-secondary" />
       )}
       <div
         className="absolute inset-0 z-[1]"

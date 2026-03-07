@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { X, ChevronLeft, ChevronRight, MoreVertical, Send, Eye } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -37,22 +37,26 @@ export interface StoryGroup {
 interface StoryViewerProps {
   storyGroups: StoryGroup[];
   initialGroupIndex: number;
+  initialStoryIndex?: number;
   onClose: () => void;
 }
 
 export const StoryViewer = ({
   storyGroups,
   initialGroupIndex,
+  initialStoryIndex = 0,
   onClose,
 }: StoryViewerProps) => {
   const quickReactions = ["❤️", "🔥", "😂", "😍", "👏"];
   const { user } = useAuth();
   const [currentGroupIndex, setCurrentGroupIndex] = useState(initialGroupIndex);
-  const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+  const [currentStoryIndex, setCurrentStoryIndex] = useState(initialStoryIndex);
   const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [showInsights, setShowInsights] = useState(false);
+  const [resolvedDurationMs, setResolvedDurationMs] = useState(5000);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const viewStory = useViewStory();
   const replyToStory = useReplyToStory();
@@ -63,7 +67,18 @@ export const StoryViewer = ({
   const { data: storyViewers = [] } = useStoryViewers(currentStory?.id || "");
   const { data: storyReplies = [] } = useStoryReplies(currentStory?.id || "");
   const { data: storyStickers = [] } = useStoryStickers(currentStory?.id || "");
-  const duration = (currentStory?.duration || 5) * 1000;
+
+  const getFirstUnviewedIndex = useCallback((group?: StoryGroup) => {
+    if (!group?.stories?.length) return 0;
+    const index = group.stories.findIndex((story) => !story.viewed);
+    return index >= 0 ? index : 0;
+  }, []);
+
+  useEffect(() => {
+    if (!currentStory) return;
+    const baseMs = Math.max(1000, (currentStory.duration || 5) * 1000);
+    setResolvedDurationMs(baseMs);
+  }, [currentStory?.id, currentStory]);
 
   useEffect(() => {
     if (currentStory && !currentStory.viewed && !isOwnStory) {
@@ -82,20 +97,21 @@ export const StoryViewer = ({
       setCurrentStoryIndex(currentStoryIndex + 1);
       setProgress(0);
     } else if (currentGroupIndex < storyGroups.length - 1) {
-      setCurrentGroupIndex(currentGroupIndex + 1);
-      setCurrentStoryIndex(0);
+      const nextGroupIndex = currentGroupIndex + 1;
+      setCurrentGroupIndex(nextGroupIndex);
+      setCurrentStoryIndex(getFirstUnviewedIndex(storyGroups[nextGroupIndex]));
       setProgress(0);
     } else {
       onClose();
     }
-  }, [currentGroup, currentGroupIndex, currentStoryIndex, onClose, storyGroups.length]);
+  }, [currentGroup, currentGroupIndex, currentStoryIndex, getFirstUnviewedIndex, onClose, storyGroups]);
 
   useEffect(() => {
     if (isPaused) return;
 
     const interval = setInterval(() => {
       setProgress((prev) => {
-        const newProgress = prev + (100 / (duration / 100));
+        const newProgress = prev + (100 / (resolvedDurationMs / 100));
         if (newProgress >= 100) {
           handleNext();
           return 0;
@@ -105,19 +121,68 @@ export const StoryViewer = ({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isPaused, duration, handleNext]);
+  }, [isPaused, resolvedDurationMs, handleNext]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (currentStoryIndex > 0) {
       setCurrentStoryIndex(currentStoryIndex - 1);
       setProgress(0);
     } else if (currentGroupIndex > 0) {
-      setCurrentGroupIndex(currentGroupIndex - 1);
-      const prevGroup = storyGroups[currentGroupIndex - 1];
-      setCurrentStoryIndex(prevGroup.stories.length - 1);
+      const prevGroupIndex = currentGroupIndex - 1;
+      const prevGroup = storyGroups[prevGroupIndex];
+      setCurrentGroupIndex(prevGroupIndex);
+      setCurrentStoryIndex(Math.max(0, prevGroup.stories.length - 1));
       setProgress(0);
     }
-  };
+  }, [currentGroupIndex, currentStoryIndex, storyGroups]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || currentStory?.media_type !== "video") return;
+
+    if (isPaused) {
+      video.pause();
+      return;
+    }
+
+    const playPromise = video.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => undefined);
+    }
+  }, [isPaused, currentStory?.id, currentStory?.media_type]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && ["INPUT", "TEXTAREA"].includes(target.tagName)) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        handleNext();
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        handlePrev();
+        return;
+      }
+
+      if (event.key === " " || event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setIsPaused((prev) => !prev);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handleNext, handlePrev, onClose]);
 
   const sendReply = (message: string) => {
     if (!message.trim() || !currentStory) return;
@@ -254,13 +319,26 @@ export const StoryViewer = ({
           />
         ) : (
           <video
+            ref={videoRef}
             src={currentStory.media_url}
             className="max-w-full max-h-full object-contain"
             autoPlay
             muted
             playsInline
+            onLoadedMetadata={(event) => {
+              const durationSec = Number(event.currentTarget.duration || currentStory.duration || 5);
+              if (Number.isFinite(durationSec) && durationSec > 0) {
+                setResolvedDurationMs(Math.max(1000, durationSec * 1000));
+              }
+            }}
           />
         )}
+
+        <button
+          onClick={() => setIsPaused((prev) => !prev)}
+          className="absolute left-1/3 right-1/3 top-0 bottom-0 z-10"
+          aria-label={isPaused ? "Resume story" : "Pause story"}
+        />
 
         {currentStory.caption && (
           <div className="absolute bottom-20 left-4 right-4 text-white text-sm">
@@ -384,8 +462,9 @@ export const StoryViewer = ({
             variant="ghost"
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/10"
             onClick={() => {
-              setCurrentGroupIndex(currentGroupIndex - 1);
-              setCurrentStoryIndex(0);
+              const prevGroupIndex = currentGroupIndex - 1;
+              setCurrentGroupIndex(prevGroupIndex);
+              setCurrentStoryIndex(getFirstUnviewedIndex(storyGroups[prevGroupIndex]));
               setProgress(0);
             }}
           >
@@ -398,8 +477,9 @@ export const StoryViewer = ({
             variant="ghost"
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/10"
             onClick={() => {
-              setCurrentGroupIndex(currentGroupIndex + 1);
-              setCurrentStoryIndex(0);
+              const nextGroupIndex = currentGroupIndex + 1;
+              setCurrentGroupIndex(nextGroupIndex);
+              setCurrentStoryIndex(getFirstUnviewedIndex(storyGroups[nextGroupIndex]));
               setProgress(0);
             }}
           >

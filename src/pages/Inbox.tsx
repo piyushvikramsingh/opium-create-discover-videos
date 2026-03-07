@@ -3,6 +3,7 @@ import {
   type ErrorInfo,
   type ReactNode,
   type TouchEvent,
+  useRef,
   useEffect,
   useMemo,
   useState,
@@ -23,6 +24,7 @@ import {
   Loader2,
   ArrowLeft,
   Edit3,
+  Camera,
   Users,
   Crown,
   Star,
@@ -33,6 +35,8 @@ import {
   Timer,
   Zap,
   TrendingUp,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -58,6 +62,7 @@ import {
 } from "@/hooks/useCommunityChat";
 import { useLocation, useNavigate } from "react-router-dom";
 import ChatView from "../components/ChatView";
+import SnapCamera from "../components/SnapCamera";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -81,6 +86,9 @@ type InboxMessage = {
   viewed?: boolean;
   media_type?: string | null;
   content?: string | null;
+  sender_id?: string;
+  status?: string | null;
+  deleted_at?: string | null;
 };
 
 type InboxConversation = {
@@ -104,6 +112,11 @@ type IncomingFollowRequest = {
 };
 
 type TabType = "primary" | "community" | "requests";
+
+type RowActionTarget = {
+  convo: InboxConversation;
+  other: InboxUser;
+};
 
 // ── Error Boundary ─────────────────────────────────────────────────────
 
@@ -206,7 +219,14 @@ const Inbox = () => {
 
   // Tab state: Primary | Community | Requests
   const [activeTab, setActiveTab] = useState<TabType>("primary");
-  const { data: conversations, isLoading } = useConversations(false);
+  const {
+    data: conversations,
+    isLoading,
+    isFetching: isConversationsFetching,
+    isError: isConversationsError,
+    error: conversationsError,
+    refetch: refetchConversations,
+  } = useConversations(false);
   const createConversation = useCreateConversation();
   const updateConversationSettings = useUpdateConversationSettings();
   const { data: inboxNotes = [] } = useInboxNotes(30);
@@ -218,6 +238,16 @@ const Inbox = () => {
   const [bulkRequestAction, setBulkRequestAction] = useState<null | "accept" | "delete">(null);
   const [swipedConversationId, setSwipedConversationId] = useState<string | null>(null);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [manuallyUnreadIds, setManuallyUnreadIds] = useState<Set<string>>(new Set());
+  const [rowActionTarget, setRowActionTarget] = useState<RowActionTarget | null>(null);
+  const [cameraPreviewTarget, setCameraPreviewTarget] = useState<RowActionTarget | null>(null);
+  const [cameraPulseConversationId, setCameraPulseConversationId] = useState<string | null>(null);
+  const rowLongPressTimeoutRef = useRef<number | null>(null);
+  const rowLongPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const suppressRowTapConversationIdRef = useRef<string | null>(null);
+  const cameraPreviewHoldTimeoutRef = useRef<number | null>(null);
+  const cameraPulseTimeoutRef = useRef<number | null>(null);
+  const cameraPreviewTriggeredRef = useRef(false);
 
   // Community hooks
   const { data: communityGroups = [], isLoading: communityLoading } = useCommunityGroups();
@@ -247,6 +277,7 @@ const Inbox = () => {
   const [activeConversation, setActiveConversation] = useState<{
     id: string;
     otherUser: InboxUser;
+    openCameraOnMount?: boolean;
   } | null>(null);
   const [isReturningFromChat, setIsReturningFromChat] = useState(false);
 
@@ -289,6 +320,112 @@ const Inbox = () => {
     }
   };
 
+  const clearRowLongPressTimer = () => {
+    if (rowLongPressTimeoutRef.current !== null) {
+      window.clearTimeout(rowLongPressTimeoutRef.current);
+      rowLongPressTimeoutRef.current = null;
+    }
+  };
+
+  const setManualUnread = (conversationId: string, unread: boolean) => {
+    setManuallyUnreadIds((prev) => {
+      const next = new Set(prev);
+      if (unread) {
+        next.add(conversationId);
+      } else {
+        next.delete(conversationId);
+      }
+      return next;
+    });
+  };
+
+  const openConversation = (conversationId: string, otherUser: InboxUser, options?: { openCameraOnMount?: boolean }) => {
+    setManualUnread(conversationId, false);
+    setActiveConversation({ id: conversationId, otherUser, openCameraOnMount: !!options?.openCameraOnMount });
+  };
+
+  const handleConversationLongPressStart = (event: TouchEvent, convo: InboxConversation, other: InboxUser) => {
+    const point = event.touches[0];
+    if (!point) return;
+
+    rowLongPressStartRef.current = { x: point.clientX, y: point.clientY };
+    clearRowLongPressTimer();
+
+    rowLongPressTimeoutRef.current = window.setTimeout(() => {
+      suppressRowTapConversationIdRef.current = convo.id;
+      setRowActionTarget({ convo, other });
+      rowLongPressTimeoutRef.current = null;
+    }, 420);
+  };
+
+  const handleConversationLongPressMove = (event: TouchEvent) => {
+    const start = rowLongPressStartRef.current;
+    const point = event.touches[0];
+    if (!start || !point) return;
+
+    const dx = Math.abs(point.clientX - start.x);
+    const dy = Math.abs(point.clientY - start.y);
+    if (dx > 12 || dy > 12) {
+      clearRowLongPressTimer();
+    }
+  };
+
+  const handleConversationLongPressEnd = () => {
+    clearRowLongPressTimer();
+    rowLongPressStartRef.current = null;
+  };
+
+  const clearCameraPreviewHoldTimer = () => {
+    if (cameraPreviewHoldTimeoutRef.current !== null) {
+      window.clearTimeout(cameraPreviewHoldTimeoutRef.current);
+      cameraPreviewHoldTimeoutRef.current = null;
+    }
+  };
+
+  const clearCameraPulseTimer = () => {
+    if (cameraPulseTimeoutRef.current !== null) {
+      window.clearTimeout(cameraPulseTimeoutRef.current);
+      cameraPulseTimeoutRef.current = null;
+    }
+  };
+
+  const handleCameraQuickActionPressStart = (target: RowActionTarget) => {
+    clearCameraPreviewHoldTimer();
+    clearCameraPulseTimer();
+    cameraPreviewTriggeredRef.current = false;
+    cameraPreviewHoldTimeoutRef.current = window.setTimeout(() => {
+      cameraPreviewTriggeredRef.current = true;
+      setCameraPulseConversationId(target.convo.id);
+      cameraPulseTimeoutRef.current = window.setTimeout(() => {
+        setCameraPulseConversationId(null);
+        cameraPulseTimeoutRef.current = null;
+      }, 260);
+      window.setTimeout(() => {
+        setCameraPreviewTarget(target);
+      }, 120);
+      cameraPreviewHoldTimeoutRef.current = null;
+    }, 320);
+  };
+
+  const handleCameraQuickActionPressEnd = () => {
+    clearCameraPreviewHoldTimer();
+  };
+
+  const handleCameraQuickActionClick = (target: RowActionTarget) => {
+    if (cameraPreviewTriggeredRef.current) {
+      cameraPreviewTriggeredRef.current = false;
+      return;
+    }
+    openConversation(target.convo.id, target.other, { openCameraOnMount: true });
+  };
+
+  const handleContinueFromCameraPreview = () => {
+    if (!cameraPreviewTarget) return;
+    const target = cameraPreviewTarget;
+    setCameraPreviewTarget(null);
+    openConversation(target.convo.id, target.other, { openCameraOnMount: true });
+  };
+
   const handleFollowRequest = async (request: IncomingFollowRequest, accept: boolean) => {
     try {
       setActingRequestId(request.id);
@@ -324,6 +461,14 @@ const Inbox = () => {
     setTouchStartX(null);
   };
 
+  useEffect(() => {
+    return () => {
+      clearRowLongPressTimer();
+      clearCameraPreviewHoldTimer();
+      clearCameraPulseTimer();
+    };
+  }, []);
+
   const handleCreateCommunity = async () => {
     if (!communityName.trim()) return;
     try {
@@ -347,11 +492,22 @@ const Inbox = () => {
 
   const getPreview = (lastMsg?: InboxMessage | null) => {
     if (!lastMsg) return "No messages yet";
+    if (lastMsg.deleted_at) return "Message deleted";
     if (lastMsg.is_snap) return lastMsg.viewed ? "Opened snap" : "New snap";
     if (lastMsg.media_type === "image") return "📷 Photo";
     if (lastMsg.media_type === "video") return "🎥 Video";
     if (lastMsg.media_type === "audio") return "🎤 Voice note";
     return lastMsg.content || "Message";
+  };
+
+  const getMessageStatusMeta = (status?: string | null) => {
+    if (status === "seen") {
+      return { label: "Seen", Icon: CheckCheck, className: "text-primary" };
+    }
+    if (status === "delivered") {
+      return { label: "Delivered", Icon: CheckCheck, className: "text-foreground/65" };
+    }
+    return { label: "Sent", Icon: Check, className: "text-muted-foreground" };
   };
 
   const formatTime = (dateStr?: string) => {
@@ -380,14 +536,15 @@ const Inbox = () => {
       if (archived || !!convo.isMessageRequest) return false;
 
       if (!query) return true;
-      const preview = getPreview(convo.lastMessage).toLowerCase();
+      const basePreview = getPreview(convo.lastMessage);
+      const preview = (convo.lastMessage?.sender_id === user?.id ? `you: ${basePreview}` : basePreview).toLowerCase();
       return (
         other.display_name?.toLowerCase().includes(query) ||
         other.username?.toLowerCase().includes(query) ||
         preview.includes(query)
       );
     });
-  }, [conversations, inboxQuery]);
+  }, [conversations, inboxQuery, user?.id]);
 
   // Requests: message requests
   const requestConversations = useMemo(() => {
@@ -401,6 +558,7 @@ const Inbox = () => {
       .map((convo) => ({
         convoId: convo.id,
         other: convo.otherParticipants?.[0],
+        lastMessage: convo.lastMessage,
         unreadCount: convo.unreadCount ?? 0,
         archived: !!convo.settings?.archived,
         isMessageRequest: !!convo.isMessageRequest,
@@ -485,6 +643,7 @@ const Inbox = () => {
       | undefined;
 
     if (!state?.openConversationId || !state?.openUser) return;
+    setManualUnread(state.openConversationId, false);
     setActiveConversation({ id: state.openConversationId, otherUser: state.openUser });
     navigate(location.pathname, { replace: true, state: {} });
   }, [location.state, location.pathname, navigate]);
@@ -530,6 +689,7 @@ const Inbox = () => {
             conversationId={activeConversation.id}
             otherUser={activeConversation.otherUser}
             onBack={handleBackFromChat}
+            openCameraOnMount={!!activeConversation.openCameraOnMount}
           />
         </ChatErrorBoundary>
       </div>
@@ -545,8 +705,11 @@ const Inbox = () => {
     const lastMsg = convo.lastMessage;
     const avatarUrl = other.avatar_url || `https://i.pravatar.cc/100?u=${other.user_id}`;
     const preview = getPreview(lastMsg);
+    const isOutgoingLastMessage = !!lastMsg && lastMsg.sender_id === user.id;
+    const statusMeta = isOutgoingLastMessage ? getMessageStatusMeta(lastMsg.status) : null;
     const unreadCount = convo.unreadCount ?? 0;
-    const isUnread = unreadCount > 0;
+    const isManualUnread = manuallyUnreadIds.has(convo.id);
+    const isUnread = unreadCount > 0 || isManualUnread;
     const hasSnap = !!lastMsg?.is_snap;
     const settings = convo.settings || { pinned: false, muted: false, archived: false, accepted_request: false };
     const typingCount = typingByConversation[convo.id] || 0;
@@ -555,12 +718,43 @@ const Inbox = () => {
     const isSwiped = swipedConversationId === convo.id;
 
     return (
-      <div key={convo.id} className="relative overflow-hidden">
+      <div key={convo.id} className="ig-list-item-enter relative overflow-hidden border-b border-border/60 bg-background">
         <div
           className={`absolute inset-y-0 right-0 flex items-center gap-1.5 pr-3 transition-opacity ${
             isSwiped ? "opacity-100" : "pointer-events-none opacity-0"
           }`}
         >
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              setSwipedConversationId(null);
+              handleCameraQuickActionClick({ convo, other });
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              handleCameraQuickActionPressStart({ convo, other });
+            }}
+            onPointerUp={handleCameraQuickActionPressEnd}
+            onPointerCancel={handleCameraQuickActionPressEnd}
+            onPointerLeave={handleCameraQuickActionPressEnd}
+            className={`inline-flex items-center gap-1 rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground transition-all ${
+              cameraPulseConversationId === convo.id ? "scale-105 ring-2 ring-primary/40 animate-pulse" : ""
+            }`}
+          >
+            <Camera className="h-3 w-3" />
+            Camera
+          </button>
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              setSwipedConversationId(null);
+              openConversation(convo.id, other);
+            }}
+            className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-[11px] font-semibold text-foreground"
+          >
+            <MessageCircle className="h-3 w-3" />
+            Message
+          </button>
           <button
             onClick={(event) => {
               event.stopPropagation();
@@ -595,18 +789,34 @@ const Inbox = () => {
 
         <button
           onClick={() => {
+            if (suppressRowTapConversationIdRef.current === convo.id) {
+              suppressRowTapConversationIdRef.current = null;
+              return;
+            }
             if (isSwiped) {
               setSwipedConversationId(null);
               return;
             }
-            setActiveConversation({ id: convo.id, otherUser: other });
+            openConversation(convo.id, other);
           }}
-          onTouchStart={(event) => handleConversationTouchStart(event, convo.id)}
-          onTouchEnd={(event) => handleConversationTouchEnd(event, convo.id)}
-          className={`ig-tap group relative mx-2 my-1 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors active:bg-secondary/50 ${
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setRowActionTarget({ convo, other });
+          }}
+          onTouchStart={(event) => {
+            handleConversationTouchStart(event, convo.id);
+            handleConversationLongPressStart(event, convo, other);
+          }}
+          onTouchMove={(event) => handleConversationLongPressMove(event)}
+          onTouchEnd={(event) => {
+            handleConversationTouchEnd(event, convo.id);
+            handleConversationLongPressEnd();
+          }}
+          onTouchCancel={() => handleConversationLongPressEnd()}
+          className={`ig-tap group relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-secondary/40 ${
             isUnread
-              ? "border-primary/30 bg-primary/8"
-              : "border-border/70 bg-secondary/35"
+              ? "bg-primary/5"
+              : "bg-background"
           } ${isSwiped ? "-translate-x-36" : "translate-x-0"}`}
         >
           <div className="relative">
@@ -676,10 +886,10 @@ const Inbox = () => {
                 ) : hasSnap ? (
                   <span className="inline-flex items-center gap-1">
                     <Flame className="h-3 w-3" />
-                    {preview}
+                    {isOutgoingLastMessage ? `You: ${preview}` : preview}
                   </span>
                 ) : (
-                  preview
+                  isOutgoingLastMessage ? `You: ${preview}` : preview
                 )}
               </p>
               {showRequestActions ? (
@@ -728,11 +938,22 @@ const Inbox = () => {
                   </button>
                 </div>
               ) : (
-                isUnread && (
-                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )
+                <div className="flex items-center gap-1.5">
+                  {!isTyping && statusMeta && (
+                    <span
+                      key={`${convo.id}-${statusMeta.label}`}
+                      className={`ig-status-pop inline-flex items-center gap-0.5 text-[10px] font-medium leading-none ${statusMeta.className}`}
+                    >
+                      <statusMeta.Icon className="h-2.5 w-2.5" />
+                      <span>{statusMeta.label}</span>
+                    </span>
+                  )}
+                  {isUnread && (
+                    <span className="rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">
+                      {unreadCount > 9 ? "9+" : unreadCount > 0 ? unreadCount : "1"}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -747,24 +968,35 @@ const Inbox = () => {
     <>
       {/* Quick Chats */}
       {!!quickContacts.length && (
-        <div className="border-b border-border/60 bg-secondary/[0.05] px-4 py-3">
+        <div className="border-b border-border/60 bg-background px-4 py-3">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Chats</p>
           <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-1">
             {quickContacts.map((item) => {
               const other = item.other!;
               const avatarUrl = other.avatar_url || `https://i.pravatar.cc/100?u=${other.user_id}`;
               const streakCount = streakMap.get(item.convoId) || 0;
+              const isOutgoingLastMessage = !!item.lastMessage && item.lastMessage.sender_id === user.id;
+              const quickStatusMeta = isOutgoingLastMessage ? getMessageStatusMeta(item.lastMessage?.status) : null;
               return (
                 <button
                   key={item.convoId}
-                  onClick={() => setActiveConversation({ id: item.convoId, otherUser: other })}
-                  className="ig-tap relative shrink-0 rounded-xl border border-border/60 bg-secondary/25 p-2 transition-colors hover:bg-secondary/35"
+                  onClick={() => openConversation(item.convoId, other)}
+                  className="ig-tap relative shrink-0 rounded-xl border border-border/60 bg-background p-2 transition-colors hover:bg-secondary/25"
                 >
                   <img
                     src={avatarUrl}
                     alt={other.display_name}
                     className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/30"
                   />
+                  {quickStatusMeta && (
+                    <span
+                      key={`${item.convoId}-${quickStatusMeta.label}`}
+                      className={`absolute left-0.5 top-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full border border-border/70 bg-background p-0.5 ${quickStatusMeta.className}`}
+                      aria-label={`Last message ${quickStatusMeta.label.toLowerCase()}`}
+                    >
+                      <quickStatusMeta.Icon className="ig-status-pop h-2.5 w-2.5" />
+                    </span>
+                  )}
                   {item.unreadCount > 0 && (
                     <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">
                       {item.unreadCount > 9 ? "9+" : item.unreadCount}
@@ -784,7 +1016,7 @@ const Inbox = () => {
       )}
 
       {/* Notes */}
-      <div className="border-b border-border/60 bg-secondary/[0.08] px-4 py-3">
+      <div className="border-b border-border/60 bg-background px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -801,7 +1033,7 @@ const Inbox = () => {
             return (
               <div
                 key={note.id}
-                className="w-[148px] shrink-0 rounded-xl border border-border/60 bg-secondary/30 p-2.5 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-secondary/40"
+                className="w-[148px] shrink-0 rounded-xl border border-border/60 bg-background p-2.5 transition-colors hover:bg-secondary/20"
               >
                 <div className="mb-1.5 flex items-center gap-2">
                   <img src={avatarUrl} alt={profile.display_name} className="h-7 w-7 rounded-full object-cover" />
@@ -814,7 +1046,7 @@ const Inbox = () => {
             );
           })}
           {!notesByUser.length && (
-            <div className="rounded-xl border border-border/60 bg-secondary/30 px-3 py-2 text-xs text-muted-foreground">
+            <div className="rounded-xl border border-border/60 bg-background px-3 py-2 text-xs text-muted-foreground">
               No active notes from your network
             </div>
           )}
@@ -840,7 +1072,7 @@ const Inbox = () => {
 
       {/* Follow Requests */}
       {incomingFollowRequests.length > 0 && (
-        <div className="border-b border-border/60 bg-secondary/[0.08] px-4 py-3">
+        <div className="border-b border-border/60 bg-background px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Follow Requests</p>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-foreground">
@@ -855,7 +1087,7 @@ const Inbox = () => {
               return (
                 <div
                   key={request.id}
-                  className="flex items-center gap-3 rounded-lg border border-border bg-secondary/30 px-3 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:bg-secondary/40"
+                  className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2 transition-colors hover:bg-secondary/20"
                 >
                   <button onClick={() => navigate(`/profile/${profile.user_id}`)} className="shrink-0">
                     <img
@@ -902,8 +1134,28 @@ const Inbox = () => {
         <div className="flex items-center justify-center py-16">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
+      ) : isConversationsError ? (
+        <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-secondary">
+            <MessageCircle className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <p className="text-sm font-semibold text-foreground">Couldn't load chats</p>
+          <p className="mt-1 max-w-sm text-xs text-muted-foreground">
+            {conversationsError instanceof Error
+              ? conversationsError.message
+              : "Please check your connection and try again."}
+          </p>
+          <button
+            onClick={() => {
+              void refetchConversations();
+            }}
+            className="mt-3 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+          >
+            Retry
+          </button>
+        </div>
       ) : primaryConversations.length > 0 ? (
-        <div className="space-y-0.5 py-1">{primaryConversations.map((convo) => renderConversationRow(convo))}</div>
+        <div>{primaryConversations.map((convo) => renderConversationRow(convo))}</div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
@@ -945,7 +1197,7 @@ const Inbox = () => {
                   <button
                     key={streak.conversation_id}
                     onClick={() => {
-                      if (convo) setActiveConversation({ id: convo.id, otherUser: other });
+                      if (convo) openConversation(convo.id, other);
                     }}
                     className="ig-tap flex shrink-0 flex-col items-center gap-1"
                   >
@@ -974,7 +1226,7 @@ const Inbox = () => {
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
       ) : (communityGroups as CommunityGroup[]).length > 0 ? (
-        <div className="divide-y divide-border/40">
+        <div className="divide-y divide-border/60">
           {(communityGroups as CommunityGroup[]).map((group) => {
             const avatarUrl = group.avatar_url || `https://i.pravatar.cc/100?u=${group.id}`;
             return (
@@ -982,14 +1234,11 @@ const Inbox = () => {
                 key={group.id}
                 onClick={() => {
                   // Open community chat using same ChatView approach
-                  setActiveConversation({
-                    id: group.id,
-                    otherUser: {
-                      user_id: group.created_by,
-                      username: group.name.toLowerCase().replace(/\s+/g, "_"),
-                      display_name: group.name,
-                      avatar_url: group.avatar_url,
-                    },
+                  openConversation(group.id, {
+                    user_id: group.created_by,
+                    username: group.name.toLowerCase().replace(/\s+/g, "_"),
+                    display_name: group.name,
+                    avatar_url: group.avatar_url,
                   });
                 }}
                 className="ig-tap flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-secondary/50"
@@ -1091,7 +1340,7 @@ const Inbox = () => {
       )}
 
       {requestConversations.length > 0 ? (
-        <div className="py-1">{requestConversations.map((convo) => renderConversationRow(convo, true))}</div>
+        <div>{requestConversations.map((convo) => renderConversationRow(convo, true))}</div>
       ) : (
         <div className="flex flex-col items-center justify-center py-20">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
@@ -1109,22 +1358,18 @@ const Inbox = () => {
   // ── Main return ────────────────────────────────────────────────────
 
   return (
-    <div className={`${isReturningFromChat ? "inbox-return" : "ig-screen"} relative min-h-screen bg-background pb-24`}>
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-28 right-[-14%] h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
-        <div className="absolute bottom-[-14%] left-[-16%] h-72 w-72 rounded-full bg-secondary/45 blur-3xl" />
-      </div>
+    <div className={`${isReturningFromChat ? "inbox-return" : "ig-screen"} ig-screen-spring ig-modern-page relative min-h-screen bg-background pb-24`}>
 
       {/* Top Bar */}
-      <div className="ig-header sticky top-0 z-10">
+      <div className="ig-header ig-modern-header sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-2">
             <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1.5 transition-colors hover:bg-secondary/70">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">Messages</h1>
-              <p className="text-[11px] text-muted-foreground">Stay synced across chats, communities, and requests</p>
+              <h1 className="ig-type-h1 text-foreground">Messages</h1>
+              <p className="ig-type-caption">Chats, communities, and requests</p>
             </div>
             {unreadTotal > 0 && (
               <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
@@ -1135,9 +1380,10 @@ const Inbox = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowNewChat(true)}
-              className="ig-tap rounded-full bg-secondary/85 p-2.5 text-foreground transition-colors hover:bg-secondary"
+              className="ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70"
+              aria-label="Search messages"
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-5 w-5" />
             </button>
             <button
               onClick={() => {
@@ -1147,31 +1393,38 @@ const Inbox = () => {
                   setShowNewChat(true);
                 }
               }}
-              className="ig-tap rounded-full bg-primary p-2.5 text-primary-foreground"
+              className="ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70"
+              aria-label={activeTab === "community" ? "Create community" : "Compose message"}
             >
-              <Edit3 className="h-4 w-4" />
+              <Edit3 className="h-5 w-5" />
             </button>
           </div>
         </div>
 
         <div className="px-4 pb-2">
           <div className="scrollbar-hide flex items-center gap-1.5 overflow-x-auto">
-            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary/55 px-2 py-0.5 text-[11px] font-semibold text-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] font-semibold text-foreground">
               <MessageCircle className="h-3 w-3" />
               {primaryConversations.length} chats
             </span>
             {unreadTotal > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/12 px-2 py-0.5 text-[11px] font-semibold text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
                 <Circle className="h-2.5 w-2.5 fill-primary text-primary" />
                 {unreadTotal} unread
               </span>
             )}
             {activeTypingCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-secondary/55 px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:120ms]" />
                 <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:240ms]" />
                 {activeTypingCount} typing
+              </span>
+            )}
+            {isConversationsFetching && !isLoading && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                syncing
               </span>
             )}
           </div>
@@ -1179,14 +1432,14 @@ const Inbox = () => {
 
         {/* Search */}
         <div className="px-4 pb-3">
-          <div className="relative rounded-2xl border border-border/70 bg-secondary/45 px-2 transition-colors focus-within:border-primary/35 focus-within:bg-secondary/60">
+          <div className="ig-modern-input relative px-2 transition-colors focus-within:border-primary/35">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
               value={inboxQuery}
               onChange={(e) => setInboxQuery(e.target.value)}
               placeholder="Search chats"
-              className="w-full rounded-2xl bg-transparent py-2.5 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground outline-none"
+              className="w-full rounded-xl bg-transparent py-2.5 pl-9 pr-9 text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
             {!!inboxQuery && (
               <button
@@ -1200,44 +1453,46 @@ const Inbox = () => {
         </div>
 
         {/* Tabs: Primary | Community | Requests */}
-        <div className="mx-4 mb-3 flex items-center gap-1 rounded-2xl p-1">
+        <div className="mb-2 flex items-center justify-center gap-6 border-t border-border/60 px-4 pt-2 text-sm font-semibold">
           <button
             onClick={() => setActiveTab("primary")}
             data-active={activeTab === "primary"}
-              className={`ig-tab-pill flex-1 px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
-              activeTab === "primary" ? "text-foreground shadow-sm" : "text-muted-foreground"
+            className={`relative px-1 py-1 transition-colors duration-200 ${
+              activeTab === "primary" ? "text-foreground" : "text-muted-foreground"
             }`}
           >
-            <span className="flex items-center justify-center gap-1">
+            <span className="flex items-center justify-center gap-1.5">
               <MessageCircle className="h-3.5 w-3.5" />
               Primary
             </span>
+            {activeTab === "primary" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
           </button>
           <button
             onClick={() => setActiveTab("community")}
             data-active={activeTab === "community"}
-              className={`ig-tab-pill flex-1 px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
-              activeTab === "community" ? "text-foreground shadow-sm" : "text-muted-foreground"
+            className={`relative px-1 py-1 transition-colors duration-200 ${
+              activeTab === "community" ? "text-foreground" : "text-muted-foreground"
             }`}
           >
-            <span className="flex items-center justify-center gap-1">
+            <span className="flex items-center justify-center gap-1.5">
               <Users className="h-3.5 w-3.5" />
               Community
               {(communityGroups as CommunityGroup[]).length > 0 && (
-                <span className="ml-0.5 rounded-full bg-primary-foreground/20 px-1 text-[11px]">
+                <span className="ml-0.5 rounded-full bg-secondary px-1 text-[11px] text-muted-foreground">
                   {(communityGroups as CommunityGroup[]).length}
                 </span>
               )}
             </span>
+            {activeTab === "community" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
           </button>
           <button
             onClick={() => setActiveTab("requests")}
             data-active={activeTab === "requests"}
-              className={`ig-tab-pill flex-1 px-3 py-2.5 text-xs font-semibold transition-all duration-200 active:scale-[0.98] ${
-              activeTab === "requests" ? "text-foreground shadow-sm" : "text-muted-foreground"
+            className={`relative px-1 py-1 transition-colors duration-200 ${
+              activeTab === "requests" ? "text-foreground" : "text-muted-foreground"
             }`}
           >
-            <span className="flex items-center justify-center gap-1">
+            <span className="flex items-center justify-center gap-1.5">
               <Shield className="h-3.5 w-3.5" />
               Requests
               {requestConversations.length > 0 && (
@@ -1246,14 +1501,17 @@ const Inbox = () => {
                 </span>
               )}
             </span>
+            {activeTab === "requests" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
           </button>
         </div>
       </div>
 
       {/* Tab Content */}
-      {activeTab === "primary" && renderPrimaryTab()}
-      {activeTab === "community" && renderCommunityTab()}
-      {activeTab === "requests" && renderRequestsTab()}
+      <div key={activeTab} className="ig-tab-content-enter">
+        {activeTab === "primary" && renderPrimaryTab()}
+        {activeTab === "community" && renderCommunityTab()}
+        {activeTab === "requests" && renderRequestsTab()}
+      </div>
 
       {/* Floating Create Button */}
       <button
@@ -1264,15 +1522,129 @@ const Inbox = () => {
             setShowNewChat(true);
           }
         }}
-        className="ig-tap fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-14 w-14 items-center justify-center rounded-full border border-primary/25 bg-primary text-primary-foreground shadow-lg transition-colors hover:bg-primary/90"
+        aria-label={activeTab === "community" ? "Create community" : "Compose message"}
+        className="ig-tap ig-icon-btn ig-fab-breathe fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 z-20 flex h-14 w-14 items-center justify-center rounded-full border border-border/70 bg-background text-foreground shadow-md transition-colors hover:bg-secondary/30"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="h-7 w-7" />
       </button>
+
+      {rowActionTarget && (
+        <div className="ig-sheet-backdrop fixed inset-0 z-50 flex items-end bg-black/45 p-3" onClick={() => setRowActionTarget(null)}>
+          <div
+            className="ig-sheet ig-modern-card w-full p-3"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-2">
+              <p className="text-sm font-semibold text-foreground">{rowActionTarget.other.display_name}</p>
+              <p className="text-xs text-muted-foreground">@{rowActionTarget.other.username}</p>
+            </div>
+
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  handleCameraQuickActionClick(rowActionTarget);
+                  setRowActionTarget(null);
+                }}
+                onPointerDown={() => handleCameraQuickActionPressStart(rowActionTarget)}
+                onPointerUp={handleCameraQuickActionPressEnd}
+                onPointerCancel={handleCameraQuickActionPressEnd}
+                onPointerLeave={handleCameraQuickActionPressEnd}
+                className={`ig-tap ig-icon-btn ig-control-md flex w-full items-center gap-2 px-3 text-left text-sm hover:bg-secondary/60 ${
+                  cameraPulseConversationId === rowActionTarget.convo.id ? "ring-2 ring-primary/40 animate-pulse" : ""
+                }`}
+              >
+                <Camera className="h-4 w-4" /> Camera
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  openConversation(rowActionTarget.convo.id, rowActionTarget.other);
+                  setRowActionTarget(null);
+                }}
+                className="ig-tap ig-icon-btn ig-control-md flex w-full items-center gap-2 px-3 text-left text-sm hover:bg-secondary/60"
+              >
+                <MessageCircle className="h-4 w-4" /> Message
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const settings = rowActionTarget.convo.settings || { pinned: false, muted: false, archived: false, accepted_request: false };
+                  await handleToggleSetting(rowActionTarget.convo.id, settings, "pinned");
+                  setRowActionTarget(null);
+                }}
+                className="ig-tap ig-icon-btn ig-control-md flex w-full items-center gap-2 px-3 text-left text-sm hover:bg-secondary/60"
+              >
+                {rowActionTarget.convo.settings?.pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                {rowActionTarget.convo.settings?.pinned ? "Unpin" : "Pin"}
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const settings = rowActionTarget.convo.settings || { pinned: false, muted: false, archived: false, accepted_request: false };
+                  await handleToggleSetting(rowActionTarget.convo.id, settings, "muted");
+                  setRowActionTarget(null);
+                }}
+                className="ig-tap ig-icon-btn ig-control-md flex w-full items-center gap-2 px-3 text-left text-sm hover:bg-secondary/60"
+              >
+                {rowActionTarget.convo.settings?.muted ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+                {rowActionTarget.convo.settings?.muted ? "Unmute" : "Mute"}
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  const settings = rowActionTarget.convo.settings || { pinned: false, muted: false, archived: false, accepted_request: false };
+                  await handleToggleSetting(rowActionTarget.convo.id, settings, "archived");
+                  setRowActionTarget(null);
+                }}
+                className="ig-tap ig-icon-btn ig-control-md flex w-full items-center gap-2 px-3 text-left text-sm hover:bg-secondary/60"
+              >
+                <Archive className="h-4 w-4" /> {rowActionTarget.convo.settings?.archived ? "Unarchive" : "Archive"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const currentUnread = (rowActionTarget.convo.unreadCount ?? 0) > 0 || manuallyUnreadIds.has(rowActionTarget.convo.id);
+                  setManualUnread(rowActionTarget.convo.id, !currentUnread);
+                  setRowActionTarget(null);
+                }}
+                className="ig-tap ig-icon-btn ig-control-md flex w-full items-center gap-2 px-3 text-left text-sm hover:bg-secondary/60"
+              >
+                <Circle className="h-4 w-4" />
+                {((rowActionTarget.convo.unreadCount ?? 0) > 0 || manuallyUnreadIds.has(rowActionTarget.convo.id))
+                  ? "Mark read"
+                  : "Mark unread"}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setRowActionTarget(null)}
+              className="ig-control-md mt-2 w-full border border-border/70 bg-background px-3 text-sm font-semibold"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {cameraPreviewTarget && (
+        <SnapCamera
+          previewOnly
+          onClose={() => setCameraPreviewTarget(null)}
+          onContinue={handleContinueFromCameraPreview}
+        />
+      )}
 
       {/* New Chat Modal */}
       {showNewChat && (
-        <div className="ig-screen fixed inset-0 z-50 flex flex-col bg-background">
-          <div className="ig-header flex items-center gap-3 px-4 py-3.5">
+        <div className="ig-screen ig-sheet-backdrop ig-modern-page fixed inset-0 z-50 flex flex-col bg-background">
+          <div className="ig-header ig-modern-header flex items-center gap-3 border-b border-border/60 bg-background/95 px-4 py-3.5 backdrop-blur">
             <button
               onClick={() => {
                 setShowNewChat(false);
@@ -1293,7 +1665,7 @@ const Inbox = () => {
                 onChange={(e) => setNewChatQuery(e.target.value)}
                 placeholder="Search people..."
                 autoFocus
-                className="w-full rounded-xl bg-secondary py-2.5 pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
+                className="ig-modern-input ig-control-md w-full pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
           </div>
@@ -1303,7 +1675,7 @@ const Inbox = () => {
                 <button
                   key={u.user_id}
                   onClick={() => handleStartChat(u)}
-                  className="ig-tap flex w-full items-center gap-3 px-4 py-3.5 transition-colors active:bg-secondary/50"
+                  className="ig-tap flex w-full items-center gap-3 border-b border-border/60 px-4 py-3.5 text-left transition-colors active:bg-secondary/35"
                 >
                   <img
                     src={u.avatar_url || `https://i.pravatar.cc/100?u=${u.user_id}`}
@@ -1327,8 +1699,8 @@ const Inbox = () => {
 
       {/* New Community Modal */}
       {showNewCommunity && (
-        <div className="ig-screen fixed inset-0 z-50 flex flex-col bg-background">
-          <div className="ig-header flex items-center gap-3 px-4 py-3.5">
+        <div className="ig-screen ig-sheet-backdrop ig-modern-page fixed inset-0 z-50 flex flex-col bg-background">
+          <div className="ig-header ig-modern-header flex items-center gap-3 border-b border-border/60 bg-background/95 px-4 py-3.5 backdrop-blur">
             <button
               onClick={() => {
                 setShowNewCommunity(false);
@@ -1351,7 +1723,7 @@ const Inbox = () => {
                 placeholder="e.g. Photography Lovers"
                 maxLength={50}
                 autoFocus
-                className="w-full rounded-xl bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
+                className="ig-modern-input ig-control-md w-full px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div>
@@ -1362,7 +1734,7 @@ const Inbox = () => {
                 placeholder="What's this community about?"
                 maxLength={200}
                 rows={3}
-                className="w-full rounded-xl bg-secondary px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none resize-none focus:ring-1 focus:ring-primary"
+                className="ig-modern-input w-full resize-none rounded-2xl px-3 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-1 focus:ring-primary"
               />
             </div>
             <div>
@@ -1379,10 +1751,10 @@ const Inbox = () => {
                   <button
                     key={item.value}
                     onClick={() => setCommunityType(item.value)}
-                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                    className={`ig-control-md flex items-center gap-2 border px-3 text-sm font-medium transition-colors ${
                       communityType === item.value
                         ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-secondary text-muted-foreground"
+                        : "border-border bg-background text-muted-foreground"
                     }`}
                   >
                     {item.icon}
@@ -1391,7 +1763,7 @@ const Inbox = () => {
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border bg-secondary px-3 py-3">
+            <div className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Public Community</p>
                 <p className="text-xs text-muted-foreground">Anyone can discover and join</p>
@@ -1413,7 +1785,7 @@ const Inbox = () => {
             <button
               onClick={() => void handleCreateCommunity()}
               disabled={!communityName.trim() || createCommunityGroup.isPending}
-              className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+              className="ig-control-md w-full bg-primary px-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
               {createCommunityGroup.isPending ? (
                 <span className="inline-flex items-center gap-2">

@@ -3,6 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
+const getVisibilityAwarePollInterval = (activeMs: number, hiddenMs: number) => {
+  if (typeof document === "undefined") return activeMs;
+  return document.visibilityState === "visible" ? activeMs : hiddenMs;
+};
+
 // ── Types ──────────────────────────────────────────────────────────────
 
 export type StickerType =
@@ -104,7 +109,8 @@ export function usePollResults(stickerId: string) {
 
       return { counts, total };
     },
-    refetchInterval: 5000, // auto-refresh to see live results
+    refetchInterval: () => getVisibilityAwarePollInterval(15000, 60000),
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -150,7 +156,8 @@ export function useQuizResults(stickerId: string) {
 
       return { counts, total };
     },
-    refetchInterval: 5000,
+    refetchInterval: () => getVisibilityAwarePollInterval(15000, 60000),
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -197,7 +204,8 @@ export function useQuestionResponses(stickerId: string) {
         },
       })) as QuestionResponse[];
     },
-    refetchInterval: 5000,
+    refetchInterval: () => getVisibilityAwarePollInterval(15000, 60000),
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -242,7 +250,8 @@ export function useEmojiSliderAverage(stickerId: string) {
 
       return { average: avg, total };
     },
-    refetchInterval: 5000,
+    refetchInterval: () => getVisibilityAwarePollInterval(15000, 60000),
+    refetchOnWindowFocus: true,
   });
 }
 

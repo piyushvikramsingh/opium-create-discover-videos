@@ -28,6 +28,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Sounds = lazy(() => import("./pages/Sounds"));
 const SoundDetail = lazy(() => import("./pages/Sounds").then(m => ({ default: m.SoundDetailPage })));
+const Help = lazy(() => import("./pages/Help"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -59,6 +60,7 @@ const RouteWarmup = () => {
       void import("./pages/LiveStreaming");
       void import("./pages/Monetization");
       void import("./pages/Sounds");
+      void import("./pages/Help");
     };
 
     const withIdle = window as Window & {
@@ -188,6 +190,7 @@ const App = () => (
                   <Route path="/monetization" element={<Monetization />} />
                   <Route path="/sounds" element={<Sounds />} />
                   <Route path="/sounds/:id" element={<SoundDetail />} />
+                  <Route path="/help" element={<Help />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

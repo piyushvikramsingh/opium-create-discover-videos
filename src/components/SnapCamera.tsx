@@ -3,12 +3,14 @@ import { X, Camera, SwitchCamera, Send, Flame, Type } from "lucide-react";
 import { toast } from "sonner";
 
 interface SnapCameraProps {
-  onCapture: (file: File, caption: string) => void;
+  onCapture?: (file: File, caption: string) => void;
   onClose: () => void;
   sending?: boolean;
+  previewOnly?: boolean;
+  onContinue?: () => void;
 }
 
-const SnapCamera = ({ onCapture, onClose, sending }: SnapCameraProps) => {
+const SnapCamera = ({ onCapture, onClose, sending, previewOnly = false, onContinue }: SnapCameraProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -75,7 +77,7 @@ const SnapCamera = ({ onCapture, onClose, sending }: SnapCameraProps) => {
   };
 
   const handleSend = () => {
-    if (!capturedFile) return;
+    if (!capturedFile || !onCapture) return;
     onCapture(capturedFile, caption);
   };
 
@@ -165,15 +167,31 @@ const SnapCamera = ({ onCapture, onClose, sending }: SnapCameraProps) => {
             </button>
           </div>
 
-          {/* Capture button */}
-          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center pb-10 safe-bottom">
-            <button
-              onClick={handleCapture}
-              className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white"
-            >
-              <div className="h-16 w-16 rounded-full bg-white" />
-            </button>
-          </div>
+          {/* Bottom controls */}
+          {previewOnly ? (
+            <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-between px-6 pb-8 safe-bottom">
+              <div className="flex items-center gap-2 text-white">
+                <Flame className="h-4 w-4 text-primary" />
+                <span className="text-xs font-medium">Camera preview</span>
+              </div>
+              <button
+                onClick={onContinue}
+                className="flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+              >
+                <Camera className="h-4 w-4" />
+                Open in chat
+              </button>
+            </div>
+          ) : (
+            <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center pb-10 safe-bottom">
+              <button
+                onClick={handleCapture}
+                className="flex h-20 w-20 items-center justify-center rounded-full border-4 border-white"
+              >
+                <div className="h-16 w-16 rounded-full bg-white" />
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

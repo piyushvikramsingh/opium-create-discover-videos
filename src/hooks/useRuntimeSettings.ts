@@ -21,14 +21,24 @@ export function useRuntimeSettings() {
         : "light"
       : "system";
 
+    const envLowBandwidthRaw = String(import.meta.env.VITE_LOW_BANDWIDTH_MODE || "").toLowerCase();
+    const envLowBandwidthOverride = envLowBandwidthRaw === "true"
+      ? true
+      : envLowBandwidthRaw === "false"
+      ? false
+      : null;
+    const settingsLowBandwidth = typeof app.low_bandwidth_mode === "boolean" ? app.low_bandwidth_mode : null;
+    const lowBandwidthMode = envLowBandwidthOverride ?? settingsLowBandwidth ?? true;
+
     return {
       themePreference,
-      autoplayVideos: app.autoplay_videos !== false,
+      autoplayVideos: lowBandwidthMode ? false : app.autoplay_videos !== false,
       autoplaySound: !!app.autoplay_sound,
       loopVideos: app.loop_videos !== false,
       hideLikeCount: !!content.hide_like_count,
       hideViewCount: !!content.hide_view_count,
       reduceMotion: !!accessibility.reduce_motion,
+      lowBandwidthMode,
     };
   }, [userSettings]);
 }

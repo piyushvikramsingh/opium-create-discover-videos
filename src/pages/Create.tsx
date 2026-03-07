@@ -303,6 +303,69 @@ const isMissingColumnError = (error: unknown) => {
   return message.includes("column") && message.includes("does not exist");
 };
 
+const RETRYABLE_ERROR_MARKERS = [
+  "network",
+  "fetch",
+  "timeout",
+  "temporarily unavailable",
+  "failed to fetch",
+  "connection",
+  "502",
+  "503",
+  "504",
+  "429",
+];
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+
+const isRetryableError = (error: unknown) => {
+  const message = String((error as { message?: string })?.message || "").toLowerCase();
+  if (message.includes("upload canceled")) return false;
+  return RETRYABLE_ERROR_MARKERS.some((marker) => message.includes(marker));
+};
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  const message = String((error as { message?: string })?.message || "").trim();
+  return message || fallback;
+};
+
+const runWithRetry = async <T,>({
+  task,
+  attempts = 3,
+  retryDelayMs = 500,
+  shouldRetry = isRetryableError,
+  onRetry,
+}: {
+  task: () => Promise<T>;
+  attempts?: number;
+  retryDelayMs?: number;
+  shouldRetry?: (error: unknown) => boolean;
+  onRetry?: (attempt: number, error: unknown) => void;
+}) => {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      lastError = error;
+      const isLastAttempt = attempt >= attempts;
+      if (isLastAttempt || !shouldRetry(error)) {
+        break;
+      }
+
+      onRetry?.(attempt + 1, error);
+      await wait(retryDelayMs * attempt);
+    }
+  }
+
+  throw lastError;
+};
+
 const waitForMetadata = (video: HTMLVideoElement) =>
   new Promise<void>((resolve, reject) => {
     if (video.readyState >= 1) {
@@ -637,6 +700,7 @@ const Create = () => {
   const cameraChunksRef = useRef<BlobPart[]>([]);
   const autoSaveTimerRef = useRef<number | null>(null);
   const cancelRequestedRef = useRef(false);
+  const activeMuxUploadAbortRef = useRef<AbortController | null>(null);
 
   const [step, setStep] = useState<Step>("select");
   const [createIntent, setCreateIntent] = useState<CreateIntent>("reel");
@@ -687,6 +751,7 @@ const Create = () => {
   const [storyPreviewUrl, setStoryPreviewUrl] = useState<string | null>(null);
   const [storyCaption, setStoryCaption] = useState("");
   const [storyAudience, setStoryAudience] = useState<"followers" | "close_friends">("followers");
+  const [storyUploading, setStoryUploading] = useState(false);
   const [showCreateOverflow, setShowCreateOverflow] = useState(false);
   const isSelectStep = step === "select";
   const createOverflowRef = useRef<HTMLDivElement | null>(null);
@@ -825,24 +890,37 @@ const Create = () => {
     const mediaPath = `${user.id}/stories/${Date.now()}.${extension}`;
 
     try {
-      const { error: uploadError } = await supabase.storage
-        .from("videos")
-        .upload(mediaPath, storyFile, { contentType: storyFile.type || undefined, upsert: true });
-      if (uploadError) throw uploadError;
+      setStoryUploading(true);
+
+      await runWithRetry({
+        attempts: 3,
+        task: async () => {
+          const { error: uploadError } = await supabase.storage
+            .from("videos")
+            .upload(mediaPath, storyFile, { contentType: storyFile.type || undefined, upsert: true });
+          if (uploadError) throw uploadError;
+        },
+      });
 
       const { data: mediaPublic } = supabase.storage.from("videos").getPublicUrl(mediaPath);
 
-      await createStory.mutateAsync({
-        media_url: mediaPublic.publicUrl,
-        media_type: isVideo ? "video" : "image",
-        caption: storyCaption.trim() || undefined,
-        audience: storyAudience,
+      await runWithRetry({
+        attempts: 2,
+        task: () =>
+          createStory.mutateAsync({
+            media_url: mediaPublic.publicUrl,
+            media_type: isVideo ? "video" : "image",
+            caption: storyCaption.trim() || undefined,
+            audience: storyAudience,
+          }),
       });
 
       toast.success("Story posted");
       navigate("/");
-    } catch (error: any) {
-      toast.error(error?.message || "Failed to post story");
+    } catch (error) {
+      toast.error(`Story upload failed: ${getErrorMessage(error, "Please try again")}`);
+    } finally {
+      setStoryUploading(false);
     }
   };
 
@@ -1396,9 +1474,13 @@ const Create = () => {
         let thumbnailUrl = "";
         try {
           const thumbnailBlob = await generateThumbnailBlob(clip);
-          const { error: thumbError } = await supabase.storage
-            .from("videos")
-            .upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg", upsert: true });
+          const { error: thumbError } = await runWithRetry({
+            attempts: 2,
+            task: () =>
+              supabase.storage
+                .from("videos")
+                .upload(thumbnailPath, thumbnailBlob, { contentType: "image/jpeg", upsert: true }),
+          });
 
           if (!thumbError) {
             const { data: thumbUrlData } = supabase.storage.from("videos").getPublicUrl(thumbnailPath);
@@ -1474,8 +1556,15 @@ const Create = () => {
           if (dbError) throw dbError;
 
           if (createdVideo?.id) {
-            const invokeResult = await supabase.functions.invoke("create-mux-direct-upload", {
-              body: { videoId: createdVideo.id },
+            const invokeResult = await runWithRetry({
+              attempts: 3,
+              onRetry: (attempt) => {
+                setUploadStage(`Retrying upload setup ${index + 1}/${targets.length} (${attempt}/3)…`);
+              },
+              task: () =>
+                supabase.functions.invoke("create-mux-direct-upload", {
+                  body: { videoId: createdVideo.id },
+                }),
             });
 
             if (invokeResult.error) {
@@ -1495,12 +1584,28 @@ const Create = () => {
               throw new Error("Mux upload URL missing");
             }
 
-            const uploadResponse = await fetch(uploadUrl, {
-              method: "PUT",
-              headers: {
-                "Content-Type": file.type || "application/octet-stream",
+            const uploadResponse = await runWithRetry({
+              attempts: 3,
+              onRetry: (attempt) => {
+                setUploadStage(`Retrying video upload ${index + 1}/${targets.length} (${attempt}/3)…`);
               },
-              body: file,
+              task: async () => {
+                if (cancelRequestedRef.current) throw new Error("Upload canceled");
+                const controller = new AbortController();
+                activeMuxUploadAbortRef.current = controller;
+                try {
+                  return await fetch(uploadUrl, {
+                    method: "PUT",
+                    headers: {
+                      "Content-Type": file.type || "application/octet-stream",
+                    },
+                    body: file,
+                    signal: controller.signal,
+                  });
+                } finally {
+                  activeMuxUploadAbortRef.current = null;
+                }
+              },
             });
 
             if (!uploadResponse.ok) {
@@ -1525,9 +1630,16 @@ const Create = () => {
         }
 
         setUploadStage(`Uploading video ${index + 1}/${targets.length}…`);
-        const { error: videoError } = await supabase.storage
-          .from("videos")
-          .upload(filePath, file, { contentType: file.type || "video/webm" });
+        const { error: videoError } = await runWithRetry({
+          attempts: 3,
+          onRetry: (attempt) => {
+            setUploadStage(`Retrying video upload ${index + 1}/${targets.length} (${attempt}/3)…`);
+          },
+          task: () =>
+            supabase.storage
+              .from("videos")
+              .upload(filePath, file, { contentType: file.type || "video/webm" }),
+        });
         if (videoError) throw videoError;
 
         if (cancelRequestedRef.current) throw new Error("Upload canceled");
@@ -1539,11 +1651,18 @@ const Create = () => {
           video_url: videoUrlData.publicUrl,
         };
 
-        let { data: createdVideo, error: dbError } = await supabase
-          .from("videos")
-          .insert(payload as never)
-          .select("id")
-          .single();
+        let { data: createdVideo, error: dbError } = await runWithRetry({
+          attempts: 2,
+          onRetry: (attempt) => {
+            setUploadStage(`Retrying save ${index + 1}/${targets.length} (${attempt}/2)…`);
+          },
+          task: () =>
+            supabase
+              .from("videos")
+              .insert(payload as never)
+              .select("id")
+              .single(),
+        });
 
         if (dbError) {
           const fallbackPayload = {
@@ -1554,11 +1673,15 @@ const Create = () => {
             music: musicLabel,
           };
 
-          const fallback = await supabase
-            .from("videos")
-            .insert(fallbackPayload as never)
-            .select("id")
-            .single();
+          const fallback = await runWithRetry({
+            attempts: 2,
+            task: () =>
+              supabase
+                .from("videos")
+                .insert(fallbackPayload as never)
+                .select("id")
+                .single(),
+          });
 
           createdVideo = fallback.data;
           dbError = fallback.error;
@@ -1585,16 +1708,23 @@ const Create = () => {
         setDrafts(await readDrafts());
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Upload failed";
+      const message = getErrorMessage(error, "Upload failed");
       setUploadError(message);
-      toast.error(message);
+      if (message.toLowerCase().includes("upload canceled")) {
+        setUploadStage("Upload canceled");
+        toast("Upload canceled");
+      } else {
+        toast.error(message);
+      }
     } finally {
+      activeMuxUploadAbortRef.current = null;
       setUploading(false);
     }
   };
 
   const requestCancelUpload = () => {
     cancelRequestedRef.current = true;
+    activeMuxUploadAbortRef.current?.abort();
     toast("Cancel requested. Finishing current transfer...");
   };
 
@@ -1641,22 +1771,22 @@ const Create = () => {
 
   if (isStoryCreateMode) {
     return (
-      <div className="ig-screen min-h-screen bg-background pb-24">
-        <div className="ig-header sticky top-0 z-20">
+      <div className="ig-screen ig-modern-page min-h-screen bg-background pb-24">
+        <div className="ig-header ig-modern-header sticky top-0 z-20">
           <div className="mx-auto flex max-w-md items-center justify-between px-4 py-3">
             <button
               onClick={() => navigate(-1)}
-              className="ig-tap inline-flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm"
+              className="ig-tap ig-modern-chip inline-flex items-center gap-2 px-3 py-1.5 text-sm"
             >
               <ArrowLeft className="h-4 w-4" /> Back
             </button>
-            <h1 className="text-sm font-semibold">Create Story</h1>
+            <h1 className="ig-type-h2">Create Story</h1>
             <div className="w-14" />
           </div>
         </div>
 
         <div className="mx-auto max-w-md space-y-4 px-4 py-4">
-          <div className="rounded-2xl border border-border p-4">
+          <div className="ig-modern-card p-4">
             <input
               type="file"
               accept="image/*,video/*"
@@ -1677,7 +1807,7 @@ const Create = () => {
             )}
           </div>
 
-          <div className="rounded-2xl border border-border p-4">
+          <div className="ig-modern-card p-4">
             <label className="mb-1 block text-sm font-medium">Caption</label>
             <Textarea
               value={storyCaption}
@@ -1689,7 +1819,7 @@ const Create = () => {
             />
           </div>
 
-          <div className="rounded-2xl border border-border p-4">
+          <div className="ig-modern-card p-4">
             <p className="mb-2 text-sm font-medium">Audience</p>
             <RadioGroup value={storyAudience} onValueChange={(value) => setStoryAudience(value as "followers" | "close_friends") }>
               <div className="flex items-center gap-2">
@@ -1706,9 +1836,9 @@ const Create = () => {
           <Button
             className="w-full"
             onClick={() => void handleStoryUpload()}
-            disabled={!storyFile || createStory.isPending}
+            disabled={!storyFile || createStory.isPending || storyUploading}
           >
-            {createStory.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Share story"}
+            {createStory.isPending || storyUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Share story"}
           </Button>
         </div>
       </div>
@@ -1718,7 +1848,7 @@ const Create = () => {
   return (
     <div className={`ig-screen min-h-screen bg-background pb-24 ${isSelectStep ? "px-0 pt-0" : "px-4 pt-4"}`}>
       <div className={`${isSelectStep ? "w-full" : "mx-auto w-full max-w-4xl"}`}>
-        <div className={`ig-header mb-4 flex items-center justify-between ${isSelectStep ? "px-4 pt-3" : "px-2 py-2"}`}>
+        <div className={`ig-header mb-4 flex items-center justify-between border-b border-border/60 ${isSelectStep ? "px-4 pt-3" : "px-2 py-2"}`}>
           {isSelectStep ? (
             <>
               <div className="w-10" />
@@ -1727,13 +1857,13 @@ const Create = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="ig-tap border border-border bg-secondary text-foreground hover:bg-secondary/80"
+                  className="ig-tap ig-icon-btn border border-border bg-background text-foreground hover:bg-secondary/70"
                   onClick={() => setShowCreateOverflow((prev) => !prev)}
                 >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
                 {showCreateOverflow && (
-                  <div className="absolute right-0 z-30 mt-2 w-36 overflow-hidden rounded-xl border border-border bg-background/95 p-1 backdrop-blur">
+                  <div className="ig-panel-enter absolute right-0 z-30 mt-2 w-36 overflow-hidden rounded-xl border border-border bg-background/95 p-1 backdrop-blur">
                     <button
                       onClick={() => {
                         clearAll();
@@ -1759,7 +1889,7 @@ const Create = () => {
             <>
               <div className="flex items-center gap-2">
                 {(step as string) !== "select" && step !== "success" && (
-                  <Button variant="ghost" size="icon" className="ig-tap" onClick={() => setStep("select")}>
+                    <Button variant="ghost" size="icon" className="ig-tap ig-icon-btn" onClick={() => setStep("select")}>
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
                 )}
@@ -1767,7 +1897,7 @@ const Create = () => {
                   {step === "edit" ? "Edit" : step === "share" ? "Share" : "Done"}
                 </h1>
               </div>
-              <Button variant="outline" className="ig-tap" onClick={clearAll}>
+              <Button variant="outline" className="ig-tap ig-icon-btn" onClick={clearAll}>
                 Reset
               </Button>
             </>
@@ -1775,35 +1905,38 @@ const Create = () => {
         </div>
 
         {!isSelectStep && step !== "success" && (
-          <div className="mb-4 flex items-center justify-center gap-2 border-b border-border/70 pb-2 text-xs font-semibold">
+          <div className="mb-4 flex items-center justify-center gap-6 border-b border-border/70 pb-2 text-sm font-semibold">
             <button
               onClick={() => setStep("select")}
               data-active={step === ("select" as string)}
-              className={`ig-tab-pill ig-tap min-w-[84px] px-3 py-1.5 transition-colors ${
+              className={`relative ig-tap px-1 py-1 transition-colors ${
                 step === ("select" as string) ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               Select
+              {step === ("select" as string) && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
             </button>
             <button
               onClick={() => clips.length && setStep("edit")}
               disabled={!clips.length}
               data-active={step === "edit"}
-              className={`ig-tab-pill ig-tap min-w-[84px] px-3 py-1.5 transition-colors disabled:opacity-40 ${
+              className={`relative ig-tap px-1 py-1 transition-colors disabled:opacity-40 ${
                 step === "edit" ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               Edit
+              {step === "edit" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
             </button>
             <button
               onClick={() => clips.length && setStep("share")}
               disabled={!clips.length}
               data-active={step === "share"}
-              className={`ig-tab-pill ig-tap min-w-[84px] px-3 py-1.5 transition-colors disabled:opacity-40 ${
+              className={`relative ig-tap px-1 py-1 transition-colors disabled:opacity-40 ${
                 step === "share" ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               Share
+              {step === "share" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
             </button>
           </div>
         )}
@@ -1963,7 +2096,7 @@ const Create = () => {
               </div>
             </div>
 
-            <div className="mx-4 rounded-2xl border border-border p-4 md:mx-auto md:w-full md:max-w-md">
+            <div className="ig-list-item-enter mx-4 rounded-2xl border border-border/70 bg-background p-4 md:mx-auto md:w-full md:max-w-md">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-muted-foreground">Drafts</h2>
                 <span className="text-xs text-muted-foreground">{drafts.length}</span>
@@ -1973,7 +2106,7 @@ const Create = () => {
               ) : (
                 <div className="space-y-2">
                   {drafts.slice(0, 6).map((draft) => (
-                    <div key={draft.id} className="rounded-lg border border-border p-2">
+                    <div key={draft.id} className="rounded-lg border border-border/70 bg-background p-2">
                       <p className="line-clamp-1 text-sm font-medium">{draft.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {draft.clips.length} clip{draft.clips.length !== 1 ? "s" : ""} · {new Date(draft.updatedAt).toLocaleString()}

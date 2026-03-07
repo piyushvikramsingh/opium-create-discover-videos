@@ -50,6 +50,7 @@ type IncomingFollowRequest = {
 };
 
 type TabType = "all" | "follow_requests";
+type NotificationFilter = "all" | "social" | "activity" | "messages";
 
 // ── Main Notifications Page ────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ const Notifications = () => {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<TabType>("all");
+  const [activeFilter, setActiveFilter] = useState<NotificationFilter>("all");
   const { data: notifications = [], isLoading } = useNotifications(50);
   const { data: incomingFollowRequests = [] } = useIncomingFollowRequests();
   const markAllNotificationsRead = useMarkAllNotificationsRead();
@@ -98,6 +100,36 @@ const Notifications = () => {
     });
     return grouped;
   }, [notifications]);
+
+  const filterCounts = useMemo(() => {
+    const values = notifications as NotificationItem[];
+    const counts: Record<NotificationFilter, number> = {
+      all: values.length,
+      social: 0,
+      activity: 0,
+      messages: 0,
+    };
+
+    values.forEach((notification) => {
+      const bucket = getNotificationBucket(notification.type);
+      if (bucket !== "all") counts[bucket] += 1;
+    });
+
+    return counts;
+  }, [notifications]);
+
+  const filteredGroupedNotifications = useMemo(() => {
+    if (activeFilter === "all") return groupedNotifications;
+
+    const filterByBucket = (list: NotificationItem[]) =>
+      list.filter((notification) => getNotificationBucket(notification.type) === activeFilter);
+
+    return {
+      today: filterByBucket(groupedNotifications.today),
+      week: filterByBucket(groupedNotifications.week),
+      older: filterByBucket(groupedNotifications.older),
+    };
+  }, [activeFilter, groupedNotifications]);
 
   const unreadCount = (notifications as NotificationItem[]).filter((n) => !n.is_read).length;
 
@@ -188,12 +220,12 @@ const Notifications = () => {
   // ── Render ───────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="ig-screen flex h-full flex-col bg-background">
       {/* Top bar */}
-      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-xl">
+      <div className="ig-header sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-xl">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="rounded-full p-1 hover:bg-secondary">
+            <button onClick={() => navigate(-1)} className="ig-tap ig-icon-btn rounded-full p-1.5 hover:bg-secondary/70">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
             <h1 className="text-lg font-bold text-foreground">Notifications</h1>
@@ -206,7 +238,7 @@ const Notifications = () => {
           {unreadCount > 0 && (
             <button
               onClick={() => markAllNotificationsRead.mutate()}
-              className="text-xs font-semibold text-primary"
+              className="ig-tap text-xs font-semibold text-primary"
             >
               Mark all read
             </button>
@@ -214,7 +246,7 @@ const Notifications = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-border/40">
+        <div className="flex items-center justify-center gap-6 border-t border-border/60 px-4 py-2 text-sm font-semibold">
           {(
             [
               { key: "all", label: "All", count: (notifications as NotificationItem[]).length },
@@ -224,9 +256,9 @@ const Notifications = () => {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-1 py-2.5 text-center text-xs font-semibold transition-colors ${
+              className={`relative py-1 text-center text-sm font-semibold transition-colors ${
                 activeTab === tab.key
-                  ? "border-b-2 border-foreground text-foreground"
+                  ? "text-foreground"
                   : "text-muted-foreground"
               }`}
             >
@@ -236,15 +268,41 @@ const Notifications = () => {
                   {tab.count > 99 ? "99+" : tab.count}
                 </span>
               )}
+              {activeTab === tab.key && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
             </button>
           ))}
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto pb-20">
+      <div key={activeTab} className="ig-tab-content-enter flex-1 overflow-y-auto pb-20">
         {activeTab === "all" && (
           <>
+            <div className="scrollbar-hide flex gap-2 overflow-x-auto px-4 py-3">
+              {(
+                [
+                  { key: "all", label: "All" },
+                  { key: "social", label: "Social" },
+                  { key: "activity", label: "Activity" },
+                  { key: "messages", label: "Messages" },
+                ] as const
+              ).map((filter) => (
+                <button
+                  key={filter.key}
+                  onClick={() => setActiveFilter(filter.key)}
+                  className="ig-tap ig-icon-btn ig-modern-chip shrink-0 px-4 py-1.5 text-xs font-medium"
+                  data-active={activeFilter === filter.key}
+                >
+                  {filter.label}
+                  {filterCounts[filter.key] > 0 ? (
+                    <span className="ml-1.5 text-[10px] font-bold opacity-80">
+                      {filterCounts[filter.key] > 99 ? "99+" : filterCounts[filter.key]}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -269,22 +327,22 @@ const Notifications = () => {
                       { key: "older", label: "Older" },
                     ] as const
                   ).map((group) => {
-                    const list = groupedNotifications[group.key];
+                    const list = filteredGroupedNotifications[group.key];
                     if (!list.length) return null;
                     return (
                       <div key={group.key}>
                         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                           {group.label}
                         </p>
-                        <div className="space-y-1.5">
+                        <div className="space-y-0.5">
                           {list.map((notification) => (
                             <button
                               key={notification.id}
                               onClick={() => handleNotificationClick(notification)}
-                              className={`flex w-full items-start justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                              className={`ig-list-item-enter ig-modern-card flex w-full items-start justify-between gap-3 border-b px-3 py-3 text-left transition-colors ${
                                 notification.is_read
-                                  ? "border-border bg-secondary/40"
-                                  : "border-primary/40 bg-primary/10"
+                                  ? "border-border/60 bg-background"
+                                  : "border-primary/30 bg-primary/5"
                               }`}
                             >
                               <div className="min-w-0 flex-1">
@@ -311,7 +369,7 @@ const Notifications = () => {
                                 {!notification.is_read && (
                                   <button
                                     onClick={(event) => handleNotificationMarkRead(event, notification)}
-                                    className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+                                    className="ig-tap ig-icon-btn ig-control-sm rounded-md px-2 text-muted-foreground hover:bg-secondary"
                                     aria-label="Mark read"
                                   >
                                     <CheckCheck className="h-3.5 w-3.5" />
@@ -319,7 +377,7 @@ const Notifications = () => {
                                 )}
                                 <button
                                   onClick={(event) => handleNotificationDelete(event, notification)}
-                                  className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary"
+                                  className="ig-tap ig-icon-btn ig-control-sm rounded-md px-2 text-muted-foreground hover:bg-secondary"
                                   aria-label="Delete notification"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
@@ -350,7 +408,7 @@ const Notifications = () => {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2 px-4 py-3">
+              <div className="space-y-0 px-4 py-3">
                 {(incomingFollowRequests as IncomingFollowRequest[]).map((request) => {
                   const profile = request.profile;
                   if (!profile) return null;
@@ -358,7 +416,7 @@ const Notifications = () => {
                   return (
                     <div
                       key={request.id}
-                      className="flex items-center gap-3 rounded-xl border border-border bg-secondary/30 px-3 py-2.5"
+                      className="ig-list-item-enter ig-modern-card flex items-center gap-3 border-b border-border/60 bg-background px-3 py-3"
                     >
                       <button onClick={() => navigate(`/profile/${profile.user_id}`)} className="shrink-0">
                         <img
@@ -382,14 +440,14 @@ const Notifications = () => {
                         <button
                           onClick={() => handleFollowRequest(request, false)}
                           disabled={isActing}
-                          className="rounded-lg border border-border px-3 py-1.5 text-[11px] font-semibold text-muted-foreground disabled:opacity-60"
+                          className="ig-tap ig-icon-btn ig-control-sm rounded-lg border border-border px-3 text-[11px] font-semibold text-muted-foreground disabled:opacity-60"
                         >
                           Reject
                         </button>
                         <button
                           onClick={() => handleFollowRequest(request, true)}
                           disabled={isActing}
-                          className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-semibold text-primary-foreground disabled:opacity-60"
+                          className="ig-tap ig-icon-btn ig-control-sm inline-flex items-center gap-1 rounded-lg bg-primary px-3 text-[11px] font-semibold text-primary-foreground disabled:opacity-60"
                         >
                           {isActing ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                           Accept
@@ -421,6 +479,14 @@ function formatTimeAgo(dateStr: string): string {
   const diffDays = Math.floor(diffHrs / 24);
   if (diffDays < 7) return `${diffDays}d ago`;
   return new Date(dateStr).toLocaleDateString();
+}
+
+function getNotificationBucket(type?: string): NotificationFilter {
+  const value = (type || "").toLowerCase();
+  if (["message_request", "message", "story_reply"].includes(value)) return "messages";
+  if (["follow", "follow_request", "follow_accepted"].includes(value)) return "social";
+  if (["comment", "reply", "like", "save", "mention", "tag"].includes(value)) return "activity";
+  return "all";
 }
 
 export default Notifications;

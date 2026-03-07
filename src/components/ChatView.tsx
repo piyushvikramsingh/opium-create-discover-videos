@@ -5,6 +5,9 @@ import {
   Camera,
   Image,
   Smile,
+  Heart,
+  Check,
+  CheckCheck,
   Flame,
   Circle,
   Phone,
@@ -72,6 +75,7 @@ interface ChatViewProps {
     avatar_url: string | null;
   };
   onBack: () => void;
+  openCameraOnMount?: boolean;
 }
 
 type ChatReaction = {
@@ -81,6 +85,7 @@ type ChatReaction = {
 };
 
 type ChatReply = {
+  id?: string;
   deleted_at?: string | null;
   content?: string | null;
 };
@@ -146,7 +151,7 @@ const SmartReplySuggestions = ({
   );
 };
 
-const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
+const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false }: ChatViewProps) => {
   const { user } = useAuth();
   const { data: messages, isLoading } = useMessages(conversationId);
   const { data: typingUsers } = useTypingStatus(conversationId);
@@ -180,11 +185,16 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [isRecordingLocked, setIsRecordingLocked] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingDragX, setRecordingDragX] = useState(0);
+  const [recordingDragY, setRecordingDragY] = useState(0);
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [showSnapCamera, setShowSnapCamera] = useState(false);
   const [vanishMode, setVanishMode] = useState(false);
   const [showGifKeyboard, setShowGifKeyboard] = useState(false);
+  const [actionMessage, setActionMessage] = useState<ChatMessage | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [swipeReply, setSwipeReply] = useState<{ messageId: string; offset: number } | null>(null);
   const toggleVanishMode = useToggleVanishMode();
   const reportScreenshot = useReportScreenshot();
 
@@ -219,6 +229,8 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingStartedAtRef = useRef<number | null>(null);
+  const longPressTimeoutRef = useRef<number | null>(null);
+  const lastTapRef = useRef<{ messageId: string; at: number } | null>(null);
   const discardRecordingRef = useRef(false);
   const gesturePointerIdRef = useRef<number | null>(null);
   const gestureStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -229,6 +241,10 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   const typingStateRef = useRef<boolean>(false);
   const sendSignalRef = useRef<(event: string, payload: Record<string, unknown>) => Promise<void>>(async () => {});
   const handleEndCallRef = useRef<(notifyRemote?: boolean) => void>(() => {});
+  const messageItemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const messageSwipePointerIdRef = useRef<number | null>(null);
+  const messageSwipeStartRef = useRef<{ messageId: string; x: number; y: number } | null>(null);
+  const suppressTapMessageIdRef = useRef<string | null>(null);
 
   const conversation = (allConversations || []).find((item) => item?.id === conversationId);
   const conversationSettings: ConversationSettings = {
@@ -251,6 +267,11 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
     deliveredMarkRef.current = null;
     typingStateRef.current = false;
   }, [conversationId]);
+
+  useEffect(() => {
+    if (!openCameraOnMount) return;
+    setShowSnapCamera(true);
+  }, [openCameraOnMount]);
 
   const avatarUrl = safeOtherUser.avatar_url || `https://i.pravatar.cc/100?u=${safeOtherUser.user_id}`;
   const hasTypedText = text.trim().length > 0;
@@ -297,13 +318,35 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
     return latestMine?.id ?? null;
   }, [messages, user]);
 
-  const getStatusLabel = (status?: string) => {
-    if (status === "seen") return "Seen";
-    if (status === "delivered") return "Delivered";
-    return "Sent";
+  const getStatusMeta = (status?: string) => {
+    if (status === "seen") {
+      return {
+        label: "Seen",
+        Icon: CheckCheck,
+        className: "text-primary-foreground",
+      };
+    }
+
+    if (status === "delivered") {
+      return {
+        label: "Delivered",
+        Icon: CheckCheck,
+        className: "text-primary-foreground/80",
+      };
+    }
+
+    return {
+      label: "Sent",
+      Icon: Check,
+      className: "text-primary-foreground/65",
+    };
   };
 
   const quickEmojis = ["❤️", "😂", "🔥", "😍", "👍", "🙏", "🎉", "😮"];
+  const SWIPE_REPLY_TRIGGER_PX = 54;
+  const SWIPE_REPLY_MAX_PX = 72;
+  const CANCEL_THRESHOLD_PX = 70;
+  const LOCK_THRESHOLD_PX = 70;
 
   const formatDuration = (totalSeconds: number) => {
     const mins = Math.floor(totalSeconds / 60)
@@ -316,6 +359,15 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   useEffect(() => {
     callStatusRef.current = callStatus;
   }, [callStatus]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimeoutRef.current !== null) {
+        window.clearTimeout(longPressTimeoutRef.current);
+        longPressTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!conversationId || !user) return;
@@ -467,6 +519,116 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
       emoji,
       existingReaction: existing ? { id: existing.id, emoji: existing.emoji } : null,
     });
+  };
+
+  const clearLongPressTimer = () => {
+    if (longPressTimeoutRef.current !== null) {
+      window.clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+  };
+
+  const openMessageActions = (message: ChatMessage) => {
+    setActionMessage(message);
+  };
+
+  const handleMessageTouchStart = (message: ChatMessage) => {
+    clearLongPressTimer();
+    longPressTimeoutRef.current = window.setTimeout(() => {
+      openMessageActions(message);
+      longPressTimeoutRef.current = null;
+    }, 420);
+  };
+
+  const handleMessageTouchEnd = () => {
+    clearLongPressTimer();
+  };
+
+  const handleMessageTap = (message: ChatMessage) => {
+    if (suppressTapMessageIdRef.current === message.id) {
+      suppressTapMessageIdRef.current = null;
+      return;
+    }
+
+    const now = Date.now();
+    if (lastTapRef.current && lastTapRef.current.messageId === message.id && now - lastTapRef.current.at < 280) {
+      handleReaction(message, "❤️");
+      lastTapRef.current = null;
+      return;
+    }
+
+    lastTapRef.current = { messageId: message.id, at: now };
+  };
+
+  const handleMessageSwipePointerDown = (event: React.PointerEvent<HTMLDivElement>, message: ChatMessage) => {
+    if (event.pointerType !== "touch") return;
+    messageSwipePointerIdRef.current = event.pointerId;
+    messageSwipeStartRef.current = { messageId: message.id, x: event.clientX, y: event.clientY };
+    setSwipeReply({ messageId: message.id, offset: 0 });
+  };
+
+  const handleMessageSwipePointerMove = (event: React.PointerEvent<HTMLDivElement>, message: ChatMessage) => {
+    if (event.pointerType !== "touch") return;
+    if (messageSwipePointerIdRef.current !== event.pointerId) return;
+
+    const start = messageSwipeStartRef.current;
+    if (!start || start.messageId !== message.id) return;
+
+    const deltaX = event.clientX - start.x;
+    const deltaY = event.clientY - start.y;
+
+    if (Math.abs(deltaY) > 48) {
+      setSwipeReply({ messageId: message.id, offset: 0 });
+      return;
+    }
+
+    const nextOffset = Math.max(0, Math.min(SWIPE_REPLY_MAX_PX, deltaX));
+    if (nextOffset > 8) {
+      clearLongPressTimer();
+    }
+    setSwipeReply({ messageId: message.id, offset: nextOffset });
+  };
+
+  const finishMessageSwipe = (message: ChatMessage) => {
+    const activeOffset = swipeReply?.messageId === message.id ? swipeReply.offset : 0;
+    const shouldReply = activeOffset >= SWIPE_REPLY_TRIGGER_PX;
+
+    messageSwipePointerIdRef.current = null;
+    messageSwipeStartRef.current = null;
+    setSwipeReply(null);
+
+    if (!shouldReply) return;
+
+    suppressTapMessageIdRef.current = message.id;
+    setReplyTo(message);
+    setEditingMessageId(null);
+    toast.message("Replying");
+  };
+
+  const handleMessageSwipePointerUp = (event: React.PointerEvent<HTMLDivElement>, message: ChatMessage) => {
+    if (event.pointerType !== "touch") return;
+    if (messageSwipePointerIdRef.current !== event.pointerId) return;
+    finishMessageSwipe(message);
+  };
+
+  const handleMessageSwipePointerCancel = (event: React.PointerEvent<HTMLDivElement>, message: ChatMessage) => {
+    if (event.pointerType !== "touch") return;
+    if (messageSwipePointerIdRef.current !== event.pointerId) return;
+    finishMessageSwipe(message);
+  };
+
+  const jumpToMessage = (messageId: string) => {
+    const target = messageItemRefs.current.get(messageId);
+    if (!target) {
+      toast.message("Original message not available");
+      return;
+    }
+
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedMessageId(messageId);
+    window.setTimeout(() => {
+      setHighlightedMessageId((current) => (current === messageId ? null : current));
+    }, 1400);
   };
 
   const handleDeleteMessage = async (messageId: string) => {
@@ -865,6 +1027,8 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
     setIsRecordingVoice(false);
     setIsRecordingLocked(false);
     setRecordingSeconds(0);
+    setRecordingDragX(0);
+    setRecordingDragY(0);
     gesturePointerIdRef.current = null;
     gestureStartRef.current = null;
   };
@@ -933,6 +1097,8 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
       recordingStartedAtRef.current = Date.now();
       setIsRecordingVoice(true);
       setRecordingSeconds(0);
+      setRecordingDragX(0);
+      setRecordingDragY(0);
       if (recordingTimerRef.current) {
         window.clearInterval(recordingTimerRef.current);
       }
@@ -963,14 +1129,18 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
 
     const deltaX = event.clientX - start.x;
     const deltaY = event.clientY - start.y;
+    setRecordingDragX(deltaX);
+    setRecordingDragY(deltaY);
 
-    if (deltaX <= -70) {
+    if (deltaX <= -CANCEL_THRESHOLD_PX) {
       stopVoiceRecording(true);
       return;
     }
 
-    if (deltaY <= -70) {
+    if (deltaY <= -LOCK_THRESHOLD_PX) {
       setIsRecordingLocked(true);
+      setRecordingDragX(0);
+      setRecordingDragY(0);
       toast.message("Recording locked");
     }
   };
@@ -986,8 +1156,15 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
       }
     }
     if (isRecordingLocked) return;
+    setRecordingDragX(0);
+    setRecordingDragY(0);
     stopVoiceRecording(false);
   };
+
+  const cancelProgress = Math.min(Math.max(-recordingDragX / CANCEL_THRESHOLD_PX, 0), 1);
+  const lockProgress = Math.min(Math.max(-recordingDragY / LOCK_THRESHOLD_PX, 0), 1);
+  const isNearCancel = cancelProgress >= 0.6;
+  const isNearLock = lockProgress >= 0.6;
 
   useEffect(() => {
     if (!activeCall || callStatus !== "active") return;
@@ -1031,7 +1208,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
   };
 
   return (
-    <div className="relative flex h-full flex-col bg-background">
+    <div className="ig-modern-page relative flex h-full flex-col bg-background">
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -top-24 right-[-16%] h-60 w-60 rounded-full bg-primary/12 blur-3xl" />
         <div className="absolute bottom-[-14%] left-[-18%] h-72 w-72 rounded-full bg-secondary/40 blur-3xl" />
@@ -1130,7 +1307,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         </div>
       )}
 
-      <div className="sticky top-0 z-10 border-b border-border/70 bg-background/90 px-3 py-3 backdrop-blur-xl">
+      <div className="ig-modern-header sticky top-0 z-10 border-b border-border/70 bg-background/90 px-3 py-3 backdrop-blur-xl">
         <div className="flex items-center gap-3">
           <button onClick={onBack} className="rounded-full p-2 transition-all duration-200 hover:-translate-x-0.5 hover:bg-secondary/70">
             <ArrowLeft className="h-5 w-5 text-foreground" />
@@ -1140,8 +1317,8 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             {!!typingUsers?.length && <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-background bg-emerald-400" />}
           </div>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-foreground">{safeOtherUser.display_name}</p>
-            <p className="text-xs text-muted-foreground">@{safeOtherUser.username}</p>
+            <p className="ig-type-h2 text-foreground">{safeOtherUser.display_name}</p>
+            <p className="ig-type-caption">@{safeOtherUser.username}</p>
           </div>
           <button
             onClick={() => setSnapMode(!snapMode)}
@@ -1356,26 +1533,73 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                 );
               }
 
+              const shouldShowLastMessageStatus = isMine && msg.id === lastOutgoingMessageId && !msg.deleted_at;
+              const statusMeta = shouldShowLastMessageStatus
+                ? getStatusMeta(typeof msg.status === "string" ? msg.status : undefined)
+                : null;
+              const swipeOffset = swipeReply?.messageId === msg.id ? swipeReply.offset : 0;
+              const swipeProgress = Math.min(swipeOffset / SWIPE_REPLY_TRIGGER_PX, 1);
+
               return (
                 <div key={row.key} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-                  <div className="group max-w-[78%]">
+                  <div
+                    ref={(node) => {
+                      if (!node) {
+                        messageItemRefs.current.delete(msg.id);
+                        return;
+                      }
+                      messageItemRefs.current.set(msg.id, node);
+                    }}
+                    className="group relative max-w-[78%]"
+                  >
+                    <span
+                      className={`pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-border/60 bg-background/85 p-1 text-muted-foreground transition-all duration-150 ${
+                        swipeOffset > 0 ? "opacity-100" : "opacity-0"
+                      }`}
+                      style={{
+                        transform: `translateY(-50%) scale(${0.9 + swipeProgress * 0.1})`,
+                        color: swipeProgress >= 1 ? "hsl(var(--primary))" : undefined,
+                      }}
+                    >
+                      <Reply className="h-3.5 w-3.5" />
+                    </span>
                     <div
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        openMessageActions(msg);
+                      }}
+                      onPointerDown={(event) => handleMessageSwipePointerDown(event, msg)}
+                      onPointerMove={(event) => handleMessageSwipePointerMove(event, msg)}
+                      onPointerUp={(event) => handleMessageSwipePointerUp(event, msg)}
+                      onPointerCancel={(event) => handleMessageSwipePointerCancel(event, msg)}
+                      onTouchStart={() => handleMessageTouchStart(msg)}
+                      onTouchEnd={handleMessageTouchEnd}
+                      onTouchCancel={handleMessageTouchEnd}
+                      onTouchMove={handleMessageTouchEnd}
+                      onClick={() => handleMessageTap(msg)}
+                      onDoubleClick={() => handleReaction(msg, "❤️")}
                       className={`rounded-[20px] px-3 py-2 transition-colors ${
                         isMine
                           ? "bg-primary text-primary-foreground"
                           : "border border-border/60 bg-secondary/75 text-foreground"
-                      }`}
+                      } ${highlightedMessageId === msg.id ? "ring-2 ring-primary/45" : ""}`}
+                      style={{ transform: `translateX(${swipeOffset}px)` }}
                     >
                       {msgReply && (
-                        <div
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (msgReply.id) jumpToMessage(msgReply.id);
+                          }}
                           className={`mb-2 rounded-lg border px-2 py-1.5 text-[11px] ${
                             isMine
                               ? "border-primary-foreground/30 bg-primary-foreground/10 text-primary-foreground/90"
                               : "border-border bg-background/70 text-muted-foreground"
-                          }`}
+                          } ${msgReply.id ? "cursor-pointer" : "cursor-default"}`}
                         >
                           {msgReply.deleted_at ? "Replying to deleted message" : msgReply.content || "Media"}
-                        </div>
+                        </button>
                       )}
                       {msg.deleted_at ? (
                         <p className="text-sm italic opacity-80">Message deleted</p>
@@ -1416,9 +1640,14 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                       <div className={`mt-1.5 flex items-center gap-1 text-[11px] ${isMine ? "text-primary-foreground/85" : "text-muted-foreground"}`}>
                         <span>{msg.created_at ? formatTime(msg.created_at) : ""}</span>
                         {msg.edited_at && <span>· edited</span>}
-                        {isMine && msg.id === lastOutgoingMessageId && (
-                          <span className={`font-semibold ${msg.status === "seen" ? "text-primary-foreground" : ""}`}>
-                            · {getStatusLabel(typeof msg.status === "string" ? msg.status : undefined)}
+                        {statusMeta && (
+                          <span
+                            key={`${msg.id}-${statusMeta.label}`}
+                            className={`ig-status-pop inline-flex items-center gap-0.5 text-[10px] font-medium leading-none ${statusMeta.className}`}
+                          >
+                            <span className="opacity-80">·</span>
+                            <statusMeta.Icon className="h-2.5 w-2.5" />
+                            <span>{statusMeta.label}</span>
                           </span>
                         )}
                       </div>
@@ -1522,7 +1751,116 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         )}
       </div>
 
-      <div className="border-t border-border/60 bg-background/95 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+      {actionMessage && (
+        <div className="fixed inset-0 z-[60] flex items-end bg-black/50 p-3" onClick={() => setActionMessage(null)}>
+          <div
+            className="ig-panel-enter w-full rounded-2xl border border-border bg-background p-3"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-2 flex flex-wrap gap-2">
+              {["❤️", "😂", "🔥", "👍", "😍", "😮"].map((emoji) => (
+                <button
+                  key={`${actionMessage.id}-${emoji}`}
+                  onClick={() => {
+                    handleReaction(actionMessage, emoji);
+                    setActionMessage(null);
+                  }}
+                  className="ig-tap ig-icon-btn rounded-full border border-border/70 bg-background px-3 py-1 text-base"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setReplyTo(actionMessage);
+                  setEditingMessageId(null);
+                  setActionMessage(null);
+                }}
+                className="ig-tap ig-icon-btn flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-secondary/60"
+              >
+                <Reply className="h-4 w-4" /> Reply
+              </button>
+
+              {!actionMessage.deleted_at && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const isPinned = (pinnedMessages as any[]).some((p: any) => p.message_id === actionMessage.id);
+                    if (isPinned) {
+                      unpinMessage.mutate({ conversationId, messageId: actionMessage.id });
+                    } else {
+                      pinMessage.mutate({ conversationId, messageId: actionMessage.id });
+                    }
+                    setActionMessage(null);
+                  }}
+                  className="ig-tap ig-icon-btn flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-secondary/60"
+                >
+                  <Pin className="h-4 w-4" /> {(pinnedMessages as any[]).some((p: any) => p.message_id === actionMessage.id) ? "Unpin" : "Pin"}
+                </button>
+              )}
+
+              {!!actionMessage.content && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(actionMessage.content || "");
+                      toast.success("Copied");
+                    } catch {
+                      toast.error("Could not copy");
+                    }
+                    setActionMessage(null);
+                  }}
+                  className="ig-tap ig-icon-btn flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-secondary/60"
+                >
+                  <Send className="h-4 w-4" /> Copy text
+                </button>
+              )}
+
+              {actionMessage.sender_id === user?.id && !actionMessage.deleted_at && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingMessageId(actionMessage.id);
+                      setReplyTo(null);
+                      setText(actionMessage.content || "");
+                      setActionMessage(null);
+                    }}
+                    className="ig-tap ig-icon-btn flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-secondary/60"
+                  >
+                    <Pencil className="h-4 w-4" /> Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleDeleteMessage(actionMessage.id);
+                      setActionMessage(null);
+                    }}
+                    className="ig-tap ig-icon-btn ig-control-md flex w-full items-center gap-2 px-3 text-left text-sm text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete
+                  </button>
+                </>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActionMessage(null)}
+              className="ig-control-md mt-2 w-full border border-border/70 bg-background px-3 text-sm font-semibold"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="ig-modern-header border-t border-border/60 bg-background/95 px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
         <input
           ref={fileInputRef}
           type="file"
@@ -1592,14 +1930,14 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
         <div className="mb-1 flex items-center gap-2">
           <button
             onClick={() => setShowSnapCamera(true)}
-            className={`rounded-full p-2.5 transition-colors ${
+            className={`ig-control-icon transition-colors ${
               snapMode ? "bg-primary text-primary-foreground" : "bg-secondary/80 text-muted-foreground"
             } hover:bg-secondary`}
             aria-label="Open camera"
           >
             <Camera className="h-4 w-4" />
           </button>
-          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-border/60 bg-secondary/70 px-3 transition-colors focus-within:border-primary/40 focus-within:bg-secondary/85">
+          <div className="ig-modern-input ig-control-input flex min-w-0 flex-1 items-center gap-2 bg-secondary/70 px-3 transition-colors focus-within:border-primary/40 focus-within:bg-secondary/85">
             <input
               type="text"
               value={text}
@@ -1611,7 +1949,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             <button
               type="button"
               onClick={() => { setShowGifKeyboard((prev) => !prev); setShowEmojiTray(false); }}
-              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
+              className="ig-tap rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="GIF & Stickers"
               title="GIFs & Stickers"
             >
@@ -1620,7 +1958,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             <button
               type="button"
               onClick={() => { setShowEmojiTray((prev) => !prev); setShowGifKeyboard(false); }}
-              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
+              className="ig-tap rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="Emoji"
             >
               <Smile className="h-4 w-4" />
@@ -1628,7 +1966,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
+              className="ig-tap rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
               aria-label="Upload media"
             >
               <Image className="h-4 w-4" />
@@ -1639,7 +1977,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             <button
               onClick={handleSend}
               disabled={!text.trim() || sending}
-              className="rounded-full bg-primary p-2.5 text-primary-foreground transition-opacity disabled:opacity-40"
+              className="ig-control-icon bg-primary text-primary-foreground transition-opacity disabled:opacity-40"
               aria-label={editingMessageId ? "Save message" : "Send message"}
             >
               <Send className="h-4 w-4" />
@@ -1656,8 +1994,8 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
                 }
               }}
               disabled={sending}
-              className={`rounded-full p-2.5 text-primary-foreground transition-opacity disabled:opacity-40 ${
-                isRecordingVoice ? "bg-destructive" : "bg-primary"
+              className={`ig-control-icon text-primary-foreground transition-all disabled:opacity-40 ${
+                isRecordingVoice ? "bg-destructive shadow-[0_0_0_6px_hsl(var(--destructive)/0.18)]" : "bg-primary"
               }`}
               aria-label={isRecordingVoice ? "Release to send voice note" : "Hold to record voice note"}
             >
@@ -1665,6 +2003,26 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
             </button>
           )}
         </div>
+
+        {isRecordingVoice && !isRecordingLocked && (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-secondary/45 px-3 py-2 text-[11px]">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors ${
+                isNearCancel ? "bg-destructive/15 text-destructive" : "text-muted-foreground"
+              }`}
+            >
+              ← Slide to cancel
+            </span>
+            <span className="text-destructive">{formatDuration(recordingSeconds)}</span>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 transition-colors ${
+                isNearLock ? "bg-primary/15 text-primary" : "text-muted-foreground"
+              }`}
+            >
+              ↑ Slide to lock
+            </span>
+          </div>
+        )}
 
         {showGifKeyboard && (
           <div className="mb-2 rounded-2xl border border-border/60 bg-secondary/35 p-2">
@@ -1713,7 +2071,7 @@ const ChatView = ({ conversationId, otherUser, onBack }: ChatViewProps) => {
           <div className="flex items-center gap-1.5 pl-1 text-[11px] text-destructive">
             <Circle className="h-2.5 w-2.5 animate-pulse fill-destructive text-destructive" />
             Recording voice note · {formatDuration(recordingSeconds)}
-            {isRecordingLocked ? " · locked" : " · swipe left cancel / swipe up lock / release send"}
+            {isRecordingLocked ? " · locked" : " · release to send"}
           </div>
         )}
 

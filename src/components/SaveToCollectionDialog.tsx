@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Check } from "lucide-react";
 import {
   Dialog,
@@ -13,6 +13,7 @@ import {
   useCreateCollection,
   useAddVideoToCollection,
   useRemoveVideoFromCollection,
+  useVideoCollectionMembership,
 } from "@/hooks/useCollections";
 import { cn } from "@/lib/utils";
 
@@ -28,12 +29,27 @@ export const SaveToCollectionDialog = ({
   onOpenChange,
 }: SaveToCollectionDialogProps) => {
   const { data: collections = [], isLoading } = useCollections();
+  const { data: collectionMembership = [] } = useVideoCollectionMembership(videoId);
   const createCollection = useCreateCollection();
   const addToCollection = useAddVideoToCollection();
   const removeFromCollection = useRemoveVideoFromCollection();
 
   const [isCreating, setIsCreating] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
+  const [pendingAdds, setPendingAdds] = useState<string[]>([]);
+  const [pendingRemoves, setPendingRemoves] = useState<string[]>([]);
+
+  useEffect(() => {
+    setPendingAdds([]);
+    setPendingRemoves([]);
+  }, [videoId, open]);
+
+  const effectiveMembership = useMemo(() => {
+    const membership = new Set(collectionMembership);
+    pendingAdds.forEach((collectionId) => membership.add(collectionId));
+    pendingRemoves.forEach((collectionId) => membership.delete(collectionId));
+    return membership;
+  }, [collectionMembership, pendingAdds, pendingRemoves]);
 
   const handleCreateAndAdd = () => {
     if (!newCollectionName.trim()) return;
@@ -48,6 +64,13 @@ export const SaveToCollectionDialog = ({
           addToCollection.mutate({
             collection_id: newCollection.id,
             video_id: videoId,
+          }, {
+            onSuccess: () => {
+              setPendingAdds((prev) => [...new Set([...prev, newCollection.id])]);
+            },
+            onSettled: () => {
+              setPendingAdds((prev) => prev.filter((id) => id !== newCollection.id));
+            },
           });
           setNewCollectionName("");
           setIsCreating(false);
@@ -58,22 +81,38 @@ export const SaveToCollectionDialog = ({
 
   const handleToggle = (collection: any, isInCollection: boolean) => {
     if (isInCollection) {
+      setPendingRemoves((prev) => [...new Set([...prev, collection.id])]);
+      setPendingAdds((prev) => prev.filter((id) => id !== collection.id));
       removeFromCollection.mutate({
         collection_id: collection.id,
         video_id: videoId,
+      }, {
+        onError: () => {
+          setPendingRemoves((prev) => prev.filter((id) => id !== collection.id));
+        },
+        onSettled: () => {
+          setPendingRemoves((prev) => prev.filter((id) => id !== collection.id));
+        },
       });
     } else {
+      setPendingAdds((prev) => [...new Set([...prev, collection.id])]);
+      setPendingRemoves((prev) => prev.filter((id) => id !== collection.id));
       addToCollection.mutate({
         collection_id: collection.id,
         video_id: videoId,
+      }, {
+        onError: () => {
+          setPendingAdds((prev) => prev.filter((id) => id !== collection.id));
+        },
+        onSettled: () => {
+          setPendingAdds((prev) => prev.filter((id) => id !== collection.id));
+        },
       });
     }
   };
 
-  // Check if video is in each collection (simplified - would need actual data)
   const isInCollection = (collectionId: string) => {
-    // TODO: Track which collections contain this video
-    return false;
+    return effectiveMembership.has(collectionId);
   };
 
   return (

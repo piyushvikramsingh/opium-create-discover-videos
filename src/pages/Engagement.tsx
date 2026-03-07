@@ -9,14 +9,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChallenges, useCreateChallenge, useCreatePoll, useJoinChallenge, usePolls, useVotePoll } from "@/hooks/useEngagement";
 import { useEngagementLoop } from "@/hooks/useEngagementLoop";
 
+type PollItem = {
+  id: string;
+  question: string;
+  options: string[];
+  total_votes?: number;
+};
+
+type ChallengeItem = {
+  id: string;
+  title: string;
+  hashtag: string;
+  participant_count?: number;
+  end_date?: string | null;
+};
+
 const Engagement = () => {
-  const { data: polls = [] } = usePolls();
-  const { data: challenges = [] } = useChallenges();
+  const { data: pollsData = [] } = usePolls();
+  const { data: challengesData = [] } = useChallenges();
   const createPoll = useCreatePoll();
   const votePoll = useVotePoll();
   const createChallenge = useCreateChallenge();
   const joinChallenge = useJoinChallenge();
   const { state: engagementState, missions, badges, nextBadge, syncStatus } = useEngagementLoop();
+  const polls = pollsData as PollItem[];
+  const challenges = challengesData as ChallengeItem[];
 
   const [pollQuestion, setPollQuestion] = useState("");
   const [pollOptionsText, setPollOptionsText] = useState("Yes,No");
@@ -25,17 +42,17 @@ const Engagement = () => {
   const [challengeHashtag, setChallengeHashtag] = useState("mychallenge");
 
   const activeChallenges = useMemo(
-    () => challenges.filter((challenge: any) => !challenge.end_date || new Date(challenge.end_date) > new Date()),
+    () => challenges.filter((challenge) => !challenge.end_date || new Date(challenge.end_date) > new Date()),
     [challenges],
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-20 pt-safe fade-in">
+    <div className="ig-screen-spring ig-modern-page min-h-screen bg-background p-4 pb-20 pt-safe fade-in">
       <div className="mx-auto max-w-5xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Engagement</h1>
-          <p className="text-sm text-muted-foreground mt-1">Polls and challenges to boost interactions.</p>
-          <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1 text-xs text-muted-foreground">
+          <h1 className="ig-type-h1 text-foreground">Engagement</h1>
+          <p className="ig-type-sub mt-1">Polls and challenges to boost interactions.</p>
+          <div className="ig-modern-chip mt-2 inline-flex items-center gap-2 px-3 py-1 text-xs text-muted-foreground">
             <span className={`h-2 w-2 rounded-full ${
               syncStatus === "synced"
                 ? "bg-primary"
@@ -53,20 +70,21 @@ const Engagement = () => {
         </div>
 
         <Tabs defaultValue="polls" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="polls">Polls</TabsTrigger>
-            <TabsTrigger value="challenges">Challenges</TabsTrigger>
+          <TabsList className="flex w-full max-w-md gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0">
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="polls">Polls</TabsTrigger>
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="challenges">Challenges</TabsTrigger>
           </TabsList>
 
           <TabsContent value="polls" className="space-y-4 mt-4">
-            <Card className="rounded-2xl">
+            <Card className="ig-modern-card">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2"><Plus className="h-4 w-4" /> Create Poll</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Input value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Ask your audience a question" />
-                <Input value={pollOptionsText} onChange={(event) => setPollOptionsText(event.target.value)} placeholder="Comma-separated options" />
+                <Input className="ig-control-md" value={pollQuestion} onChange={(event) => setPollQuestion(event.target.value)} placeholder="Ask your audience a question" />
+                <Input className="ig-control-md" value={pollOptionsText} onChange={(event) => setPollOptionsText(event.target.value)} placeholder="Comma-separated options" />
                 <Button
+                  className="ig-control-md"
                   onClick={() => {
                     const options = pollOptionsText
                       .split(",")
@@ -85,8 +103,8 @@ const Engagement = () => {
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {polls.map((poll: any) => (
-                <Card key={poll.id} className="rounded-2xl">
+              {polls.map((poll) => (
+                <Card key={poll.id} className="ig-modern-card">
                   <CardHeader>
                     <CardTitle className="text-base flex items-center gap-2"><Vote className="h-4 w-4" /> {poll.question}</CardTitle>
                   </CardHeader>
@@ -95,7 +113,7 @@ const Engagement = () => {
                       <Button
                         key={`${poll.id}-${option}`}
                         variant="outline"
-                        className="w-full justify-between"
+                        className="ig-control-md w-full justify-between"
                         onClick={() => votePoll.mutate({ pollId: poll.id, optionIndex: index })}
                         disabled={votePoll.isPending}
                       >
@@ -111,14 +129,15 @@ const Engagement = () => {
           </TabsContent>
 
           <TabsContent value="challenges" className="space-y-4 mt-4">
-            <Card className="rounded-2xl">
+            <Card className="ig-modern-card">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2"><Flag className="h-4 w-4" /> Create Challenge</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Input value={challengeTitle} onChange={(event) => setChallengeTitle(event.target.value)} placeholder="Challenge title" />
-                <Input value={challengeHashtag} onChange={(event) => setChallengeHashtag(event.target.value.replace(/#/g, ""))} placeholder="Hashtag" />
+                <Input className="ig-control-md" value={challengeTitle} onChange={(event) => setChallengeTitle(event.target.value)} placeholder="Challenge title" />
+                <Input className="ig-control-md" value={challengeHashtag} onChange={(event) => setChallengeHashtag(event.target.value.replace(/#/g, ""))} placeholder="Hashtag" />
                 <Button
+                  className="ig-control-md"
                   onClick={() => {
                     if (!challengeTitle.trim() || !challengeHashtag.trim()) return;
                     createChallenge.mutate({
@@ -135,15 +154,15 @@ const Engagement = () => {
             </Card>
 
             <div className="grid gap-4 md:grid-cols-2">
-              {activeChallenges.map((challenge: any) => (
-                <Card key={challenge.id} className="rounded-2xl">
+              {activeChallenges.map((challenge) => (
+                <Card key={challenge.id} className="ig-modern-card">
                   <CardHeader>
                     <CardTitle className="text-base">{challenge.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
                     <p className="text-sm text-muted-foreground">#{challenge.hashtag}</p>
                     <p className="text-sm text-muted-foreground">Participants: {challenge.participant_count ?? 0}</p>
-                    <Button onClick={() => joinChallenge.mutate({ challengeId: challenge.id })} disabled={joinChallenge.isPending}>
+                    <Button className="ig-control-md" onClick={() => joinChallenge.mutate({ challengeId: challenge.id })} disabled={joinChallenge.isPending}>
                       Join Challenge
                     </Button>
                   </CardContent>
@@ -153,7 +172,7 @@ const Engagement = () => {
           </TabsContent>
         </Tabs>
 
-        <Card className="rounded-2xl">
+        <Card className="ig-modern-card">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2"><BarChart3 className="h-4 w-4" /> Quick Insight</CardTitle>
           </CardHeader>

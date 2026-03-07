@@ -14,8 +14,8 @@ const BottomNav = () => {
   const location = useLocation();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/90 backdrop-blur-xl pb-safe">
-      <div className="mx-auto flex max-w-lg items-center justify-around px-3 py-2">
+    <nav className="ig-nav-frost fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-background/95 pb-safe">
+      <div className="mx-auto flex max-w-lg items-center justify-around px-3 py-1">
         {navItems.map((item) => {
           const isActive = item.path === "/"
             ? location.pathname === "/"
@@ -28,17 +28,17 @@ const BottomNav = () => {
               key={item.path}
               onClick={() => navigate(item.path)}
               aria-label={item.label}
-              className={`ig-tap relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-200 ${
-                isActive ? "bg-secondary text-foreground" : "text-muted-foreground"
+              className={`ig-tap ig-icon-btn ig-nav-item relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-150 ${
+                isActive ? "text-foreground" : "text-muted-foreground"
               }`}
             >
               <Icon
-                className={`transition-transform duration-200 ${
-                  isCreate ? "h-6 w-6" : "h-5.5 w-5.5"
-                } ${isActive ? "scale-110" : "scale-100"}`}
+                className={`transition-transform duration-150 ${
+                  isCreate ? "h-6 w-6" : "h-5 w-5"
+                } ${isActive ? "scale-105" : "scale-100"}`}
               />
               {isActive && !isCreate && (
-                <span className="absolute -bottom-1.5 h-1 w-1 rounded-full bg-foreground" />
+                <span className="ig-tab-indicator absolute -bottom-1 h-0.5 w-4 rounded-full bg-foreground" />
               )}
             </button>
           );

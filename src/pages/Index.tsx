@@ -30,7 +30,6 @@ const interestOptions = [
   "sports",
 ];
 
-const PREFETCH_CACHE_LIMIT = 60;
 const ACTIVE_SWITCH_THRESHOLD = 0.6;
 const SCROLL_IDLE_RESTORE_MS = 180;
 const SCROLL_JITTER_PX = 2;
@@ -47,7 +46,7 @@ function isSlowConnection() {
 
 const Index = () => {
   const { user } = useAuth();
-  const { autoplaySound } = useRuntimeSettings();
+  const { autoplaySound, lowBandwidthMode } = useRuntimeSettings();
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -64,7 +63,6 @@ const Index = () => {
   const updateInterests = useUpdateUserInterests();
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map());
-  const prefetchedVideoIdsRef = useRef<Set<string>>(new Set());
   const feedPanelIdleTimeoutRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
   const activeIndexRef = useRef(0);
@@ -287,34 +285,6 @@ const Index = () => {
   }, [activeFeedTab, feedVideos, location.pathname, location.state, navigate, searchParams, visibleVideos]);
 
   useEffect(() => {
-    const nextVideo = visibleVideos[activeIndex + 1];
-    if (!nextVideo?.id) return;
-    if (isSlowConnection()) return;
-    if (prefetchedVideoIdsRef.current.has(nextVideo.id)) return;
-
-    if (prefetchedVideoIdsRef.current.size >= PREFETCH_CACHE_LIMIT) {
-      const firstCachedId = prefetchedVideoIdsRef.current.values().next().value as string | undefined;
-      if (firstCachedId) {
-        prefetchedVideoIdsRef.current.delete(firstCachedId);
-      }
-    }
-
-    prefetchedVideoIdsRef.current.add(nextVideo.id);
-
-    if (nextVideo.thumbnail_url) {
-      const image = new Image();
-      image.src = nextVideo.thumbnail_url;
-    }
-
-    if (nextVideo.video_url) {
-      const prefetchVideo = document.createElement("video");
-      prefetchVideo.preload = "metadata";
-      prefetchVideo.src = nextVideo.video_url;
-      prefetchVideo.load();
-    }
-  }, [activeIndex, visibleVideos]);
-
-  useEffect(() => {
     const currentVideo = visibleVideos[activeIndex];
     if (!currentVideo?.video_url) return;
 
@@ -343,7 +313,7 @@ const Index = () => {
   };
 
   return (
-    <div ref={containerRef} className="ig-screen snap-container scrollbar-hide" aria-label="video-feed">
+    <div ref={containerRef} className="ig-screen ig-screen-spring ig-modern-page snap-container scrollbar-hide" aria-label="video-feed">
       <TopNav
         activeTab={activeFeedTab}
         onTabChange={setActiveFeedTab}
@@ -357,17 +327,17 @@ const Index = () => {
       >
         <div className="mx-auto max-w-lg px-3">
           <div
-            className={`mr-14 panel-surface rounded-xl px-3 py-2 transition-all duration-250 ease-out ${
+            className={`ig-modern-card mr-14 bg-background/92 px-3 py-2 backdrop-blur transition-all duration-250 ease-out ${
               isFeedPanelHidden && hasRealVideos ? "pointer-events-none" : "pointer-events-auto"
             }`}
           >
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-foreground/80">
+                <p className="ig-type-overline flex items-center gap-1.5 text-foreground/80">
                   <Sparkles className="h-3.5 w-3.5 text-primary" />
                   {activeFeedTab === "following" ? "Following" : "Recommended"}
                 </p>
-                <p className="truncate text-xs text-muted-foreground">
+                <p className="ig-type-sub truncate">
                   #{activeTopic} • {activeEngagementLabel}
                 </p>
               </div>
@@ -376,7 +346,7 @@ const Index = () => {
                 <button
                   onClick={handleRefreshFeed}
                   disabled={isVideosFetching}
-                  className="ig-tap rounded-full bg-secondary/80 p-2 text-foreground disabled:opacity-60"
+                  className="ig-tap ig-icon-btn rounded-full p-2 text-foreground hover:bg-secondary/70 disabled:opacity-60"
                   aria-label="Refresh feed"
                 >
                   <RefreshCw className={`h-4 w-4 ${isVideosFetching ? "animate-spin" : ""}`} />
@@ -384,7 +354,7 @@ const Index = () => {
                 {activeIndex > 0 && (
                   <button
                     onClick={jumpToTop}
-                    className="ig-tap rounded-full bg-secondary/80 p-2 text-foreground"
+                    className="ig-tap ig-icon-btn rounded-full p-2 text-foreground hover:bg-secondary/70"
                     aria-label="Back to top"
                   >
                     <ChevronUp className="h-4 w-4" />
@@ -405,11 +375,11 @@ const Index = () => {
 
       {isVideosLoading ? (
         <div className="snap-item flex items-center justify-center px-6 text-center">
-          <div className="w-full max-w-sm space-y-3 rounded-2xl border border-border/70 bg-card/60 p-4">
-            <div className="h-4 w-28 animate-pulse rounded bg-secondary/80" />
-            <div className="h-3 w-full animate-pulse rounded bg-secondary/70" />
-            <div className="h-3 w-4/5 animate-pulse rounded bg-secondary/70" />
-            <div className="h-52 animate-pulse rounded-xl bg-secondary/60" />
+          <div className="ig-list-item-enter ig-modern-card w-full max-w-sm space-y-3 bg-background/90 p-4">
+            <div className="ig-shimmer h-4 w-28 animate-pulse rounded bg-secondary/80" />
+            <div className="ig-shimmer h-3 w-full animate-pulse rounded bg-secondary/70" />
+            <div className="ig-shimmer h-3 w-4/5 animate-pulse rounded bg-secondary/70" />
+            <div className="ig-shimmer h-52 animate-pulse rounded-xl bg-secondary/60" />
             <p className="text-xs text-muted-foreground">Loading your personalized feed…</p>
           </div>
         </div>
@@ -429,16 +399,16 @@ const Index = () => {
         ))
       ) : (
         <div className="snap-item flex items-center justify-center px-6 text-center">
-          <div>
-            <p className="text-base font-semibold text-foreground">No videos yet</p>
-            <p className="mt-2 text-sm text-muted-foreground">
+          <div className="ig-list-item-enter">
+            <p className="ig-type-h2 text-foreground">No videos yet</p>
+            <p className="ig-type-body mt-2 text-muted-foreground">
               {activeFeedTab === "following"
                 ? "Follow creators to see their latest clips here."
                 : "Upload your first clip in Create to populate Home feed."}
             </p>
             <button
               onClick={() => navigate(activeFeedTab === "following" ? "/discover" : "/create")}
-              className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+              className="ig-tap ig-icon-btn mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
             >
               {activeFeedTab === "following" ? "Go to Discover" : "Go to Create"}
             </button>
@@ -448,9 +418,9 @@ const Index = () => {
 
       {shouldShowInterestOnboarding && (
         <div className="fixed inset-0 z-[80] flex items-end bg-black/60 p-4">
-          <div className="w-full rounded-2xl border border-border bg-background p-4">
-            <h2 className="text-base font-bold text-foreground">Pick your interests</h2>
-            <p className="mt-1 text-xs text-muted-foreground">This makes your For You feed relevant immediately.</p>
+          <div className="ig-panel-enter ig-modern-card w-full p-4">
+            <h2 className="ig-type-h2 text-foreground">Pick your interests</h2>
+            <p className="ig-type-sub mt-1">This makes your For You feed relevant immediately.</p>
 
             <div className="mt-3 flex flex-wrap gap-2">
               {interestOptions.map((interest) => {
@@ -465,8 +435,8 @@ const Index = () => {
                           : [...current, interest],
                       );
                     }}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                      active ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+                    className={`ig-tap ig-icon-btn ig-modern-chip px-3 py-1.5 text-xs font-semibold ${
+                      active ? "border-primary bg-primary text-primary-foreground" : "border-border/70 bg-background text-secondary-foreground"
                     }`}
                   >
                     #{interest}

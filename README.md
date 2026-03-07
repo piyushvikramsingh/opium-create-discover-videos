@@ -60,6 +60,11 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Product Blueprint Docs
+
+- Modern platform blueprint: [docs/MODERN_SOCIAL_PLATFORM_BLUEPRINT.md](docs/MODERN_SOCIAL_PLATFORM_BLUEPRINT.md)
+- Execution checklist: [docs/FEATURE_EXECUTION_CHECKLIST.md](docs/FEATURE_EXECUTION_CHECKLIST.md)
+
 ## How can I deploy this project?
 
 ### Deploy on Vercel

@@ -64,6 +64,18 @@ const ensureCanMessageTarget = async (senderUserId: string, targetUserId: string
   }
 };
 
+const isDocumentVisible = () => {
+  if (typeof document === "undefined") return true;
+  return document.visibilityState !== "hidden";
+};
+
+const getVisibilityAwareRefetchInterval = (
+  visibleMs: number,
+  hiddenMs: number | false = false,
+) => {
+  return () => (isDocumentVisible() ? visibleMs : hiddenMs);
+};
+
 export type ConversationSettings = {
   pinned: boolean;
   muted: boolean;
@@ -105,6 +117,14 @@ export function useConversations(includeArchived = false) {
 
       const ids = parts.map((participant: any) => participant.conversation_id);
       const myPartMap = new Map((parts || []).map((participant: any) => [participant.conversation_id, participant]));
+      const myLastReadAtMsByConversation = new Map<string, number>();
+
+      myPartMap.forEach((participant: any, conversationId: string) => {
+        const lastReadAtMs = participant?.last_read_at
+          ? new Date(participant.last_read_at).getTime()
+          : 0;
+        myLastReadAtMsByConversation.set(conversationId, Number.isFinite(lastReadAtMs) ? lastReadAtMs : 0);
+      });
 
       const { data: convos, error: cErr } = await supabase
         .from("conversations")
@@ -117,6 +137,13 @@ export function useConversations(includeArchived = false) {
         .from("conversation_participants")
         .select("conversation_id, user_id")
         .in("conversation_id", ids);
+
+      const participantsByConversation = new Map<string, any[]>();
+      (allParts || []).forEach((participant: any) => {
+        const list = participantsByConversation.get(participant.conversation_id) || [];
+        list.push(participant);
+        participantsByConversation.set(participant.conversation_id, list);
+      });
 
       const otherUserIds = [
         ...new Set(
@@ -172,7 +199,7 @@ export function useConversations(includeArchived = false) {
 
       const allMessagesAdvanced = await supabase
         .from("messages")
-        .select("id, conversation_id, content, created_at, sender_id, media_type, is_snap, viewed, deleted_at")
+        .select("id, conversation_id, content, created_at, sender_id, media_type, is_snap, viewed, deleted_at, status")
         .in("conversation_id", ids)
         .order("created_at", { ascending: false });
 
@@ -187,7 +214,7 @@ export function useConversations(includeArchived = false) {
           .order("created_at", { ascending: false });
 
         if (allMessagesFallback.error) throw allMessagesFallback.error;
-        allMessages = (allMessagesFallback.data || []).map((message: any) => ({ ...message, deleted_at: null }));
+        allMessages = (allMessagesFallback.data || []).map((message: any) => ({ ...message, deleted_at: null, status: null }));
       }
 
       const lastMessageByConversation = new Map<string, any>();
@@ -205,8 +232,11 @@ export function useConversations(includeArchived = false) {
         }
 
         if (message.sender_id === user!.id) continue;
-        const myLastReadAt = myPartMap.get(conversationId)?.last_read_at;
-        if (!myLastReadAt || new Date(message.created_at).getTime() > new Date(myLastReadAt).getTime()) {
+        const myLastReadAtMs = myLastReadAtMsByConversation.get(conversationId) || 0;
+        const messageCreatedAtMs = message.created_at
+          ? new Date(message.created_at).getTime()
+          : 0;
+        if (!myLastReadAtMs || messageCreatedAtMs > myLastReadAtMs) {
           unreadCountByConversation.set(conversationId, (unreadCountByConversation.get(conversationId) || 0) + 1);
         }
       }
@@ -215,8 +245,8 @@ export function useConversations(includeArchived = false) {
         const myPart = myPartMap.get(conversation.id);
         const myLastReadAt = myPart?.last_read_at;
 
-        const otherParticipants = (allParts || [])
-          .filter((participant: any) => participant.conversation_id === conversation.id && participant.user_id !== user!.id)
+        const otherParticipants = (participantsByConversation.get(conversation.id) || [])
+          .filter((participant: any) => participant.user_id !== user!.id)
           .map((participant: any) => {
             const profile = profileMap[participant.user_id];
             if (profile) return profile;
@@ -271,7 +301,8 @@ export function useConversations(includeArchived = false) {
         return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       });
     },
-    refetchInterval: 15000,
+    refetchInterval: getVisibilityAwareRefetchInterval(15000),
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -375,7 +406,8 @@ export function useMessages(conversationId: string | null) {
         };
       });
     },
-    refetchInterval: 12000,
+    refetchInterval: getVisibilityAwareRefetchInterval(10000),
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -461,7 +493,8 @@ export function useTypingStatus(conversationId: string | null) {
       }
       return (data || []).filter((row: any) => row.user_id !== user?.id);
     },
-    refetchInterval: 5000,
+    refetchInterval: getVisibilityAwareRefetchInterval(5000),
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
@@ -548,7 +581,8 @@ export function useTypingConversations(conversationIds: string[]) {
 
       return counts;
     },
-    refetchInterval: 5000,
+    refetchInterval: getVisibilityAwareRefetchInterval(5000),
+    refetchOnWindowFocus: true,
   });
 }
 

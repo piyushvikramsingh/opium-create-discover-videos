@@ -18,6 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { buildOrIlikeClause, normalizeSearchInput } from "@/lib/search";
 import { getEngagementPersonalizationBoost, loadEngagementLoopState } from "@/lib/engagementLoop";
+import { diversifyFeedRanking } from "@/lib/feedDiversity";
 
 const trendingTags = [
   "dance", "viral", "foodie", "cats",
@@ -136,23 +137,27 @@ const Discover = () => {
     const engagementState = loadEngagementLoopState();
 
     const personalizeOrder = (rows: any[]) =>
-      [...rows]
-        .map((video: any) => {
-          const basePopularity =
-            (video.likes_count || 0) * 1 +
-            (video.comments_count || 0) * 1.2 +
-            (video.shares_count || 0) * 1.8 +
-            (video.bookmarks_count || 0) * 1.4;
-          const personalized = getEngagementPersonalizationBoost(video, engagementState, {
-            baseScore: basePopularity,
-          });
+      diversifyFeedRanking(
+        [...rows]
+          .map((video: any) => {
+            const basePopularity =
+              (video.likes_count || 0) * 1 +
+              (video.comments_count || 0) * 1.2 +
+              (video.shares_count || 0) * 1.8 +
+              (video.bookmarks_count || 0) * 1.4;
+            const personalized = getEngagementPersonalizationBoost(video, engagementState, {
+              baseScore: basePopularity,
+            });
 
-          return {
-            ...video,
-            _discoverScore: personalized.score,
-          };
-        })
-        .sort((a: any, b: any) => b._discoverScore - a._discoverScore);
+            return {
+              ...video,
+              _score: personalized.score,
+              _discoverScore: personalized.score,
+            };
+          })
+          .sort((a: any, b: any) => b._discoverScore - a._discoverScore),
+        { candidateWindow: 16 },
+      );
 
     if (isSearching) {
       const q = searchQuery.toLowerCase();
@@ -178,17 +183,17 @@ const Discover = () => {
   const hasRealVideos = filteredVideos && filteredVideos.length > 0;
 
   return (
-    <div className="min-h-screen bg-background pb-20 pt-safe fade-in">
-      <div className="sticky top-0 z-20 bg-background/85 backdrop-blur-xl">
+    <div className="ig-screen-spring ig-modern-page min-h-screen bg-background pb-20 pt-safe fade-in">
+      <div className="ig-header ig-modern-header sticky top-0 z-20 border-b border-border/60 bg-background/95 backdrop-blur-xl">
         <div className="px-4 pb-1 pt-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-bold text-foreground">Discover</h1>
-              <p className="text-xs text-muted-foreground">Explore clips and creators</p>
+              <h1 className="ig-type-h1 text-foreground">Discover</h1>
+              <p className="ig-type-sub">Explore clips and creators</p>
             </div>
             <button
               onClick={() => navigate("/create")}
-              className="lift-on-tap rounded-full border border-border bg-background/80 p-2 text-foreground shadow-sm backdrop-blur"
+              className="ig-tap ig-icon-btn rounded-full p-2 text-foreground hover:bg-secondary/70"
               aria-label="Create"
             >
               <PlusSquare className="h-5 w-5" />
@@ -197,7 +202,7 @@ const Discover = () => {
         </div>
         {/* Search bar */}
         <div className="px-4 py-2">
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-secondary px-4 py-3">
+          <div className="ig-modern-input flex items-center gap-3 px-4 py-2.5 focus-within:border-primary/35">
             <Search className="h-5 w-5 text-muted-foreground" />
             <input
               type="text"
@@ -210,7 +215,7 @@ const Discover = () => {
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="lift-on-tap text-xs text-muted-foreground">
+              <button onClick={() => setSearchQuery("")} className="ig-tap ig-icon-btn text-xs text-muted-foreground">
                 ✕
               </button>
             )}
@@ -226,11 +231,12 @@ const Discover = () => {
                 setActiveTag(activeTag === tag ? null : tag);
                 setSearchQuery("");
               }}
-              className={`lift-on-tap shrink-0 rounded-full px-4 py-1.5 text-xs font-medium transition-colors ${
+              className={`ig-tap ig-icon-btn ig-modern-chip shrink-0 px-4 py-1.5 text-xs font-medium transition-colors ${
                 activeTag === tag
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground"
+                  ? "text-primary"
+                  : "text-secondary-foreground"
               }`}
+              data-active={activeTag === tag}
             >
               #{tag}
             </button>
@@ -249,7 +255,7 @@ const Discover = () => {
               <button
                 key={p.user_id}
                 onClick={() => navigate(`/profile/${p.user_id}`)}
-                className="lift-on-tap flex w-20 shrink-0 flex-col items-center gap-1.5"
+                className="ig-tap ig-icon-btn ig-list-item-enter flex w-20 shrink-0 flex-col items-center gap-1.5"
               >
                 <div className="h-14 w-14 rounded-full bg-secondary overflow-hidden">
                   {p.avatar_url ? (
@@ -282,7 +288,7 @@ const Discover = () => {
                   <button
                     key={video.id}
                     onClick={() => navigate("/clipy", { state: { focusVideoId: video.id, focusSource: "discover" } })}
-                    className="lift-on-tap relative h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary"
+                    className="ig-tap ig-icon-btn relative h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-secondary"
                   >
                     {video.thumbnail_url ? (
                       <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" />
@@ -309,7 +315,7 @@ const Discover = () => {
                 {followRecommendations.map((profile: any) => (
                   <div
                     key={profile.user_id}
-                    className="w-[170px] shrink-0 rounded-xl border border-border bg-background p-2"
+                    className="ig-list-item-enter ig-modern-card w-[170px] shrink-0 p-2"
                   >
                     <button
                       onClick={() => {
@@ -382,10 +388,10 @@ const Discover = () => {
       <div className="grid grid-cols-3 gap-0.5 px-0.5">
         {hasRealVideos &&
           filteredVideos.map((video: any) => (
-              <div key={video.id} className="relative aspect-[9/16] overflow-hidden bg-secondary">
+              <div key={video.id} className="ig-list-item-enter relative aspect-[9/16] overflow-hidden border border-border/40 bg-secondary">
                 <button
                   onClick={() => navigate("/clipy", { state: { focusVideoId: video.id, focusSource: "discover" } })}
-                  className="lift-on-tap h-full w-full text-left"
+                  className="ig-tap ig-icon-btn h-full w-full text-left"
                 >
                   {video.thumbnail_url ? (
                     <img src={video.thumbnail_url} alt="" className="h-full w-full object-cover" loading="lazy" />

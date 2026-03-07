@@ -27,6 +27,31 @@ export const useCollections = (userId?: string) => {
   });
 };
 
+// Fetch collection IDs that already contain a video for the current user
+export const useVideoCollectionMembership = (videoId?: string) => {
+  return useQuery({
+    queryKey: ["video-collection-membership", videoId],
+    queryFn: async () => {
+      if (!videoId) return [] as string[];
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await db
+        .from("collection_videos")
+        .select("collection_id, collections!inner(user_id)")
+        .eq("video_id", videoId)
+        .eq("collections.user_id", user.id);
+
+      if (error) throw error;
+
+      const membershipRows = (data ?? []) as Array<{ collection_id: string }>;
+      return membershipRows.map((row) => row.collection_id);
+    },
+    enabled: !!videoId,
+  });
+};
+
 // Fetch a specific collection with videos
 export const useCollection = (collectionId: string) => {
   return useQuery({
@@ -212,6 +237,7 @@ export const useAddVideoToCollection = () => {
     onSuccess: (_: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["collection", variables.collection_id] });
       queryClient.invalidateQueries({ queryKey: ["collections"] });
+      queryClient.invalidateQueries({ queryKey: ["video-collection-membership", variables.video_id] });
       toast({
         title: "Added to collection",
         description: "Video has been saved to your collection",
@@ -261,6 +287,7 @@ export const useRemoveVideoFromCollection = () => {
     onSuccess: (_: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: ["collection", variables.collection_id] });
       queryClient.invalidateQueries({ queryKey: ["collections"] });
+      queryClient.invalidateQueries({ queryKey: ["video-collection-membership", variables.video_id] });
       toast({
         title: "Removed from collection",
         description: "Video has been removed from the collection",

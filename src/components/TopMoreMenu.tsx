@@ -39,20 +39,20 @@ const TopMoreMenu = () => {
       <div className="pointer-events-auto ml-auto w-fit">
         <button
           onClick={() => setOpen((prev) => !prev)}
-          className="lift-on-tap rounded-xl border border-border bg-background/90 p-2 backdrop-blur-xl"
+          className="lift-on-tap rounded-full border border-border/80 bg-background p-2"
           aria-label="Open more menu"
         >
           <MoreHorizontal className="h-5 w-5 text-foreground" />
         </button>
 
         {open && (
-          <div className="mt-2 w-64 rounded-2xl border border-border bg-background/95 p-2 shadow-xl backdrop-blur-xl">
+          <div className="mt-2 w-64 rounded-xl border border-border bg-background p-2 shadow-lg">
             <div className="grid grid-cols-2 gap-1">
               {moreItems.map((item) => (
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className="lift-on-tap flex items-center gap-2 rounded-xl px-2 py-2 text-left hover:bg-secondary"
+                  className="lift-on-tap flex items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-secondary"
                 >
                   <item.icon className="h-4 w-4 text-foreground" />
                   <span className="text-xs text-foreground">{item.label}</span>

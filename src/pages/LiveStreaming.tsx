@@ -6,41 +6,59 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCreateLiveStream, useLiveComments, useLiveStreams, useSendLiveComment, useUpdateStreamStatus } from "@/hooks/useLive";
 
+type LiveStreamItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: "live" | "scheduled" | "ended" | string;
+  viewer_count?: number | null;
+  scheduled_start?: string | null;
+};
+
+type LiveCommentItem = {
+  id: string;
+  content: string;
+  created_at: string;
+};
+
 const LiveStreaming = () => {
-  const { data: streams = [] } = useLiveStreams();
+  const { data: streamsData = [] } = useLiveStreams();
   const createStream = useCreateLiveStream();
   const updateStreamStatus = useUpdateStreamStatus();
   const [selectedStreamId, setSelectedStreamId] = useState<string | null>(null);
-  const { data: comments = [] } = useLiveComments(selectedStreamId);
+  const { data: commentsData = [] } = useLiveComments(selectedStreamId);
   const sendComment = useSendLiveComment();
+  const streams = streamsData as LiveStreamItem[];
+  const comments = commentsData as LiveCommentItem[];
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [scheduledStart, setScheduledStart] = useState("");
   const [commentText, setCommentText] = useState("");
 
-  const liveStreams = useMemo(() => streams.filter((stream: any) => stream.status === "live"), [streams]);
+  const liveStreams = useMemo(() => streams.filter((stream) => stream.status === "live"), [streams]);
   const scheduledStreams = useMemo(
-    () => streams.filter((stream: any) => stream.status === "scheduled"),
+    () => streams.filter((stream) => stream.status === "scheduled"),
     [streams],
   );
 
   return (
-    <div className="min-h-screen bg-background p-4 pb-20 pt-safe fade-in">
+    <div className="ig-screen-spring ig-modern-page min-h-screen bg-background p-4 pb-20 pt-safe fade-in">
       <div className="mx-auto max-w-5xl space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Live Streaming</h1>
-          <p className="text-sm text-muted-foreground mt-1">Go live now or schedule a live session.</p>
+          <h1 className="ig-type-h1 text-foreground">Live Streaming</h1>
+          <p className="ig-type-sub mt-1">Go live now or schedule a live session.</p>
         </div>
 
-        <Card className="rounded-2xl">
+        <Card className="ig-modern-card">
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2"><Video className="h-4 w-4" /> Create Stream</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Stream title" />
-            <Input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description" />
+            <Input className="ig-control-md" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Stream title" />
+            <Input className="ig-control-md" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Description" />
             <Input
+              className="ig-control-md"
               type="datetime-local"
               value={scheduledStart}
               onChange={(event) => setScheduledStart(event.target.value)}
@@ -48,6 +66,7 @@ const LiveStreaming = () => {
             />
             <div className="flex flex-wrap gap-2">
               <Button
+                className="ig-control-md"
                 onClick={() => {
                   if (!title.trim()) return;
                   createStream.mutate({ title: title.trim(), description: description || null });
@@ -60,6 +79,7 @@ const LiveStreaming = () => {
               </Button>
               <Button
                 variant="outline"
+                className="ig-control-md"
                 onClick={() => {
                   if (!title.trim() || !scheduledStart) return;
                   createStream.mutate({
@@ -81,14 +101,14 @@ const LiveStreaming = () => {
         </Card>
 
         <Tabs defaultValue="live" className="w-full">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="live">Live ({liveStreams.length})</TabsTrigger>
-            <TabsTrigger value="scheduled">Scheduled ({scheduledStreams.length})</TabsTrigger>
+          <TabsList className="flex w-full max-w-md gap-2 overflow-x-auto whitespace-nowrap bg-transparent p-0">
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="live">Live ({liveStreams.length})</TabsTrigger>
+            <TabsTrigger className="ig-tab-trigger shrink-0" value="scheduled">Scheduled ({scheduledStreams.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="live" className="grid gap-4 md:grid-cols-2 mt-4">
-            {liveStreams.map((stream: any) => (
-              <Card key={stream.id} className="rounded-2xl">
+            {liveStreams.map((stream) => (
+              <Card key={stream.id} className="ig-modern-card">
                 <CardHeader>
                   <CardTitle className="text-base flex items-center gap-2">
                     <Radio className="h-4 w-4 text-red-500" /> {stream.title}
@@ -98,8 +118,8 @@ const LiveStreaming = () => {
                   <p className="text-sm text-muted-foreground">{stream.description || "No description"}</p>
                   <p className="text-sm">Viewers: {stream.viewer_count ?? 0}</p>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => setSelectedStreamId(stream.id)}>Open Chat</Button>
-                    <Button variant="destructive" onClick={() => updateStreamStatus.mutate({ streamId: stream.id, status: "ended" })}>
+                    <Button className="ig-control-md" variant="outline" onClick={() => setSelectedStreamId(stream.id)}>Open Chat</Button>
+                    <Button className="ig-control-md" variant="destructive" onClick={() => updateStreamStatus.mutate({ streamId: stream.id, status: "ended" })}>
                       End Stream
                     </Button>
                   </div>
@@ -109,14 +129,14 @@ const LiveStreaming = () => {
           </TabsContent>
 
           <TabsContent value="scheduled" className="grid gap-4 md:grid-cols-2 mt-4">
-            {scheduledStreams.map((stream: any) => (
-              <Card key={stream.id} className="rounded-2xl">
+            {scheduledStreams.map((stream) => (
+              <Card key={stream.id} className="ig-modern-card">
                 <CardHeader>
                   <CardTitle className="text-base">{stream.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <p className="text-sm text-muted-foreground">Starts: {stream.scheduled_start ? new Date(stream.scheduled_start).toLocaleString() : "TBD"}</p>
-                  <Button onClick={() => updateStreamStatus.mutate({ streamId: stream.id, status: "live" })}>Start Now</Button>
+                  <Button className="ig-control-md" onClick={() => updateStreamStatus.mutate({ streamId: stream.id, status: "live" })}>Start Now</Button>
                 </CardContent>
               </Card>
             ))}
@@ -124,13 +144,13 @@ const LiveStreaming = () => {
         </Tabs>
 
         {selectedStreamId && (
-          <Card className="rounded-2xl">
+          <Card className="ig-modern-card">
             <CardHeader>
               <CardTitle className="text-base">Live Chat</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="max-h-64 space-y-2 overflow-y-auto rounded-lg border p-3">
-                {comments.map((comment: any) => (
+                {comments.map((comment) => (
                   <p key={comment.id} className="text-sm">
                     <span className="text-muted-foreground">{new Date(comment.created_at).toLocaleTimeString()} · </span>
                     {comment.content}
@@ -138,8 +158,9 @@ const LiveStreaming = () => {
                 ))}
               </div>
               <div className="flex gap-2">
-                <Input value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Send message" />
+                <Input className="ig-control-md" value={commentText} onChange={(event) => setCommentText(event.target.value)} placeholder="Send message" />
                 <Button
+                  className="ig-control-md"
                   onClick={() => {
                     if (!commentText.trim()) return;
                     sendComment.mutate({ streamId: selectedStreamId, content: commentText.trim() });
