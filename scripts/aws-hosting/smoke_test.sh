@@ -52,7 +52,7 @@ if [[ -z "$asset_path" ]]; then
   exit 1
 fi
 
-asset_ct=$(curl -sI "$APP_URL/$asset_path" | tr -d '\r' | sed -n 's/^Content-Type: //p' | head -n1)
+asset_ct=$(curl -sI "$APP_URL/$asset_path" | tr -d '\r' | awk 'BEGIN{IGNORECASE=1} /^content-type:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}')
 if [[ "$asset_ct" != application/javascript* && "$asset_ct" != text/javascript* ]]; then
   echo "FAIL: JS asset content-type is '$asset_ct'"
   exit 1
