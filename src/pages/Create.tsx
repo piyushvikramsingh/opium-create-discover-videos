@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase } from "@/integrations/supabase/client";
+const supabase: any = _supabase;
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateStory } from "@/hooks/useStories";
 import { Button } from "@/components/ui/button";
@@ -333,19 +334,19 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return message || fallback;
 };
 
-const runWithRetry = async <T,>({
+const runWithRetry = async <T = any,>({
   task,
   attempts = 3,
   retryDelayMs = 500,
   shouldRetry = isRetryableError,
   onRetry,
 }: {
-  task: () => Promise<T>;
+  task: () => T | Promise<T>;
   attempts?: number;
   retryDelayMs?: number;
   shouldRetry?: (error: unknown) => boolean;
   onRetry?: (attempt: number, error: unknown) => void;
-}) => {
+}): Promise<T> => {
   let lastError: unknown;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {

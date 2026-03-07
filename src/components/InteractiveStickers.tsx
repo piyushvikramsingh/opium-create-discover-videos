@@ -17,12 +17,13 @@ import { ExternalLink, BarChart3, Check, X } from "lucide-react";
 
 interface InteractiveStickerProps {
   sticker: StorySticker;
+  storyId?: string;
   isOwner: boolean;
-  onPause: () => void;
-  onResume: () => void;
+  onPause?: () => void;
+  onResume?: () => void;
 }
 
-export function InteractiveSticker({ sticker, isOwner, onPause, onResume }: InteractiveStickerProps) {
+export function InteractiveSticker({ sticker, storyId, isOwner, onPause, onResume }: InteractiveStickerProps) {
   switch (sticker.sticker_type) {
     case "poll":
       return <PollSticker sticker={sticker} isOwner={isOwner} />;
