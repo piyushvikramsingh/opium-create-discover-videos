@@ -65,7 +65,15 @@ This project is built with:
 - Modern platform blueprint: [docs/MODERN_SOCIAL_PLATFORM_BLUEPRINT.md](docs/MODERN_SOCIAL_PLATFORM_BLUEPRINT.md)
 - Execution checklist: [docs/FEATURE_EXECUTION_CHECKLIST.md](docs/FEATURE_EXECUTION_CHECKLIST.md)
 
+## AWS database migration
+
+- Runbook: [docs/AWS_DB_MIGRATION_RUNBOOK.md](docs/AWS_DB_MIGRATION_RUNBOOK.md)
+- Scripts: [scripts/aws-db/README.md](scripts/aws-db/README.md)
+
 ## How can I deploy this project?
+
+- AWS hosting guide: [docs/AWS_HOSTING_GUIDE.md](docs/AWS_HOSTING_GUIDE.md)
+- AWS production cutover checklist: [docs/AWS_PRODUCTION_CUTOVER_CHECKLIST.md](docs/AWS_PRODUCTION_CUTOVER_CHECKLIST.md)
 
 ### Deploy on Vercel
 
