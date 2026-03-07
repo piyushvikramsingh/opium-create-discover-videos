@@ -1,4 +1,4 @@
-import { supabase as _supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase, isSupabaseEgressRestricted } from "@/integrations/supabase/client";
 const supabase: any = _supabase;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,6 +73,7 @@ const getVisibilityAwareRefetchInterval = (
   visibleMs: number,
   hiddenMs: number | false = false,
 ) => {
+  if (isSupabaseEgressRestricted()) return false;
   return () => (isDocumentVisible() ? visibleMs : hiddenMs);
 };
 

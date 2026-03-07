@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase as _supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase, isSupabaseEgressRestricted } from "@/integrations/supabase/client";
 const supabase: any = _supabase;
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 const getVisibilityAwarePollInterval = (activeMs: number, hiddenMs: number) => {
+  if (isSupabaseEgressRestricted()) return false;
   if (typeof document === "undefined") return activeMs;
   return document.visibilityState === "visible" ? activeMs : hiddenMs;
 };

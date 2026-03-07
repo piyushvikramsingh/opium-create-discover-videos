@@ -7,6 +7,11 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { useReliableMutationPipelineWorker } from "@/hooks/useData";
 import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
+import {
+  getSupabaseRestrictionInfo,
+  isSupabaseEgressRestricted,
+} from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import AppLayout from "@/layouts/AppLayout";
 
 const HomeTan = lazy(() => import("./pages/HomeTan"));
@@ -38,7 +43,10 @@ const queryClient = new QueryClient({
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
-      retry: 1,
+      retry: (failureCount) => {
+        if (isSupabaseEgressRestricted()) return false;
+        return failureCount < 1;
+      },
     },
   },
 });
@@ -113,6 +121,42 @@ function RuntimeSettingsBridge() {
   return null;
 }
 
+function SupabaseRestrictionNotice() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const showRestrictionToast = () => {
+      const restriction = getSupabaseRestrictionInfo();
+      if (!restriction.restricted) return;
+
+      const untilText = new Date(restriction.restrictedUntil).toLocaleTimeString();
+      toast.error("Supabase quota protection mode is active", {
+        id: "supabase-quota-protection",
+        duration: 12_000,
+        description: `Network-heavy requests are temporarily paused until around ${untilText}. Contact Supabase support to fully restore service.`,
+      });
+    };
+
+    showRestrictionToast();
+    const onRestrictionChange = () => showRestrictionToast();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key?.includes("opium.supabase.restricted")) {
+        showRestrictionToast();
+      }
+    };
+
+    window.addEventListener("opium:supabase-restriction-changed", onRestrictionChange);
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      window.removeEventListener("opium:supabase-restriction-changed", onRestrictionChange);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
+  return null;
+}
+
 interface ErrorBoundaryState {
   hasError: boolean;
   error: Error | null;
@@ -163,6 +207,7 @@ const App = () => (
       <AuthProvider>
         <BackgroundWorkers />
         <RuntimeSettingsBridge />
+        <SupabaseRestrictionNotice />
         <TooltipProvider>
           <Toaster />
           <Sonner />

@@ -1,4 +1,4 @@
-import { supabase as _supabase } from "@/integrations/supabase/client";
+import { supabase as _supabase, isSupabaseEgressRestricted } from "@/integrations/supabase/client";
 const supabase: any = _supabase;
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +10,7 @@ const lowBandwidthEnv = String(import.meta.env.VITE_LOW_BANDWIDTH_MODE || "").to
 const LOW_BANDWIDTH_MODE = lowBandwidthEnv === "true";
 
 const getVisibilityAwareRefetchInterval = (visibleMs: number, hiddenMs: number) => {
+  if (isSupabaseEgressRestricted()) return false;
   if (typeof document === "undefined") return visibleMs;
   return document.visibilityState === "visible" ? visibleMs : hiddenMs;
 };

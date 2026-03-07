@@ -8,6 +8,143 @@ const FALLBACK_SUPABASE_URL = 'https://invalid.supabase.co';
 const FALLBACK_SUPABASE_PUBLISHABLE_KEY = 'invalid-anon-key';
 export const isSupabaseConfigured = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 
+const SUPABASE_RESTRICTED_UNTIL_KEY = 'opium.supabase.restrictedUntil';
+const SUPABASE_RESTRICTED_REASON_KEY = 'opium.supabase.restrictedReason';
+const SUPABASE_RESTRICTION_EVENT = 'opium:supabase-restriction-changed';
+const DEFAULT_RESTRICTION_MS = 20 * 60 * 1000;
+
+const getWindow = () => (typeof window === 'undefined' ? null : window);
+
+const getRestrictionDurationMs = () => {
+  const fromEnv = Number(import.meta.env.VITE_SUPABASE_RESTRICTION_MS || 0);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return fromEnv;
+  return DEFAULT_RESTRICTION_MS;
+};
+
+const emitRestrictionEvent = () => {
+  const browserWindow = getWindow();
+  if (!browserWindow) return;
+  browserWindow.dispatchEvent(new CustomEvent(SUPABASE_RESTRICTION_EVENT));
+};
+
+const readRestrictionUntil = () => {
+  const browserWindow = getWindow();
+  if (!browserWindow) return 0;
+
+  const raw = browserWindow.localStorage.getItem(SUPABASE_RESTRICTED_UNTIL_KEY);
+  const value = Number(raw || 0);
+  return Number.isFinite(value) ? value : 0;
+};
+
+const readRestrictionReason = () => {
+  const browserWindow = getWindow();
+  if (!browserWindow) return null;
+  return browserWindow.localStorage.getItem(SUPABASE_RESTRICTED_REASON_KEY);
+};
+
+export const isSupabaseEgressRestricted = () => {
+  const browserWindow = getWindow();
+  if (!browserWindow) return false;
+  const restrictedUntil = readRestrictionUntil();
+  if (!restrictedUntil) return false;
+
+  const now = Date.now();
+  if (restrictedUntil <= now) {
+    browserWindow.localStorage.removeItem(SUPABASE_RESTRICTED_UNTIL_KEY);
+    browserWindow.localStorage.removeItem(SUPABASE_RESTRICTED_REASON_KEY);
+    return false;
+  }
+
+  return true;
+};
+
+export const getSupabaseRestrictionInfo = () => {
+  if (!isSupabaseEgressRestricted()) {
+    return { restricted: false as const, reason: null as string | null, restrictedUntil: 0 };
+  }
+
+  return {
+    restricted: true as const,
+    reason: readRestrictionReason(),
+    restrictedUntil: readRestrictionUntil(),
+  };
+};
+
+export const clearSupabaseRestriction = () => {
+  const browserWindow = getWindow();
+  if (!browserWindow) return;
+  browserWindow.localStorage.removeItem(SUPABASE_RESTRICTED_UNTIL_KEY);
+  browserWindow.localStorage.removeItem(SUPABASE_RESTRICTED_REASON_KEY);
+  emitRestrictionEvent();
+};
+
+const markSupabaseRestriction = (reason: string) => {
+  const browserWindow = getWindow();
+  if (!browserWindow) return;
+
+  const restrictedUntil = Date.now() + getRestrictionDurationMs();
+  browserWindow.localStorage.setItem(SUPABASE_RESTRICTED_UNTIL_KEY, String(restrictedUntil));
+  browserWindow.localStorage.setItem(SUPABASE_RESTRICTED_REASON_KEY, reason);
+  emitRestrictionEvent();
+};
+
+const looksLikeQuotaRestriction = (message: string) => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes('exceed_cached_egress_quota') ||
+    normalized.includes('cached_egress_quota') ||
+    normalized.includes('egress quota') ||
+    normalized.includes('service for this project is restricted')
+  );
+};
+
+const restrictedSupabaseResponse = () =>
+  new Response(
+    JSON.stringify({
+      message:
+        'Supabase service is temporarily restricted due to bandwidth quota. Try again later or contact Supabase support.',
+      code: 'exceed_cached_egress_quota',
+    }),
+    {
+      status: 429,
+      headers: {
+        'content-type': 'application/json',
+      },
+    },
+  );
+
+const supabaseAwareFetch: typeof fetch = async (input, init) => {
+  const requestUrl =
+    typeof input === 'string'
+      ? input
+      : input instanceof Request
+      ? input.url
+      : String(input);
+
+  const isSupabaseRequest = requestUrl.includes('.supabase.co');
+
+  if (isSupabaseRequest && isSupabaseEgressRestricted()) {
+    return restrictedSupabaseResponse();
+  }
+
+  const response = await fetch(input, init);
+
+  if (!isSupabaseRequest) return response;
+
+  if (response.status === 402 || response.status === 403 || response.status === 429) {
+    try {
+      const bodyText = await response.clone().text();
+      if (looksLikeQuotaRestriction(bodyText)) {
+        markSupabaseRestriction('exceed_cached_egress_quota');
+      }
+    } catch {
+      // Ignore body parse errors and keep original response.
+    }
+  }
+
+  return response;
+};
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -22,6 +159,9 @@ export const supabase = createClient<Database>(
   SUPABASE_URL || FALLBACK_SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY || FALLBACK_SUPABASE_PUBLISHABLE_KEY,
   {
+  global: {
+    fetch: supabaseAwareFetch,
+  },
   auth: {
     storage: localStorage,
     persistSession: true,
