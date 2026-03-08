@@ -1018,8 +1018,8 @@ const Create = () => {
 
     const selectedFiles = Array.from(fileList);
     const validFiles = selectedFiles.filter((file) => {
-      if (!file.type.startsWith("video/")) {
-        toast.error(`${file.name}: only video files are supported`);
+      if (!file.type.startsWith("video/") && !file.type.startsWith("image/")) {
+        toast.error(`${file.name}: only image and video files are supported`);
         return false;
       }
       if (file.size > MAX_FILE_SIZE) {
@@ -1033,7 +1033,8 @@ const Create = () => {
 
     const newClips = await Promise.all(
       validFiles.map(async (file) => {
-        const duration = await getDuration(file);
+        const isImage = file.type.startsWith("image/");
+        const duration = isImage ? 0 : await getDuration(file);
         const id = asId();
         return {
           id,
@@ -1042,7 +1043,7 @@ const Create = () => {
           duration,
           trimStart: 0,
           trimEnd: duration,
-          coverTime: Math.min(1, duration),
+          coverTime: 0,
           brightness: 100,
           contrast: 100,
           saturation: 100,
@@ -1344,6 +1345,44 @@ const Create = () => {
   };
 
   const generateThumbnailBlob = async (clip: ClipItem) => {
+    const isImage = clip.file.type.startsWith("image/");
+
+    if (isImage) {
+      const img = document.createElement("img");
+      img.src = clip.url;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Could not load image"));
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || 720;
+      canvas.height = img.naturalHeight || 1280;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not render thumbnail");
+
+      context.filter = getClipFilterCss(clip);
+      context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      if (clip.thumbnailText.trim()) {
+        context.filter = "none";
+        context.fillStyle = "rgba(0,0,0,0.45)";
+        context.fillRect(0, canvas.height - 120, canvas.width, 120);
+        context.fillStyle = "#fff";
+        context.font = `bold ${Math.round(canvas.width * 0.06)}px Inter, sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(clip.thumbnailText.trim(), canvas.width / 2, canvas.height - 60);
+      }
+
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) reject(new Error("Could not export thumbnail"));
+          else resolve(blob);
+        }, "image/jpeg", 0.9);
+      });
+    }
+
     const video = document.createElement("video");
     video.preload = "auto";
     video.src = clip.url;
@@ -1477,6 +1516,10 @@ const Create = () => {
         ? [{ clip: clips[0], file: await mergeClipsToSingleFile(clips, musicOverlay, encodeProfile), index: 0, total: 1 }]
         : await Promise.all(
             clips.map(async (clip, index) => {
+              const isImage = clip.file.type.startsWith("image/");
+              if (isImage) {
+                return { clip, file: clip.file, index, total: clips.length };
+              }
               try {
                 const processedFile = await processClipToFile(
                   clip,
@@ -1676,11 +1719,12 @@ const Create = () => {
           }
         }
 
-        setUploadStage(`Uploading video ${index + 1}/${targets.length}…`);
+        const isImageFile = file.type.startsWith("image/");
+        setUploadStage(`Uploading ${isImageFile ? "photo" : "video"} ${index + 1}/${targets.length}…`);
         const { error: videoError } = await runWithRetry({
           attempts: 3,
           onRetry: (attempt) => {
-            setUploadStage(`Retrying video upload ${index + 1}/${targets.length} (${attempt}/3)…`);
+            setUploadStage(`Retrying upload ${index + 1}/${targets.length} (${attempt}/3)…`);
           },
           task: () =>
             supabase.storage
@@ -1991,7 +2035,7 @@ const Create = () => {
         <input
           ref={galleryInputRef}
           type="file"
-          accept="video/*"
+          accept="image/*,video/*"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -2213,27 +2257,25 @@ const Create = () => {
                 <button
                   onClick={async () => {
                     if (multiSelectMode && selectedGalleryIndices.length > 0) {
-                      const videoFiles = selectedGalleryIndices
+                      const mediaFiles = selectedGalleryIndices
                         .map((i) => galleryThumbnails[i])
-                        .filter((item) => item.file.type.startsWith("video/"));
-                      if (videoFiles.length === 0) {
-                        toast("Select at least one video file for posts and reels");
+                        .filter((item) => item.file.type.startsWith("video/") || item.file.type.startsWith("image/"));
+                      if (mediaFiles.length === 0) {
+                        toast("Select at least one photo or video");
                         return;
                       }
-                      for (const item of videoFiles) {
+                      for (const item of mediaFiles) {
                         await addDirectFile(item.file);
                       }
                       setMultiSelectMode(false);
                       setSelectedGalleryIndices([]);
                     } else if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
                       const selected = galleryThumbnails[selectedGalleryIndex];
-                      if (selected.file.type.startsWith("video/")) {
-                        await addDirectFile(selected.file);
-                      } else if (selectBottomTab === "story") {
+                      if (selectBottomTab === "story" && selected.file.type.startsWith("image/")) {
                         handleStoryFileSelect(selected.file);
                         navigate("/create", { state: { createType: "story" } });
                       } else {
-                        toast("Select a video file for posts and reels");
+                        await addDirectFile(selected.file);
                       }
                     } else if (clips.length > 0) {
                       setStep("edit");
@@ -2277,82 +2319,97 @@ const Create = () => {
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="rounded-2xl border border-border p-3">
               <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-black">
-                <video
-                  key={activeClip.id}
-                  src={activeClip.url}
-                  controls
-                  playsInline
-                  muted={activeClip.muteOriginal}
-                  className="h-full w-full object-contain"
-                  style={{
-                    filter: getClipFilterCss(activeClip),
-                  }}
-                />
-                <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
-                  {Math.max(0, activeClip.trimEnd - activeClip.trimStart).toFixed(1)}s
-                </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="secondary"
-                  className="absolute right-2 top-2"
-                  onClick={() => updateActiveClip({ muteOriginal: !activeClip.muteOriginal })}
-                >
-                  {activeClip.muteOriginal ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </Button>
+                {activeClip.file.type.startsWith("image/") ? (
+                  <img
+                    key={activeClip.id}
+                    src={activeClip.url}
+                    alt=""
+                    className="h-full w-full object-contain"
+                    style={{ filter: getClipFilterCss(activeClip) }}
+                  />
+                ) : (
+                  <video
+                    key={activeClip.id}
+                    src={activeClip.url}
+                    controls
+                    playsInline
+                    muted={activeClip.muteOriginal}
+                    className="h-full w-full object-contain"
+                    style={{ filter: getClipFilterCss(activeClip) }}
+                  />
+                )}
+                {!activeClip.file.type.startsWith("image/") && (
+                  <>
+                    <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
+                      {Math.max(0, activeClip.trimEnd - activeClip.trimStart).toFixed(1)}s
+                    </div>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      className="absolute right-2 top-2"
+                      onClick={() => updateActiveClip({ muteOriginal: !activeClip.muteOriginal })}
+                    >
+                      {activeClip.muteOriginal ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </Button>
+                  </>
+                )}
               </div>
 
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Trim start/end</span>
-                  <span className="text-xs text-muted-foreground">
-                    {activeClip.trimStart.toFixed(1)}s - {activeClip.trimEnd.toFixed(1)}s
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={Math.max(activeClip.duration, 1)}
-                  step={0.1}
-                  value={[activeClip.trimStart, activeClip.trimEnd]}
-                  onValueChange={(value) => {
-                    const [start, end] = value;
-                    updateActiveClip({
-                      trimStart: Math.max(0, Math.min(start, end - 0.1)),
-                      trimEnd: Math.max(start + 0.1, end),
-                      coverTime: Math.min(Math.max(activeClip.coverTime, start), end),
-                    });
-                  }}
-                />
-              </div>
-
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Cover frame</span>
-                  <span className="text-xs text-muted-foreground">{activeClip.coverTime.toFixed(1)}s</span>
-                </div>
-                <Slider
-                  min={activeClip.trimStart}
-                  max={activeClip.trimEnd}
-                  step={0.1}
-                  value={[activeClip.coverTime]}
-                  onValueChange={(value) => updateActiveClip({ coverTime: value[0] })}
-                />
-                {/* Live thumbnail preview */}
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="h-20 w-[45px] flex-shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
-                    {thumbnailPreviewUrl ? (
-                      <img src={thumbnailPreviewUrl} alt="Cover preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Image className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
+              {!activeClip.file.type.startsWith("image/") && (
+                <>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Trim start/end</span>
+                      <span className="text-xs text-muted-foreground">
+                        {activeClip.trimStart.toFixed(1)}s - {activeClip.trimEnd.toFixed(1)}s
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={Math.max(activeClip.duration, 1)}
+                      step={0.1}
+                      value={[activeClip.trimStart, activeClip.trimEnd]}
+                      onValueChange={(value) => {
+                        const [start, end] = value;
+                        updateActiveClip({
+                          trimStart: Math.max(0, Math.min(start, end - 0.1)),
+                          trimEnd: Math.max(start + 0.1, end),
+                          coverTime: Math.min(Math.max(activeClip.coverTime, start), end),
+                        });
+                      }}
+                    />
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Cover preview updates as you adjust the frame.
-                  </p>
-                </div>
-              </div>
+
+                  <div className="mt-4 space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Cover frame</span>
+                      <span className="text-xs text-muted-foreground">{activeClip.coverTime.toFixed(1)}s</span>
+                    </div>
+                    <Slider
+                      min={activeClip.trimStart}
+                      max={activeClip.trimEnd}
+                      step={0.1}
+                      value={[activeClip.coverTime]}
+                      onValueChange={(value) => updateActiveClip({ coverTime: value[0] })}
+                    />
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="h-20 w-[45px] flex-shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+                        {thumbnailPreviewUrl ? (
+                          <img src={thumbnailPreviewUrl} alt="Cover preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Image className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Cover preview updates as you adjust the frame.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
 
               <div className="mt-4 grid gap-3">
                 <div>
@@ -2445,10 +2502,10 @@ const Create = () => {
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                       onClick={() => setActiveClipId(clip.id)}
                     >
-                      <Film className="h-4 w-4 text-muted-foreground" />
+                      {clip.file.type.startsWith("image/") ? <ImageIcon className="h-4 w-4 text-muted-foreground" /> : <Film className="h-4 w-4 text-muted-foreground" />}
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{clip.file.name}</p>
-                        <p className="text-xs text-muted-foreground">{clip.duration.toFixed(1)}s</p>
+                        <p className="text-xs text-muted-foreground">{clip.file.type.startsWith("image/") ? "Photo" : `${clip.duration.toFixed(1)}s`}</p>
                       </div>
                     </button>
                     <Button size="icon" variant="ghost" onClick={() => moveClip(clip.id, "up")} disabled={index === 0}>
