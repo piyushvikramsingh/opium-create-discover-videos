@@ -1,12 +1,12 @@
-import { Home, Search, PlusSquare, Film, MessageCircle, User } from "lucide-react";
+import { Home, Search, MessageCircle, Paperclip, User } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
   { icon: Search, label: "Explore", path: "/discover" },
-  { icon: PlusSquare, label: "", path: "/create", isCreate: true },
-  { icon: Film, label: "Reels", path: "/reels" },
-  { icon: MessageCircle, label: "Inbox", path: "/inbox" },
+  { icon: MessageCircle, label: "Messages", path: "/inbox" },
+  { icon: Paperclip, label: "Clippy", path: "/reels" },
+  { icon: User, label: "Profile", path: "/profile" },
 ];
 
 const BottomNav = () => {
@@ -22,20 +22,6 @@ const BottomNav = () => {
             : location.pathname.startsWith(item.path);
           const Icon = item.icon;
 
-          if (item.isCreate) {
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                aria-label="Create"
-                className="relative flex items-center justify-center p-2 transition-all duration-150 active:scale-90"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-foreground/80">
-                  <Icon className="h-5 w-5 text-foreground" strokeWidth={2} />
-                </div>
-              </button>
-            );
-          }
 
           return (
             <button
