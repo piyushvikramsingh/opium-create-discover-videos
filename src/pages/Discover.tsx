@@ -1,5 +1,5 @@
-import { Search, Play, TrendingUp, Users, EyeOff, PlusSquare, Grid3X3, Film, Heart, Image as ImageIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, Play, TrendingUp, Users, EyeOff, PlusSquare, Grid3X3, Film, Heart, Image as ImageIcon, RefreshCw, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useContinueWatchingVideos,
@@ -14,7 +14,7 @@ import {
 } from "@/hooks/useData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { buildOrIlikeClause, normalizeSearchInput } from "@/lib/search";
 import { getEngagementPersonalizationBoost, loadEngagementLoopState } from "@/lib/engagementLoop";
@@ -24,6 +24,9 @@ const trendingTags = [
   "dance", "viral", "foodie", "cats",
   "streetstyle", "comedy", "music", "fitness", "art",
 ];
+
+const ITEMS_PER_PAGE = 18;
+const PULL_THRESHOLD = 80;
 
 function useSearchProfiles(query: string) {
   return useQuery({
@@ -62,6 +65,7 @@ const getMasonryPattern = (index: number): string => {
 
 const Discover = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [isFeedMuted, setIsFeedMuted] = useState<boolean>(() => {
@@ -78,8 +82,12 @@ const Discover = () => {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
   const isSearching = debouncedSearchQuery.length >= 2;
-  const { data: videos } = useVideos();
+  const { data: videos, refetch: refetchVideos, isFetching } = useVideos();
   const { data: continueWatching = [] } = useContinueWatchingVideos(12);
   const { data: followRecommendations = [] } = useFollowRecommendations(10, !isSearching);
   const logCreatorRecoClick = useLogCreatorRecommendationClick();
@@ -91,6 +99,10 @@ const Discover = () => {
   const { data: searchProfiles } = useSearchProfiles(debouncedSearchQuery);
   const loggedExposureKeysRef = useRef<Set<string>>(new Set());
   const hoverTimeoutRef = useRef<number | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const scrollTopAtStartRef = useRef<number>(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
