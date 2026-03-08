@@ -1102,6 +1102,47 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
           <span className="text-xs text-foreground font-medium">{formatCount(video.shares_count)}</span>
         </button>
 
+        {/* Remix */}
+        <button
+          onClick={() => navigate(`/create?remix=${video.id}&sound=${encodeURIComponent(video.music || "")}`)}
+          className="lift-on-tap flex flex-col items-center gap-1"
+          title="Remix with this sound"
+        >
+          <Music className="h-7 w-7 text-foreground" />
+          <span className="text-xs text-foreground font-medium">Remix</span>
+        </button>
+
+        {/* Speed */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSpeedPicker(!showSpeedPicker)}
+            className="lift-on-tap flex flex-col items-center gap-1"
+            title="Playback speed"
+          >
+            <Gauge className="h-7 w-7 text-foreground" />
+            <span className="text-xs text-foreground font-medium">{playbackSpeed}x</span>
+          </button>
+          {showSpeedPicker && (
+            <div className="absolute bottom-full right-0 mb-2 flex flex-col gap-1 rounded-xl bg-card/95 backdrop-blur border border-border p-1.5 shadow-lg z-30">
+              {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
+                <button
+                  key={speed}
+                  onClick={() => {
+                    setPlaybackSpeed(speed);
+                    if (videoRef.current) videoRef.current.playbackRate = speed;
+                    setShowSpeedPicker(false);
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    playbackSpeed === speed ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary"
+                  }`}
+                >
+                  {speed}x
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Stitch */}
         <button
           onClick={() => navigate(`/create?stitch=${video.id}`)}
