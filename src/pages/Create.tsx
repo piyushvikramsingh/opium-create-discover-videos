@@ -21,6 +21,13 @@ import {
   VolumeX,
   X,
   MoreHorizontal,
+  SwitchCamera,
+  Zap,
+  ZapOff,
+  Grid3X3,
+  ImageIcon,
+  Clapperboard,
+  CircleDot,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
