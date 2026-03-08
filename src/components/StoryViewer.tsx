@@ -273,6 +273,20 @@ export const StoryViewer = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {isOwnStory && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="text-white hover:bg-white/10"
+                onClick={() => {
+                  setShowHighlightPicker(!showHighlightPicker);
+                  setIsPaused(true);
+                }}
+                title="Add to Highlight"
+              >
+                <Bookmark className="w-5 h-5" />
+              </Button>
+            )}
             <Button
               size="icon"
               variant="ghost"
@@ -298,6 +312,82 @@ export const StoryViewer = ({
             </Button>
           </div>
         </div>
+
+        {/* Highlight Picker Overlay */}
+        {showHighlightPicker && isOwnStory && currentStory && (
+          <div className="absolute top-16 right-4 z-30 w-56 rounded-2xl border border-white/20 bg-black/80 backdrop-blur-xl p-3 shadow-xl">
+            <p className="mb-2 text-xs font-semibold text-white/80 uppercase tracking-wide">Add to Highlight</p>
+            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+              {(myHighlights as any[]).map((h: any) => (
+                <button
+                  key={h.id}
+                  onClick={async () => {
+                    try {
+                      await addStoryToHighlight.mutateAsync({ highlightId: h.id, storyId: currentStory.id });
+                      toast.success(`Added to "${h.title}"`);
+                      setShowHighlightPicker(false);
+                      setIsPaused(false);
+                    } catch {
+                      toast.error("Failed to add to highlight");
+                    }
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-white transition-colors hover:bg-white/10"
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15">
+                    {h.cover_url ? (
+                      <img src={h.cover_url} className="h-full w-full rounded-full object-cover" alt="" />
+                    ) : (
+                      <Bookmark className="h-3.5 w-3.5 text-white/70" />
+                    )}
+                  </div>
+                  <span className="truncate">{h.title}</span>
+                </button>
+              ))}
+            </div>
+            {/* Create new highlight */}
+            <div className="mt-2 border-t border-white/10 pt-2">
+              <div className="flex items-center gap-2">
+                <input
+                  value={newHighlightName}
+                  onChange={(e) => setNewHighlightName(e.target.value)}
+                  placeholder="New highlight..."
+                  maxLength={30}
+                  className="flex-1 rounded-lg bg-white/10 px-2.5 py-1.5 text-sm text-white placeholder:text-white/40 outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newHighlightName.trim()) {
+                      createHighlight.mutateAsync({ title: newHighlightName.trim() }).then((result: any) => {
+                        if (result?.id && currentStory) {
+                          addStoryToHighlight.mutateAsync({ highlightId: result.id, storyId: currentStory.id });
+                        }
+                        toast.success(`Created "${newHighlightName.trim()}"`);
+                        setNewHighlightName("");
+                        setShowHighlightPicker(false);
+                        setIsPaused(false);
+                      }).catch(() => toast.error("Failed to create highlight"));
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    if (!newHighlightName.trim()) return;
+                    createHighlight.mutateAsync({ title: newHighlightName.trim() }).then((result: any) => {
+                      if (result?.id && currentStory) {
+                        addStoryToHighlight.mutateAsync({ highlightId: result.id, storyId: currentStory.id });
+                      }
+                      toast.success(`Created "${newHighlightName.trim()}"`);
+                      setNewHighlightName("");
+                      setShowHighlightPicker(false);
+                      setIsPaused(false);
+                    }).catch(() => toast.error("Failed to create highlight"));
+                  }}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-primary-foreground"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Story content */}
