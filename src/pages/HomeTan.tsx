@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   MessageCircle,
@@ -45,6 +45,8 @@ import { useConversations } from "@/hooks/useMessages";
 import CommentsSheet from "@/components/CommentsSheet";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
+import { supabase as _supabase } from "@/integrations/supabase/client";
+const supabaseAny: any = _supabase;
 
 const HomeTan = () => {
   const navigate = useNavigate();
@@ -99,6 +101,8 @@ const HomeTan = () => {
   const videoObserverRef = useRef<IntersectionObserver | null>(null);
   const videoVisibilityRef = useRef<Map<string, number>>(new Map());
   const activeVideoIdRef = useRef<string | null>(null);
+  const [carouselMedia, setCarouselMedia] = useState<Map<string, Array<{ media_url: string; media_type: string; sort_order: number }>>>(new Map());
+  const [carouselIndices, setCarouselIndices] = useState<Map<string, number>>(new Map());
 
   const PULL_REFRESH_TRIGGER = 78;
   const PULL_REFRESH_MAX = 112;
@@ -158,9 +162,16 @@ const HomeTan = () => {
     return ranked.slice(0, 40);
   }, [videos, feedMode, followingIds]);
 
+  const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|avif)(\?|$)/i;
+  const isPhotoPost = (post: any) => {
+    const url = post.video_url || "";
+    if (!url) return !!post.thumbnail_url;
+    return IMAGE_EXTENSIONS.test(url);
+  };
+
   const mediaFilterCounts = useMemo(() => {
-    const videosCount = feedPosts.filter((post: any) => !!post.video_url).length;
-    const photosCount = feedPosts.length - videosCount;
+    const photosCount = feedPosts.filter((post: any) => isPhotoPost(post)).length;
+    const videosCount = feedPosts.length - photosCount;
     return {
       all: feedPosts.length,
       videos: videosCount,
@@ -170,10 +181,10 @@ const HomeTan = () => {
 
   const filteredFeedPosts = useMemo(() => {
     if (mediaFilter === "videos") {
-      return feedPosts.filter((post: any) => !!post.video_url);
+      return feedPosts.filter((post: any) => !isPhotoPost(post));
     }
     if (mediaFilter === "photos") {
-      return feedPosts.filter((post: any) => !post.video_url);
+      return feedPosts.filter((post: any) => isPhotoPost(post));
     }
     return feedPosts;
   }, [feedPosts, mediaFilter]);
@@ -197,6 +208,34 @@ const HomeTan = () => {
     if (value > 9) return "9+";
     return String(value);
   };
+
+  // Fetch carousel media for all feed posts
+  useEffect(() => {
+    if (!feedPosts.length) return;
+    const postIds = feedPosts.map((p: any) => p.id);
+    supabaseAny
+      .from("post_media")
+      .select("video_id, media_url, media_type, sort_order")
+      .in("video_id", postIds)
+      .order("sort_order", { ascending: true })
+      .then(({ data, error }: any) => {
+        if (error || !data?.length) return;
+        const grouped = new Map<string, Array<{ media_url: string; media_type: string; sort_order: number }>>();
+        for (const row of data) {
+          if (!grouped.has(row.video_id)) grouped.set(row.video_id, []);
+          grouped.get(row.video_id)!.push(row);
+        }
+        setCarouselMedia(grouped);
+      });
+  }, [feedPosts]);
+
+  const setCarouselIndex = useCallback((postId: string, idx: number) => {
+    setCarouselIndices((prev) => {
+      const next = new Map(prev);
+      next.set(postId, idx);
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (serverLikedPosts) setLikedPosts(new Set(serverLikedPosts as Set<string>));
@@ -781,7 +820,7 @@ const HomeTan = () => {
         </div>
       ) : (
         <div className="space-y-0 pt-2">
-          {feedPosts.map((post: any, index: number) => (
+          {filteredFeedPosts.map((post: any, index: number) => (
             <Fragment key={post.id}>
               <article
                 className="ig-list-item-enter overflow-hidden border-b border-border/60 bg-background"
@@ -820,7 +859,12 @@ const HomeTan = () => {
                   </button>
                 </div>
 
-                {(post.video_url || post.thumbnail_url) && (
+                {(post.video_url || post.thumbnail_url) && (() => {
+                  const slides = carouselMedia.get(post.id);
+                  const hasCarousel = slides && slides.length > 1;
+                  const currentSlide = carouselIndices.get(post.id) || 0;
+
+                  return (
                   <div
                     className="relative aspect-[4/5] overflow-hidden bg-secondary"
                     onDoubleClick={() => handleDoubleTapLike(post.id)}
@@ -828,7 +872,71 @@ const HomeTan = () => {
                     {!loadedImageIds.has(post.id) && (
                       <div className="absolute inset-0 animate-pulse bg-secondary" />
                     )}
-                    {post.video_url ? (
+
+                    {hasCarousel ? (
+                      <>
+                        <div
+                          className="flex h-full transition-transform duration-300 ease-out"
+                          style={{ transform: `translateX(-${currentSlide * 100}%)`, width: `${slides.length * 100}%` }}
+                        >
+                          {slides.map((slide, si) => (
+                            <div key={si} className="h-full flex-shrink-0" style={{ width: `${100 / slides.length}%` }}>
+                              {slide.media_type === "video" ? (
+                                <video src={slide.media_url} className="h-full w-full object-cover" playsInline muted loop />
+                              ) : (
+                                <img
+                                  src={slide.media_url}
+                                  alt=""
+                                  loading="lazy"
+                                  onLoad={() => markImageLoaded(post.id)}
+                                  className="h-full w-full object-cover"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Carousel nav arrows */}
+                        {currentSlide > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setCarouselIndex(post.id, currentSlide - 1); }}
+                            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-1.5 text-white backdrop-blur-sm"
+                          >
+                            <ChevronUp className="h-4 w-4 -rotate-90" />
+                          </button>
+                        )}
+                        {currentSlide < slides.length - 1 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setCarouselIndex(post.id, currentSlide + 1); }}
+                            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-1.5 text-white backdrop-blur-sm"
+                          >
+                            <ChevronUp className="h-4 w-4 rotate-90" />
+                          </button>
+                        )}
+                        {/* Dots indicator */}
+                        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+                          {slides.map((_, di) => (
+                            <div
+                              key={di}
+                              className={`h-1.5 rounded-full transition-all ${
+                                di === currentSlide ? "w-4 bg-white" : "w-1.5 bg-white/50"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    ) : isPhotoPost(post) ? (
+                      <img
+                        src={post.video_url || post.thumbnail_url}
+                        alt=""
+                        loading={index < 2 ? "eager" : "lazy"}
+                        decoding="async"
+                        onLoad={() => markImageLoaded(post.id)}
+                        onError={() => markImageLoaded(post.id)}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          loadedImageIds.has(post.id) ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                    ) : post.video_url ? (
                       <video
                         data-post-id={post.id}
                         ref={(node) => {
@@ -893,7 +1001,7 @@ const HomeTan = () => {
                         </div>
                       </div>
                     )}
-                    {post.video_url && (
+                    {!hasCarousel && !isPhotoPost(post) && post.video_url && (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -907,7 +1015,8 @@ const HomeTan = () => {
                       </button>
                     )}
                   </div>
-                )}
+                  );
+                })()}
 
                 <div className="px-3 py-2.5">
                   <div className="flex items-center justify-between">

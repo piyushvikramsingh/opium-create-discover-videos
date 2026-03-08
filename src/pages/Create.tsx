@@ -1782,6 +1782,49 @@ const Create = () => {
 
         createdCount += 1;
         latestId = createdVideo?.id ?? null;
+
+        // If this is a multi-image post (carousel), insert additional media items
+        if (createdVideo?.id && targets.length > 1 && index === 0) {
+          const carouselMediaRows = targets.map((t, sortIdx) => ({
+            video_id: createdVideo.id,
+            media_url: t.file.type.startsWith("image/") ? "" : "", // placeholder, will update below
+            media_type: t.file.type.startsWith("image/") ? "image" : "video",
+            sort_order: sortIdx,
+          }));
+
+          // Upload all remaining files and insert post_media
+          for (let mi = 0; mi < targets.length; mi++) {
+            const mediaFile = targets[mi].file;
+            const mediaExt = mediaFile.name.split(".").pop() || "jpg";
+            const mediaPath = `${user.id}/carousel-${Date.now()}-${mi}.${mediaExt}`;
+
+            if (mi === 0) {
+              // First item already uploaded as video_url
+              carouselMediaRows[mi].media_url = (payload as any).video_url || videoUrlData.publicUrl;
+            } else {
+              const { error: mediaUpError } = await supabase.storage
+                .from("videos")
+                .upload(mediaPath, mediaFile, { contentType: mediaFile.type });
+              if (mediaUpError) {
+                console.warn("Carousel media upload failed", mediaUpError);
+                continue;
+              }
+              const { data: mediaUrlData } = supabase.storage.from("videos").getPublicUrl(mediaPath);
+              carouselMediaRows[mi].media_url = mediaUrlData.publicUrl;
+            }
+          }
+
+          const validRows = carouselMediaRows.filter((r) => r.media_url);
+          if (validRows.length > 1) {
+            await supabase.from("post_media").insert(validRows as never[]);
+          }
+
+          // Skip remaining targets since they're part of the carousel
+          setUploadStage(`Saved carousel with ${validRows.length} items`);
+          setUploadProgress(95);
+          break;
+        }
+
         setUploadStage(`Saved ${index + 1}/${targets.length}`);
         setUploadProgress(40 + Math.round(((index + 1) / targets.length) * 55));
       }
