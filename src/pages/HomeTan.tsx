@@ -937,7 +937,7 @@ const HomeTan = () => {
                 </div>
               </article>
 
-              {shouldShowInlineSuggestions && index === 1 && mediaFilter !== "photos" && (
+              {shouldShowInlineSuggestions && index === 1 && (
                 <section className="border-b border-border/60 bg-background px-3 py-3">
                   <div className="mb-2 flex items-center justify-between">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
