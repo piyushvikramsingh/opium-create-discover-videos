@@ -755,10 +755,44 @@ const Create = () => {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraRecording, setCameraRecording] = useState(false);
   const [cameraFlash, setCameraFlash] = useState(false);
+  const [cameraFilterIndex, setCameraFilterIndex] = useState(0);
   const [galleryThumbnails, setGalleryThumbnails] = useState<{ file: File; url: string }[]>([]);
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState<number | null>(null);
+  const [selectedGalleryIndices, setSelectedGalleryIndices] = useState<number[]>([]);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectBottomTab, setSelectBottomTab] = useState<"post" | "story" | "reel">("post");
   const galleryGridInputRef = useRef<HTMLInputElement>(null);
+
+  const CAMERA_FILTERS = [
+    { id: "normal", label: "Normal", css: "none" },
+    { id: "clarendon", label: "Clarendon", css: "contrast(1.2) saturate(1.35)" },
+    { id: "gingham", label: "Gingham", css: "brightness(1.05) hue-rotate(-10deg)" },
+    { id: "moon", label: "Moon", css: "grayscale(1) contrast(1.1) brightness(1.1)" },
+    { id: "lark", label: "Lark", css: "contrast(0.9) saturate(1.2) brightness(1.1)" },
+    { id: "reyes", label: "Reyes", css: "sepia(0.22) brightness(1.1) contrast(0.85) saturate(0.75)" },
+    { id: "juno", label: "Juno", css: "contrast(1.15) saturate(1.8) sepia(0.08)" },
+    { id: "slumber", label: "Slumber", css: "saturate(0.66) brightness(1.05) sepia(0.15)" },
+    { id: "aden", label: "Aden", css: "hue-rotate(-20deg) contrast(0.9) saturate(0.85) brightness(1.2)" },
+    { id: "perpetua", label: "Perpetua", css: "brightness(1.05) saturate(1.1)" },
+  ];
+
+  const toggleGallerySelection = (idx: number) => {
+    if (!multiSelectMode) {
+      setSelectedGalleryIndex(idx);
+      return;
+    }
+    setSelectedGalleryIndices((prev) => {
+      if (prev.includes(idx)) {
+        return prev.filter((i) => i !== idx);
+      }
+      if (prev.length >= 10) {
+        toast("Maximum 10 items");
+        return prev;
+      }
+      return [...prev, idx];
+    });
+    setSelectedGalleryIndex(idx);
+  };
 
   const [storyFile, setStoryFile] = useState<File | null>(null);
   const [storyPreviewUrl, setStoryPreviewUrl] = useState<string | null>(null);
