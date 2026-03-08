@@ -843,11 +843,20 @@ const HomeTan = () => {
                         }}
                         src={post.video_url}
                         poster={post.thumbnail_url || undefined}
-                        autoPlay={lowBandwidthMode ? false : autoplayVideos}
+                        autoPlay={false}
                         muted={isFeedMuted}
                         loop={loopVideos}
                         playsInline
-                        preload={lowBandwidthMode ? (index === 0 ? "metadata" : "none") : index < 2 ? "auto" : "metadata"}
+                        preload={index < 2 ? "auto" : "metadata"}
+                        onCanPlay={(e) => {
+                          const vid = e.currentTarget;
+                          const postId = vid.dataset.postId;
+                          if (postId && (!activeVideoIdRef.current || activeVideoIdRef.current === postId) && autoplayVideos) {
+                            activeVideoIdRef.current = postId;
+                            vid.muted = true;
+                            vid.play().catch(() => undefined);
+                          }
+                        }}
                         onLoadedData={() => markImageLoaded(post.id)}
                         onError={() => markImageLoaded(post.id)}
                         className={`h-full w-full object-cover transition-opacity duration-300 ${
