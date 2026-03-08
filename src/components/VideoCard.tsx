@@ -279,17 +279,22 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [hasLoadedMedia, isActive, mediaError, safePlay]);
 
+  const trackEventRef = useRef(trackEvent);
+  trackEventRef.current = trackEvent;
+  const recordActionRef = useRef(recordAction);
+  recordActionRef.current = recordAction;
+
   useEffect(() => {
     if (!isActive) {
       if (watchStartAtRef.current && user) {
         const watchMs = Date.now() - watchStartAtRef.current;
         if (watchMs > 500) {
-          trackEvent.mutate({ videoId: video.id, eventType: "view_start", watchMs });
+          trackEventRef.current.mutate({ videoId: video.id, eventType: "view_end", watchMs });
         }
 
         if (!tracked3sRef.current && !trackedSkipRef.current && watchMs < 1800) {
           trackedSkipRef.current = true;
-          recordAction("skip");
+          recordActionRef.current("skip");
         }
       }
       watchStartAtRef.current = null;
@@ -301,24 +306,25 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     trackedCompleteRef.current = false;
     trackedSkipRef.current = false;
     if (user) {
-      trackEvent.mutate({ videoId: video.id, eventType: "view_start" });
+      trackEventRef.current.mutate({ videoId: video.id, eventType: "view_start" });
     }
 
     return () => {
       if (watchStartAtRef.current && user) {
         const watchMs = Date.now() - watchStartAtRef.current;
         if (watchMs > 500) {
-          trackEvent.mutate({ videoId: video.id, eventType: "view_start", watchMs });
+          trackEventRef.current.mutate({ videoId: video.id, eventType: "view_end", watchMs });
         }
 
         if (!tracked3sRef.current && !trackedSkipRef.current && watchMs < 1800) {
           trackedSkipRef.current = true;
-          recordAction("skip");
+          recordActionRef.current("skip");
         }
       }
       watchStartAtRef.current = null;
     };
-  }, [isActive, recordAction, trackEvent, user, video.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isActive, user, video.id]);
 
   const triggerEngagementReward = useCallback((actionType: EngagementActionType) => {
     const result = recordAction(actionType, {
