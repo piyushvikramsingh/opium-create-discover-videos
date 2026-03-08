@@ -269,6 +269,19 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
     avatar_url: otherUser?.avatar_url || null,
   };
 
+  // Track previous message count to detect new incoming messages
+  const prevMessageCountRef = useRef<number>(0);
+  useEffect(() => {
+    const msgList = (messages ?? []) as ChatMessage[];
+    if (msgList.length > prevMessageCountRef.current && prevMessageCountRef.current > 0) {
+      const newest = msgList[msgList.length - 1];
+      if (newest && newest.sender_id !== user?.id) {
+        playMessageReceivedSound();
+      }
+    }
+    prevMessageCountRef.current = msgList.length;
+  }, [messages, user?.id]);
+
   useEffect(() => {
     readMarkRef.current = null;
     deliveredMarkRef.current = null;
