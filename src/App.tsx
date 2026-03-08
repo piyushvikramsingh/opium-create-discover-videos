@@ -54,21 +54,13 @@ const queryClient = new QueryClient({
 const RouteWarmup = () => {
   useEffect(() => {
     const warm = () => {
-      void import("./pages/HomeTan");
-      void import("./pages/Discover");
-      void import("./pages/Create");
-      void import("./pages/Inbox");
-      void import("./pages/Profile");
-      void import("./pages/Settings");
-      void import("./pages/AdminPortal");
-      void import("./pages/Analytics");
-      void import("./pages/Drafts");
-      void import("./pages/Search");
-      void import("./pages/Engagement");
-      void import("./pages/LiveStreaming");
-      void import("./pages/Monetization");
-      void import("./pages/Sounds");
-      void import("./pages/Help");
+      const safeImport = (fn: () => Promise<unknown>) => fn().catch(() => {});
+      safeImport(() => import("./pages/HomeTan"));
+      safeImport(() => import("./pages/Discover"));
+      safeImport(() => import("./pages/Create"));
+      safeImport(() => import("./pages/Inbox"));
+      safeImport(() => import("./pages/Profile"));
+      safeImport(() => import("./pages/Settings"));
     };
 
     const withIdle = window as Window & {
