@@ -755,10 +755,44 @@ const Create = () => {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraRecording, setCameraRecording] = useState(false);
   const [cameraFlash, setCameraFlash] = useState(false);
+  const [cameraFilterIndex, setCameraFilterIndex] = useState(0);
   const [galleryThumbnails, setGalleryThumbnails] = useState<{ file: File; url: string }[]>([]);
   const [selectedGalleryIndex, setSelectedGalleryIndex] = useState<number | null>(null);
+  const [selectedGalleryIndices, setSelectedGalleryIndices] = useState<number[]>([]);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
   const [selectBottomTab, setSelectBottomTab] = useState<"post" | "story" | "reel">("post");
   const galleryGridInputRef = useRef<HTMLInputElement>(null);
+
+  const CAMERA_FILTERS = [
+    { id: "normal", label: "Normal", css: "none" },
+    { id: "clarendon", label: "Clarendon", css: "contrast(1.2) saturate(1.35)" },
+    { id: "gingham", label: "Gingham", css: "brightness(1.05) hue-rotate(-10deg)" },
+    { id: "moon", label: "Moon", css: "grayscale(1) contrast(1.1) brightness(1.1)" },
+    { id: "lark", label: "Lark", css: "contrast(0.9) saturate(1.2) brightness(1.1)" },
+    { id: "reyes", label: "Reyes", css: "sepia(0.22) brightness(1.1) contrast(0.85) saturate(0.75)" },
+    { id: "juno", label: "Juno", css: "contrast(1.15) saturate(1.8) sepia(0.08)" },
+    { id: "slumber", label: "Slumber", css: "saturate(0.66) brightness(1.05) sepia(0.15)" },
+    { id: "aden", label: "Aden", css: "hue-rotate(-20deg) contrast(0.9) saturate(0.85) brightness(1.2)" },
+    { id: "perpetua", label: "Perpetua", css: "brightness(1.05) saturate(1.1)" },
+  ];
+
+  const toggleGallerySelection = (idx: number) => {
+    if (!multiSelectMode) {
+      setSelectedGalleryIndex(idx);
+      return;
+    }
+    setSelectedGalleryIndices((prev) => {
+      if (prev.includes(idx)) {
+        return prev.filter((i) => i !== idx);
+      }
+      if (prev.length >= 10) {
+        toast("Maximum 10 items");
+        return prev;
+      }
+      return [...prev, idx];
+    });
+    setSelectedGalleryIndex(idx);
+  };
 
   const [storyFile, setStoryFile] = useState<File | null>(null);
   const [storyPreviewUrl, setStoryPreviewUrl] = useState<string | null>(null);
@@ -2070,6 +2104,24 @@ const Create = () => {
                 }}
               />
 
+              <div className="flex items-center gap-2 px-4 py-2">
+                <button
+                  onClick={() => {
+                    setMultiSelectMode(!multiSelectMode);
+                    if (multiSelectMode) {
+                      setSelectedGalleryIndices([]);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    multiSelectMode
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-foreground"
+                  }`}
+                >
+                  <Grid3X3 className="h-3.5 w-3.5" />
+                  {multiSelectMode ? `${selectedGalleryIndices.length} selected` : "Select multiple"}
+                </button>
+              </div>
               {galleryThumbnails.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-3 py-12">
                   <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
@@ -2083,28 +2135,47 @@ const Create = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-4 gap-0.5">
-                  {galleryThumbnails.map((item, idx) => (
-                    <button
-                      key={idx}
-                      className={`relative aspect-square overflow-hidden ${
-                        selectedGalleryIndex === idx
-                          ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
-                          : ""
-                      }`}
-                      onClick={() => setSelectedGalleryIndex(idx)}
-                    >
-                      {item.file.type.startsWith("video/") ? (
-                        <>
-                          <video src={item.url} muted playsInline className="h-full w-full object-cover" />
-                          <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5">
-                            <Clapperboard className="h-3 w-3 text-white" />
+                  {galleryThumbnails.map((item, idx) => {
+                    const multiIdx = selectedGalleryIndices.indexOf(idx);
+                    const isMultiSelected = multiSelectMode && multiIdx !== -1;
+                    const isSingleSelected = !multiSelectMode && selectedGalleryIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        className={`relative aspect-square overflow-hidden ${
+                          isSingleSelected
+                            ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                            : isMultiSelected
+                            ? "opacity-80"
+                            : ""
+                        }`}
+                        onClick={() => toggleGallerySelection(idx)}
+                      >
+                        {item.file.type.startsWith("video/") ? (
+                          <>
+                            <video src={item.url} muted playsInline className="h-full w-full object-cover" />
+                            <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5">
+                              <Clapperboard className="h-3 w-3 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <img src={item.url} alt="" className="h-full w-full object-cover" />
+                        )}
+                        {/* Multi-select badge */}
+                        {multiSelectMode && (
+                          <div
+                            className={`absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[10px] font-bold ${
+                              isMultiSelected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-white/70 bg-black/30"
+                            }`}
+                          >
+                            {isMultiSelected ? multiIdx + 1 : ""}
                           </div>
-                        </>
-                      ) : (
-                        <img src={item.url} alt="" className="h-full w-full object-cover" />
-                      )}
-                    </button>
-                  ))}
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -2141,7 +2212,20 @@ const Create = () => {
               <div className="flex items-center gap-3 px-4 pb-4">
                 <button
                   onClick={async () => {
-                    if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
+                    if (multiSelectMode && selectedGalleryIndices.length > 0) {
+                      const videoFiles = selectedGalleryIndices
+                        .map((i) => galleryThumbnails[i])
+                        .filter((item) => item.file.type.startsWith("video/"));
+                      if (videoFiles.length === 0) {
+                        toast("Select at least one video file for posts and reels");
+                        return;
+                      }
+                      for (const item of videoFiles) {
+                        await addDirectFile(item.file);
+                      }
+                      setMultiSelectMode(false);
+                      setSelectedGalleryIndices([]);
+                    } else if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
                       const selected = galleryThumbnails[selectedGalleryIndex];
                       if (selected.file.type.startsWith("video/")) {
                         await addDirectFile(selected.file);
@@ -2159,7 +2243,9 @@ const Create = () => {
                   }}
                   className="flex-1 rounded-lg bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
                 >
-                  Next
+                  {multiSelectMode && selectedGalleryIndices.length > 0
+                    ? `Next (${selectedGalleryIndices.length})`
+                    : "Next"}
                 </button>
               </div>
             </div>
@@ -2699,7 +2785,7 @@ const Create = () => {
                 </div>
               </div>
 
-              {/* Camera viewfinder */}
+              {/* Camera viewfinder with filter */}
               <div className="flex-1 overflow-hidden">
                 <video
                   ref={cameraVideoRef}
@@ -2707,7 +2793,29 @@ const Create = () => {
                   playsInline
                   muted={false}
                   className={`h-full w-full object-cover ${cameraFacingMode === "user" ? "scale-x-[-1]" : ""}`}
+                  style={{
+                    filter: CAMERA_FILTERS[cameraFilterIndex]?.css || "none",
+                  }}
                 />
+              </div>
+
+              {/* Filter carousel */}
+              <div className="absolute inset-x-0 bottom-36 z-10 px-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {CAMERA_FILTERS.map((f, i) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setCameraFilterIndex(i)}
+                      className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all ${
+                        cameraFilterIndex === i
+                          ? "bg-white text-black shadow-lg"
+                          : "bg-white/15 text-white/80 backdrop-blur"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Camera bottom controls */}
@@ -2735,9 +2843,9 @@ const Create = () => {
                   ) : (
                     <button
                       onClick={stopRecording}
-                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-red-500"
+                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-destructive"
                     >
-                      <div className="h-8 w-8 rounded-md bg-red-500" />
+                      <div className="h-8 w-8 rounded-md bg-destructive" />
                     </button>
                   )}
 
