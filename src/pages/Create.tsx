@@ -2035,7 +2035,7 @@ const Create = () => {
         <input
           ref={galleryInputRef}
           type="file"
-          accept="video/*"
+          accept="image/*,video/*"
           multiple
           className="hidden"
           onChange={(e) => {
