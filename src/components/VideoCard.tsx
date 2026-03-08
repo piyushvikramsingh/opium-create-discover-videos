@@ -138,13 +138,10 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
       return;
     }
 
-    if (isPlaying) {
-      setIsPlaying(false);
-    }
-
+    setIsPlaying(false);
     setHasLoadedMedia(false);
     setMediaError(null);
-  }, [isPlaying, shouldKeepMediaLoaded]);
+  }, [shouldKeepMediaLoaded]);
 
   useEffect(() => {
     return () => {
