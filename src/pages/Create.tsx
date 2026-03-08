@@ -2257,27 +2257,25 @@ const Create = () => {
                 <button
                   onClick={async () => {
                     if (multiSelectMode && selectedGalleryIndices.length > 0) {
-                      const videoFiles = selectedGalleryIndices
+                      const mediaFiles = selectedGalleryIndices
                         .map((i) => galleryThumbnails[i])
-                        .filter((item) => item.file.type.startsWith("video/"));
-                      if (videoFiles.length === 0) {
-                        toast("Select at least one video file for posts and reels");
+                        .filter((item) => item.file.type.startsWith("video/") || item.file.type.startsWith("image/"));
+                      if (mediaFiles.length === 0) {
+                        toast("Select at least one photo or video");
                         return;
                       }
-                      for (const item of videoFiles) {
+                      for (const item of mediaFiles) {
                         await addDirectFile(item.file);
                       }
                       setMultiSelectMode(false);
                       setSelectedGalleryIndices([]);
                     } else if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
                       const selected = galleryThumbnails[selectedGalleryIndex];
-                      if (selected.file.type.startsWith("video/")) {
-                        await addDirectFile(selected.file);
-                      } else if (selectBottomTab === "story") {
+                      if (selectBottomTab === "story" && selected.file.type.startsWith("image/")) {
                         handleStoryFileSelect(selected.file);
                         navigate("/create", { state: { createType: "story" } });
                       } else {
-                        toast("Select a video file for posts and reels");
+                        await addDirectFile(selected.file);
                       }
                     } else if (clips.length > 0) {
                       setStep("edit");
