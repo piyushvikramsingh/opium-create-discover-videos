@@ -1170,10 +1170,19 @@ const HomeTan = () => {
         </SheetContent>
       </Sheet>
 
+      {/* Floating create button */}
+      <button
+        onClick={() => setShowCreateOptions(true)}
+        className="fixed bottom-20 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-transform active:scale-90"
+        aria-label="Create post"
+      >
+        <PlusSquare className="h-5 w-5" />
+      </button>
+
       {showBackToTop && (
         <button
           onClick={handleBackToTop}
-          className="ig-list-item-enter fixed bottom-28 right-4 z-40 lift-on-tap ig-icon-btn rounded-full border border-border/80 bg-background/95 p-3 text-foreground shadow-lg backdrop-blur"
+          className="animate-fade-in fixed bottom-36 right-4 z-40 rounded-full border border-border/60 bg-background/90 p-2.5 text-foreground shadow-lg backdrop-blur-md transition-transform active:scale-90"
           aria-label="Back to top"
         >
           <ChevronUp className="h-4 w-4" />
