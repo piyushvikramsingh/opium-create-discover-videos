@@ -2502,10 +2502,10 @@ const Create = () => {
                       className="flex min-w-0 flex-1 items-center gap-2 text-left"
                       onClick={() => setActiveClipId(clip.id)}
                     >
-                      <Film className="h-4 w-4 text-muted-foreground" />
+                      {clip.file.type.startsWith("image/") ? <ImageIcon className="h-4 w-4 text-muted-foreground" /> : <Film className="h-4 w-4 text-muted-foreground" />}
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{clip.file.name}</p>
-                        <p className="text-xs text-muted-foreground">{clip.duration.toFixed(1)}s</p>
+                        <p className="text-xs text-muted-foreground">{clip.file.type.startsWith("image/") ? "Photo" : `${clip.duration.toFixed(1)}s`}</p>
                       </div>
                     </button>
                     <Button size="icon" variant="ghost" onClick={() => moveClip(clip.id, "up")} disabled={index === 0}>
