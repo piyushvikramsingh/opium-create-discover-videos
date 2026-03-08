@@ -865,12 +865,17 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
           webkit-playsinline="true"
           disablePictureInPicture
           controlsList="nodownload noplaybackrate"
-          muted={isMuted}
-          preload={lowBandwidthMode ? (isActive ? "metadata" : "none") : shouldKeepMediaLoaded ? "auto" : "metadata"}
+          muted
+          preload={shouldKeepMediaLoaded ? "auto" : "metadata"}
           onCanPlay={handleCanPlay}
           onLoadedData={() => {
             if (isActive) {
-              void safePlay();
+              const vid = videoRef.current;
+              if (vid) {
+                vid.muted = isMuted;
+                vid.play().catch(() => undefined);
+                setIsPlaying(true);
+              }
             }
           }}
           onError={handleVideoError}
