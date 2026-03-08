@@ -1232,77 +1232,137 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
         />
       )}
 
+      {/* ── Instagram-style Incoming Call Screen ── */}
       {incomingCall && callStatus === "incoming" && (
-        <div className="fixed inset-0 z-[75] flex flex-col items-center justify-center bg-background px-6">
-          <img src={avatarUrl} alt={safeOtherUser.display_name} className="h-24 w-24 rounded-full object-cover" />
-          <p className="mt-4 text-lg font-semibold text-foreground">Incoming {incomingCall.type} call</p>
-          <p className="mt-1 text-sm text-muted-foreground">{safeOtherUser.display_name} is calling you</p>
+        <div className="fixed inset-0 z-[75] flex flex-col items-center justify-center bg-gradient-to-b from-[hsl(var(--background))] via-[hsl(var(--muted))] to-[hsl(var(--background))] px-6">
+          {/* Animated rings */}
+          <div className="relative flex items-center justify-center">
+            <span className="absolute h-36 w-36 animate-ping rounded-full border border-primary/20" style={{ animationDuration: "2s" }} />
+            <span className="absolute h-32 w-32 animate-ping rounded-full border border-primary/30" style={{ animationDuration: "1.5s", animationDelay: "0.3s" }} />
+            <span className="absolute h-28 w-28 rounded-full border-2 border-primary/40 animate-pulse" />
+            <img src={avatarUrl} alt={safeOtherUser.display_name} className="relative h-24 w-24 rounded-full object-cover ring-4 ring-primary/50 shadow-lg" />
+          </div>
+          <p className="mt-6 text-xl font-bold text-foreground">{safeOtherUser.display_name}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Incoming {incomingCall.type === "video" ? "video" : "voice"} call…
+          </p>
 
-          <div className="mt-8 flex items-center gap-4">
-            <button
-              type="button"
-              onClick={handleRejectIncomingCall}
-              className="rounded-full bg-destructive p-4 text-destructive-foreground"
-            >
-              <PhoneOff className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={handleAcceptIncomingCall}
-              className="rounded-full bg-primary p-4 text-primary-foreground"
-            >
-              {incomingCall.type === "video" ? <Video className="h-5 w-5" /> : <Phone className="h-5 w-5" />}
-            </button>
+          <div className="mt-12 flex items-center gap-10">
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={handleRejectIncomingCall}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive shadow-lg shadow-destructive/30 transition-transform active:scale-90"
+              >
+                <PhoneOff className="h-6 w-6 text-destructive-foreground" />
+              </button>
+              <span className="text-xs text-muted-foreground">Decline</span>
+            </div>
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={handleAcceptIncomingCall}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/30 transition-transform active:scale-90"
+              >
+                {incomingCall.type === "video" ? <Video className="h-6 w-6 text-white" /> : <Phone className="h-6 w-6 text-white" />}
+              </button>
+              <span className="text-xs text-muted-foreground">Accept</span>
+            </div>
           </div>
         </div>
       )}
 
+      {/* ── Instagram-style Active Call Screen ── */}
       {activeCall && callStatus !== "incoming" && (
-        <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center bg-background px-6">
+        <div className="fixed inset-0 z-[70] flex flex-col bg-gradient-to-b from-[hsl(var(--background))] via-[hsl(var(--muted)/0.5)] to-[hsl(var(--background))]">
           <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-          <img src={avatarUrl} alt={safeOtherUser.display_name} className="h-24 w-24 rounded-full object-cover" />
-          <p className="mt-4 text-lg font-semibold text-foreground">{safeOtherUser.display_name}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {callStatus === "calling"
-              ? "Ringing..."
-              : callStatus === "connecting"
-                ? "Connecting..."
-                : `${activeCall.type === "video" ? "Video call" : "Voice call"} · ${formatDuration(callSeconds)}`}
-          </p>
 
-          {activeCall.type === "video" && (
-            <div className="relative mt-4 h-64 w-44">
+          {/* Video call: fullscreen layout */}
+          {activeCall.type === "video" ? (
+            <>
+              {/* Remote video fills screen */}
               <video
                 ref={remoteVideoRef}
                 autoPlay
                 playsInline
-                className="h-full w-full rounded-2xl bg-black object-cover"
+                className="absolute inset-0 h-full w-full bg-muted object-cover"
               />
+              {/* Local video pip */}
               <video
                 ref={localVideoRef}
                 autoPlay
                 playsInline
                 muted
-                className="absolute bottom-2 right-2 h-20 w-14 rounded-xl border border-border bg-black object-cover"
+                className="absolute right-4 top-14 h-40 w-28 rounded-2xl border-2 border-background/60 bg-muted object-cover shadow-xl z-10"
               />
+              {/* Top bar over video */}
+              <div className="relative z-10 flex items-center justify-between px-4 pt-safe pb-2 bg-gradient-to-b from-black/50 to-transparent">
+                <div className="flex items-center gap-3">
+                  <img src={avatarUrl} alt="" className="h-8 w-8 rounded-full object-cover ring-2 ring-white/30" />
+                  <div>
+                    <p className="text-sm font-semibold text-white">{safeOtherUser.display_name}</p>
+                    <p className="text-[11px] text-white/70">
+                      {callStatus === "calling" ? "Ringing…" : callStatus === "connecting" ? "Connecting…" : formatDuration(callSeconds)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            /* Voice call: centered avatar with status */
+            <div className="flex flex-1 flex-col items-center justify-center px-6">
+              <div className="relative">
+                {callStatus === "calling" && (
+                  <span className="absolute inset-0 m-auto h-32 w-32 animate-ping rounded-full border border-primary/20" style={{ animationDuration: "2s" }} />
+                )}
+                <img src={avatarUrl} alt={safeOtherUser.display_name} className="relative h-28 w-28 rounded-full object-cover ring-4 ring-primary/30 shadow-lg" />
+              </div>
+              <p className="mt-6 text-xl font-bold text-foreground">{safeOtherUser.display_name}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {callStatus === "calling"
+                  ? "Ringing…"
+                  : callStatus === "connecting"
+                    ? "Connecting…"
+                    : `Voice call · ${formatDuration(callSeconds)}`}
+              </p>
             </div>
           )}
 
-          <div className="mt-8 flex items-center gap-4">
-            <button
-              type="button"
-              onClick={toggleMute}
-              className="rounded-full bg-secondary p-4 text-foreground"
-            >
-              {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleEndCall(true)}
-              className="rounded-full bg-destructive p-4 text-destructive-foreground"
-            >
-              <PhoneOff className="h-5 w-5" />
-            </button>
+          {/* Bottom controls bar */}
+          <div className="relative z-10 mt-auto bg-gradient-to-t from-black/60 to-transparent pb-safe pt-6">
+            <div className="flex items-center justify-center gap-6 pb-6">
+              <button
+                type="button"
+                onClick={toggleMute}
+                className={`flex h-14 w-14 items-center justify-center rounded-full transition-all active:scale-90 ${
+                  isMuted ? "bg-white/90 text-foreground" : "bg-white/20 text-white backdrop-blur"
+                }`}
+              >
+                {isMuted ? <VolumeX className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleEndCall(true)}
+                className="flex h-16 w-16 items-center justify-center rounded-full bg-destructive shadow-lg shadow-destructive/40 transition-transform active:scale-90"
+              >
+                <PhoneOff className="h-6 w-6 text-destructive-foreground" />
+              </button>
+              {activeCall.type === "video" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Toggle camera (front/back)
+                    const videoTrack = localCallStreamRef.current?.getVideoTracks()[0];
+                    if (videoTrack) {
+                      videoTrack.enabled = !videoTrack.enabled;
+                    }
+                  }}
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 text-white backdrop-blur transition-all active:scale-90"
+                >
+                  <Video className="h-5 w-5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
