@@ -209,6 +209,34 @@ const HomeTan = () => {
     return String(value);
   };
 
+  // Fetch carousel media for all feed posts
+  useEffect(() => {
+    if (!feedPosts.length) return;
+    const postIds = feedPosts.map((p: any) => p.id);
+    supabaseAny
+      .from("post_media")
+      .select("video_id, media_url, media_type, sort_order")
+      .in("video_id", postIds)
+      .order("sort_order", { ascending: true })
+      .then(({ data, error }: any) => {
+        if (error || !data?.length) return;
+        const grouped = new Map<string, Array<{ media_url: string; media_type: string; sort_order: number }>>();
+        for (const row of data) {
+          if (!grouped.has(row.video_id)) grouped.set(row.video_id, []);
+          grouped.get(row.video_id)!.push(row);
+        }
+        setCarouselMedia(grouped);
+      });
+  }, [feedPosts]);
+
+  const setCarouselIndex = useCallback((postId: string, idx: number) => {
+    setCarouselIndices((prev) => {
+      const next = new Map(prev);
+      next.set(postId, idx);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     if (serverLikedPosts) setLikedPosts(new Set(serverLikedPosts as Set<string>));
   }, [serverLikedPosts]);
