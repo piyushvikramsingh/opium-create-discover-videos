@@ -1987,9 +1987,203 @@ const Create = () => {
         />
 
         {step === "select" && (
-          <div className="grid gap-4">
-            <div className="relative min-h-[calc(100dvh-210px)] overflow-hidden bg-black md:mx-auto md:w-full md:max-w-md md:rounded-2xl md:border md:border-border">
-              {clips[0] ? (
+          <div className="flex flex-col" style={{ minHeight: "calc(100dvh - 60px)" }}>
+            {/* Gallery preview area */}
+            <div className="relative aspect-square w-full bg-black md:mx-auto md:max-w-md">
+              {selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex] ? (
+                galleryThumbnails[selectedGalleryIndex].file.type.startsWith("video/") ? (
+                  <video
+                    src={galleryThumbnails[selectedGalleryIndex].url}
+                    muted
+                    playsInline
+                    loop
+                    autoPlay
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={galleryThumbnails[selectedGalleryIndex].url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                )
+              ) : clips[0] ? (
+                <video
+                  src={clips[0].url}
+                  muted
+                  playsInline
+                  loop
+                  autoPlay
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/70">
+                  <ImageIcon className="h-12 w-12 opacity-40" />
+                  <p className="text-sm font-medium">No media selected</p>
+                </div>
+              )}
+            </div>
+
+            {/* Gallery header row */}
+            <div className="flex items-center justify-between border-b border-border/40 bg-background px-4 py-2.5 md:mx-auto md:w-full md:max-w-md">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-foreground">Recents</span>
+                <ChevronDown className="h-4 w-4 text-foreground" />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => galleryGridInputRef.current?.click()}
+                  className="rounded-full bg-secondary/80 p-2 text-foreground"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => void startCamera("environment")}
+                  className="rounded-full bg-secondary/80 p-2 text-foreground"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Gallery grid */}
+            <div className="flex-1 overflow-y-auto bg-background md:mx-auto md:w-full md:max-w-md">
+              <input
+                ref={galleryGridInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (!files) return;
+                  const newThumbs = Array.from(files).map((file) => ({
+                    file,
+                    url: URL.createObjectURL(file),
+                  }));
+                  setGalleryThumbnails((prev) => {
+                    const updated = [...prev, ...newThumbs];
+                    setSelectedGalleryIndex(prev.length);
+                    return updated;
+                  });
+                  e.target.value = "";
+                }}
+              />
+
+              {galleryThumbnails.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-12">
+                  <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Tap the grid icon to add photos & videos</p>
+                  <button
+                    onClick={() => galleryGridInputRef.current?.click()}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    Select from Gallery
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-0.5">
+                  {galleryThumbnails.map((item, idx) => (
+                    <button
+                      key={idx}
+                      className={`relative aspect-square overflow-hidden ${
+                        selectedGalleryIndex === idx
+                          ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                          : ""
+                      }`}
+                      onClick={() => setSelectedGalleryIndex(idx)}
+                    >
+                      {item.file.type.startsWith("video/") ? (
+                        <>
+                          <video src={item.url} muted playsInline className="h-full w-full object-cover" />
+                          <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5">
+                            <Clapperboard className="h-3 w-3 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={item.url} alt="" className="h-full w-full object-cover" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom action bar */}
+            <div className="border-t border-border/40 bg-background md:mx-auto md:w-full md:max-w-md">
+              {/* Create type tabs */}
+              <div className="flex items-center justify-center gap-8 py-3">
+                {(["post", "story", "reel"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      setSelectBottomTab(tab);
+                      if (tab === "story") {
+                        navigate("/create", { state: { createType: "story" } });
+                      } else if (tab === "reel") {
+                        applyCreateIntentPreset("reel");
+                      } else {
+                        applyCreateIntentPreset("post");
+                      }
+                    }}
+                    className={`text-xs font-bold uppercase tracking-wider transition-colors ${
+                      selectBottomTab === tab
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              {/* Next button */}
+              <div className="flex items-center gap-3 px-4 pb-4">
+                <button
+                  onClick={async () => {
+                    if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
+                      const selected = galleryThumbnails[selectedGalleryIndex];
+                      if (selected.file.type.startsWith("video/")) {
+                        await addDirectFile(selected.file);
+                      } else if (selectBottomTab === "story") {
+                        handleStoryFileSelect(selected.file);
+                        navigate("/create", { state: { createType: "story" } });
+                      } else {
+                        toast("Select a video file for posts and reels");
+                      }
+                    } else if (clips.length > 0) {
+                      setStep("edit");
+                    } else {
+                      toast("Select media first");
+                    }
+                  }}
+                  className="flex-1 rounded-lg bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
+            {/* Drafts row */}
+            {drafts.length > 0 && (
+              <div className="border-t border-border/40 bg-background px-4 py-3 md:mx-auto md:w-full md:max-w-md">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Drafts ({drafts.length})</h2>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                  {drafts.slice(0, 6).map((draft) => (
+                    <button
+                      key={draft.id}
+                      onClick={() => void loadDraft(draft)}
+                      className="flex-shrink-0 rounded-lg border border-border bg-secondary/40 px-3 py-2"
+                    >
+                      <p className="line-clamp-1 text-xs font-medium text-foreground">{draft.title}</p>
+                      <p className="text-[10px] text-muted-foreground">{draft.clips.length} clips</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
                 <video
                   src={clips[0].url}
                   muted
