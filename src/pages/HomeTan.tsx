@@ -1019,20 +1019,12 @@ const HomeTan = () => {
               <p className="text-sm font-semibold text-foreground">
                 {feedMode === "following"
                   ? "No posts from people you follow"
-                  : mediaFilter === "videos"
-                    ? "No video posts yet"
-                    : mediaFilter === "photos"
-                      ? "No photo posts yet"
-                      : "No feed posts yet"}
+                  : "No posts yet"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {feedMode === "following"
                   ? "Follow more creators to personalize your Home feed."
-                  : mediaFilter === "videos"
-                    ? "Switch to All or Photos to keep exploring new content."
-                    : mediaFilter === "photos"
-                      ? "Switch to All or Videos to keep exploring new content."
-                      : "Content from creators will appear here."}
+                  : "Content from creators will appear here."}
               </p>
               <Button className="mt-4" variant="secondary" onClick={() => navigate("/discover")}>
                 Explore Discover
