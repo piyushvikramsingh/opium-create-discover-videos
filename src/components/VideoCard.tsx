@@ -525,7 +525,10 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
 
   const triggerLikeBurst = useCallback(() => {
     setShowLikeBurst(true);
-    window.setTimeout(() => setShowLikeBurst(false), 620);
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(30);
+    }
+    window.setTimeout(() => setShowLikeBurst(false), 1000);
   }, []);
 
   const isVideo = !!video.video_url;
