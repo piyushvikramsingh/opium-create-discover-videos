@@ -6,7 +6,6 @@ import type { StoryGroup } from "./StoryViewer";
 import { useStories } from "@/hooks/useStories";
 import { useAuth } from "@/hooks/useAuth";
 import { useProfile } from "@/hooks/useData";
-import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 
 export const StoriesBar = () => {
@@ -33,11 +32,11 @@ export const StoriesBar = () => {
 
   if (isLoading) {
     return (
-      <div className="ig-modern-page flex gap-4 p-4 overflow-x-auto hide-scrollbar">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-1 min-w-[64px]">
-            <div className="w-16 h-16 rounded-full bg-gray-200 animate-pulse" />
-            <div className="w-12 h-3 bg-gray-200 rounded animate-pulse" />
+      <div className="flex gap-4 overflow-x-auto px-4 py-3 scrollbar-hide">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="flex flex-col items-center gap-1.5 min-w-[66px]">
+            <div className="w-[62px] h-[62px] rounded-full bg-secondary animate-pulse" />
+            <div className="w-10 h-2.5 bg-secondary rounded animate-pulse" />
           </div>
         ))}
       </div>
@@ -54,83 +53,67 @@ export const StoriesBar = () => {
 
   return (
     <>
-      <div className="ig-modern-page flex gap-4 px-4 py-3 overflow-x-auto hide-scrollbar border-b border-border/70">
-        {/* Your story / Add story */}
+      <div className="flex gap-3 overflow-x-auto px-4 py-3 scrollbar-hide">
+        {/* Your Story */}
         <button
-          onClick={() => navigate("/create", { state: { createType: "story" } })}
-          className="flex flex-col items-center gap-1 min-w-[64px] group"
+          onClick={() => user ? navigate("/create", { state: { createType: "story" } }) : navigate("/auth")}
+          className="flex flex-col items-center gap-1.5 min-w-[66px]"
         >
           <div className="relative">
-            <Avatar className="w-16 h-16 border-2 border-border/70 bg-background shadow-sm">
-              <AvatarImage src={profile?.avatar_url || undefined} />
-              <AvatarFallback>
-                {profile?.display_name?.[0]?.toUpperCase() || "U"}
-              </AvatarFallback>
-            </Avatar>
-            <div className="absolute bottom-0 right-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center border-2 border-background">
-              <Plus className="w-3 h-3 text-white" />
+            <div className="w-[62px] h-[62px] rounded-full bg-secondary overflow-hidden border-[1px] border-border/50">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-lg font-bold text-muted-foreground">
+                  {(profile?.display_name?.[0] || "U").toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-background bg-primary">
+              <Plus className="h-3 w-3 text-primary-foreground" strokeWidth={3} />
             </div>
           </div>
-          <span className="ig-type-caption font-medium">Your story</span>
+          <span className="text-[11px] text-muted-foreground leading-none">Your story</span>
         </button>
 
-        {/* Other users' stories */}
-        {sortedStoryGroups.map((group, index) => (
-          <button
-            key={group.user.id}
-            onClick={() => handleOpenStory(index)}
-            className={cn(
-              "flex flex-col items-center gap-1 min-w-[64px] group",
-              !group.hasUnviewed && "opacity-60"
-            )}
-          >
-            {group.hasCloseFriendsStory && (
-              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-600">
-                Close
-              </span>
-            )}
-            <div
-              className={cn(
-                "relative p-0.5 rounded-full transition-all",
-                group.hasUnviewed
-                  ? group.hasCloseFriendsStory
-                    ? "bg-gradient-to-tr from-emerald-400 via-emerald-500 to-teal-500"
-                    : "bg-gradient-to-tr from-amber-400 via-pink-500 to-fuchsia-500"
-                  : "bg-border/70"
-              )}
+        {/* Other stories */}
+        {sortedStoryGroups.map((group, index) => {
+          const hasUnviewed = !!group.hasUnviewed;
+          return (
+            <button
+              key={group.userId || index}
+              onClick={() => handleOpenStory(index)}
+              className="flex flex-col items-center gap-1.5 min-w-[66px]"
             >
-              {Array.isArray(group.stories) &&
-                group.stories.some((story) => Date.now() - new Date(story.created_at).getTime() < 10 * 60 * 1000) && (
-                  <span className="absolute -right-1 -top-1 rounded bg-primary px-1 py-0.5 text-[8px] font-bold uppercase tracking-wide text-primary-foreground">
-                    Live
-                  </span>
-                )}
-              <div className="p-0.5 bg-background rounded-full">
-                <Avatar className="w-14 h-14">
-                  <AvatarImage src={group.user.avatar_url} />
-                  <AvatarFallback>
-                    {group.user.display_name[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
+              <div
+                className={`rounded-full p-[2.5px] ${
+                  hasUnviewed
+                    ? "bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-600"
+                    : "bg-border/50"
+                }`}
+              >
+                <div className="w-[57px] h-[57px] rounded-full bg-background p-[2px]">
+                  <Avatar className="h-full w-full">
+                    <AvatarImage src={group.avatarUrl || ""} className="object-cover" />
+                    <AvatarFallback className="text-xs font-semibold bg-secondary text-muted-foreground">
+                      {(group.username?.[0] || "U").toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
               </div>
-            </div>
-            <span
-              className={cn(
-                "ig-type-caption text-center max-w-[64px] truncate",
-                group.hasUnviewed
-                  ? "text-foreground font-semibold"
-                  : "text-muted-foreground"
-              )}
-            >
-              {group.user.username}
-            </span>
-          </button>
-        ))}
+              <span className={`text-[11px] leading-none max-w-[60px] truncate ${
+                hasUnviewed ? "text-foreground font-medium" : "text-muted-foreground"
+              }`}>
+                {group.username || "user"}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {viewerOpen && sortedStoryGroups.length > 0 && (
         <StoryViewer
-          storyGroups={sortedStoryGroups}
+          groups={sortedStoryGroups}
           initialGroupIndex={selectedGroupIndex}
           initialStoryIndex={selectedStoryIndex}
           onClose={() => setViewerOpen(false)}
