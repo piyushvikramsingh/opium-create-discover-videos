@@ -45,6 +45,8 @@ import { useConversations } from "@/hooks/useMessages";
 import CommentsSheet from "@/components/CommentsSheet";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
+import { supabase as _supabase } from "@/integrations/supabase/client";
+const supabaseAny: any = _supabase;
 
 const HomeTan = () => {
   const navigate = useNavigate();
