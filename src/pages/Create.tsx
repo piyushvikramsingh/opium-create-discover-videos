@@ -714,6 +714,7 @@ const Create = () => {
   const [createIntent, setCreateIntent] = useState<CreateIntent>("reel");
   const [clips, setClips] = useState<ClipItem[]>([]);
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
+  const [cropAspectRatio, setCropAspectRatio] = useState<"original" | "1:1" | "4:5" | "16:9">("original");
   const [mergeClips, setMergeClips] = useState(false);
 
   const [caption, setCaption] = useState("");
