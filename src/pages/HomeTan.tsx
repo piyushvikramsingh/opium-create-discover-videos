@@ -158,9 +158,16 @@ const HomeTan = () => {
     return ranked.slice(0, 40);
   }, [videos, feedMode, followingIds]);
 
+  const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|gif|webp|bmp|svg|heic|avif)(\?|$)/i;
+  const isPhotoPost = (post: any) => {
+    const url = post.video_url || "";
+    if (!url) return !!post.thumbnail_url;
+    return IMAGE_EXTENSIONS.test(url);
+  };
+
   const mediaFilterCounts = useMemo(() => {
-    const videosCount = feedPosts.filter((post: any) => !!post.video_url).length;
-    const photosCount = feedPosts.length - videosCount;
+    const photosCount = feedPosts.filter((post: any) => isPhotoPost(post)).length;
+    const videosCount = feedPosts.length - photosCount;
     return {
       all: feedPosts.length,
       videos: videosCount,
@@ -170,10 +177,10 @@ const HomeTan = () => {
 
   const filteredFeedPosts = useMemo(() => {
     if (mediaFilter === "videos") {
-      return feedPosts.filter((post: any) => !!post.video_url);
+      return feedPosts.filter((post: any) => !isPhotoPost(post));
     }
     if (mediaFilter === "photos") {
-      return feedPosts.filter((post: any) => !post.video_url);
+      return feedPosts.filter((post: any) => isPhotoPost(post));
     }
     return feedPosts;
   }, [feedPosts, mediaFilter]);
