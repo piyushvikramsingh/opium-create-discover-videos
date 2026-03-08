@@ -17,6 +17,7 @@ import {
   Flame,
   Circle,
   MoreHorizontal,
+  ChevronDown,
   Pin,
   PinOff,
   Bell,
