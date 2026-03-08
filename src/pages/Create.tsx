@@ -1516,6 +1516,10 @@ const Create = () => {
         ? [{ clip: clips[0], file: await mergeClipsToSingleFile(clips, musicOverlay, encodeProfile), index: 0, total: 1 }]
         : await Promise.all(
             clips.map(async (clip, index) => {
+              const isImage = clip.file.type.startsWith("image/");
+              if (isImage) {
+                return { clip, file: clip.file, index, total: clips.length };
+              }
               try {
                 const processedFile = await processClipToFile(
                   clip,
