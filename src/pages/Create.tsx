@@ -21,6 +21,13 @@ import {
   VolumeX,
   X,
   MoreHorizontal,
+  SwitchCamera,
+  Zap,
+  ZapOff,
+  Grid3X3,
+  ImageIcon,
+  Clapperboard,
+  CircleDot,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -747,6 +754,11 @@ const Create = () => {
   const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("environment");
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraRecording, setCameraRecording] = useState(false);
+  const [cameraFlash, setCameraFlash] = useState(false);
+  const [galleryThumbnails, setGalleryThumbnails] = useState<{ file: File; url: string }[]>([]);
+  const [selectedGalleryIndex, setSelectedGalleryIndex] = useState<number | null>(null);
+  const [selectBottomTab, setSelectBottomTab] = useState<"post" | "story" | "reel">("post");
+  const galleryGridInputRef = useRef<HTMLInputElement>(null);
 
   const [storyFile, setStoryFile] = useState<File | null>(null);
   const [storyPreviewUrl, setStoryPreviewUrl] = useState<string | null>(null);
@@ -1975,9 +1987,27 @@ const Create = () => {
         />
 
         {step === "select" && (
-          <div className="grid gap-4">
-            <div className="relative min-h-[calc(100dvh-210px)] overflow-hidden bg-black md:mx-auto md:w-full md:max-w-md md:rounded-2xl md:border md:border-border">
-              {clips[0] ? (
+          <div className="flex flex-col" style={{ minHeight: "calc(100dvh - 60px)" }}>
+            {/* Gallery preview area */}
+            <div className="relative aspect-square w-full bg-black md:mx-auto md:max-w-md">
+              {selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex] ? (
+                galleryThumbnails[selectedGalleryIndex].file.type.startsWith("video/") ? (
+                  <video
+                    src={galleryThumbnails[selectedGalleryIndex].url}
+                    muted
+                    playsInline
+                    loop
+                    autoPlay
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={galleryThumbnails[selectedGalleryIndex].url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                )
+              ) : clips[0] ? (
                 <video
                   src={clips[0].url}
                   muted
@@ -1987,151 +2017,175 @@ const Create = () => {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/80">
-                  <Camera className="h-10 w-10" />
-                  <p className="text-sm font-medium">Camera preview</p>
-                  <p className="px-6 text-center text-xs text-white/60">Record a clip or upload from gallery to start creating.</p>
+                <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/70">
+                  <ImageIcon className="h-12 w-12 opacity-40" />
+                  <p className="text-sm font-medium">No media selected</p>
                 </div>
               )}
+            </div>
 
-              <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-white/90">Create flow</p>
+            {/* Gallery header row */}
+            <div className="flex items-center justify-between border-b border-border/40 bg-background px-4 py-2.5 md:mx-auto md:w-full md:max-w-md">
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-foreground">Recents</span>
+                <ChevronDown className="h-4 w-4 text-foreground" />
               </div>
-
-              <div className="absolute inset-x-0 top-0 z-10 px-4 pt-10">
-                <div className="rounded-xl border border-white/20 bg-black/35 p-2 backdrop-blur">
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      type="button"
-                      variant={createIntent === "post" ? "default" : "outline"}
-                      className="h-12 flex-col gap-1 border-white/25 bg-black/40 text-white hover:bg-black/60"
-                      onClick={() => applyCreateIntentPreset("post")}
-                    >
-                      <Image className="h-4 w-4" />
-                      Post
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={createIntent === "reel" ? "default" : "outline"}
-                      className="h-12 flex-col gap-1 border-white/25 bg-black/40 text-white hover:bg-black/60"
-                      onClick={() => applyCreateIntentPreset("reel")}
-                    >
-                      <Film className="h-4 w-4" />
-                      Clippy
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-12 flex-col gap-1 border-white/25 bg-black/40 text-white hover:bg-black/60"
-                      onClick={() => navigate("/create", { state: { createType: "story" } })}
-                    >
-                      <Camera className="h-4 w-4" />
-                      Story
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-5 pt-16">
-                <div className="mb-3 rounded-lg border border-white/20 bg-black/35 p-2 text-[11px] text-white/80 backdrop-blur">
-                  {createIntent === "post"
-                    ? "Post mode prioritizes profile feed publishing defaults."
-                    : "Clippy mode keeps vertical-first and clippy cross-post defaults."}
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant="outline"
-                    className="h-16 flex-col gap-1 border-white/30 bg-black/35 text-white hover:bg-black/55"
-                    onClick={() => void startCamera("environment")}
-                  >
-                    <Camera className="h-5 w-5" />
-                    Record
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-16 flex-col gap-1 border-white/30 bg-black/35 text-white hover:bg-black/55"
-                    onClick={() => galleryInputRef.current?.click()}
-                  >
-                    <Image className="h-5 w-5" />
-                    Upload
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-16 flex-col gap-1 border-white/30 bg-black/35 text-white hover:bg-black/55"
-                    onClick={() => setStep("share")}
-                    disabled={!drafts.length}
-                  >
-                    <Save className="h-5 w-5" />
-                    Drafts
-                  </Button>
-                </div>
-
-                {clips.length > 0 && (
-                  <div className="mt-3 rounded-lg border border-white/20 bg-black/35 p-2 backdrop-blur">
-                    <div className="mb-2 flex items-center justify-between">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">Continue editing</p>
-                      <Button size="sm" variant="secondary" onClick={() => setStep("edit")}>Resume</Button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {clips.slice(0, 4).map((clip) => (
-                        <button
-                          key={clip.id}
-                          className="rounded-full border border-white/25 px-2.5 py-1 text-xs text-white"
-                          onClick={() => {
-                            setActiveClipId(clip.id);
-                            setStep("edit");
-                          }}
-                        >
-                          {clip.file.name.length > 14 ? `${clip.file.name.slice(0, 14)}…` : clip.file.name}
-                        </button>
-                      ))}
-                      {clips.length > 4 && (
-                        <span className="rounded-full border border-white/25 px-2.5 py-1 text-xs text-white/75">
-                          +{clips.length - 4} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => galleryGridInputRef.current?.click()}
+                  className="rounded-full bg-secondary/80 p-2 text-foreground"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => void startCamera("environment")}
+                  className="rounded-full bg-secondary/80 p-2 text-foreground"
+                >
+                  <Camera className="h-4 w-4" />
+                </button>
               </div>
             </div>
 
-            <div className="ig-list-item-enter mx-4 rounded-2xl border border-border/70 bg-background p-4 md:mx-auto md:w-full md:max-w-md">
-              <div className="mb-2 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-muted-foreground">Drafts</h2>
-                <span className="text-xs text-muted-foreground">{drafts.length}</span>
-              </div>
-              {drafts.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No drafts yet.</p>
+            {/* Gallery grid */}
+            <div className="flex-1 overflow-y-auto bg-background md:mx-auto md:w-full md:max-w-md">
+              <input
+                ref={galleryGridInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = e.target.files;
+                  if (!files) return;
+                  const newThumbs = Array.from(files).map((file) => ({
+                    file,
+                    url: URL.createObjectURL(file),
+                  }));
+                  setGalleryThumbnails((prev) => {
+                    const updated = [...prev, ...newThumbs];
+                    setSelectedGalleryIndex(prev.length);
+                    return updated;
+                  });
+                  e.target.value = "";
+                }}
+              />
+
+              {galleryThumbnails.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-12">
+                  <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Tap the grid icon to add photos & videos</p>
+                  <button
+                    onClick={() => galleryGridInputRef.current?.click()}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    Select from Gallery
+                  </button>
+                </div>
               ) : (
-                <div className="space-y-2">
-                  {drafts.slice(0, 6).map((draft) => (
-                    <div key={draft.id} className="rounded-lg border border-border/70 bg-background p-2">
-                      <p className="line-clamp-1 text-sm font-medium">{draft.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {draft.clips.length} clip{draft.clips.length !== 1 ? "s" : ""} · {new Date(draft.updatedAt).toLocaleString()}
-                      </p>
-                      {!!draft.scheduledAt && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Scheduled: {new Date(draft.scheduledAt).toLocaleString()}
-                        </p>
+                <div className="grid grid-cols-4 gap-0.5">
+                  {galleryThumbnails.map((item, idx) => (
+                    <button
+                      key={idx}
+                      className={`relative aspect-square overflow-hidden ${
+                        selectedGalleryIndex === idx
+                          ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                          : ""
+                      }`}
+                      onClick={() => setSelectedGalleryIndex(idx)}
+                    >
+                      {item.file.type.startsWith("video/") ? (
+                        <>
+                          <video src={item.url} muted playsInline className="h-full w-full object-cover" />
+                          <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5">
+                            <Clapperboard className="h-3 w-3 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={item.url} alt="" className="h-full w-full object-cover" />
                       )}
-                      <div className="mt-2 flex gap-2">
-                        <Button size="sm" variant="secondary" onClick={() => void loadDraft(draft)}>
-                          Load
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => void deleteDraft(draft.id)}>
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
             </div>
+
+            {/* Bottom action bar */}
+            <div className="border-t border-border/40 bg-background md:mx-auto md:w-full md:max-w-md">
+              {/* Create type tabs */}
+              <div className="flex items-center justify-center gap-8 py-3">
+                {(["post", "story", "reel"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      setSelectBottomTab(tab);
+                      if (tab === "story") {
+                        navigate("/create", { state: { createType: "story" } });
+                      } else if (tab === "reel") {
+                        applyCreateIntentPreset("reel");
+                      } else {
+                        applyCreateIntentPreset("post");
+                      }
+                    }}
+                    className={`text-xs font-bold uppercase tracking-wider transition-colors ${
+                      selectBottomTab === tab
+                        ? "text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+
+              {/* Next button */}
+              <div className="flex items-center gap-3 px-4 pb-4">
+                <button
+                  onClick={async () => {
+                    if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
+                      const selected = galleryThumbnails[selectedGalleryIndex];
+                      if (selected.file.type.startsWith("video/")) {
+                        await addDirectFile(selected.file);
+                      } else if (selectBottomTab === "story") {
+                        handleStoryFileSelect(selected.file);
+                        navigate("/create", { state: { createType: "story" } });
+                      } else {
+                        toast("Select a video file for posts and reels");
+                      }
+                    } else if (clips.length > 0) {
+                      setStep("edit");
+                    } else {
+                      toast("Select media first");
+                    }
+                  }}
+                  className="flex-1 rounded-lg bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+
+            {/* Drafts row */}
+            {drafts.length > 0 && (
+              <div className="border-t border-border/40 bg-background px-4 py-3 md:mx-auto md:w-full md:max-w-md">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Drafts ({drafts.length})</h2>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                  {drafts.slice(0, 6).map((draft) => (
+                    <button
+                      key={draft.id}
+                      onClick={() => void loadDraft(draft)}
+                      className="flex-shrink-0 rounded-lg border border-border bg-secondary/40 px-3 py-2"
+                    >
+                      <p className="line-clamp-1 text-xs font-medium text-foreground">{draft.title}</p>
+                      <p className="text-[10px] text-muted-foreground">{draft.clips.length} clips</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
+
+
 
         {step === "edit" && activeClip && (
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -2628,21 +2682,25 @@ const Create = () => {
         )}
 
         {cameraOpen && (
-          <div className="fixed inset-0 z-[70] bg-black/95">
-            <div className="mx-auto flex h-full w-full max-w-md flex-col px-4 pb-8 pt-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-white">Camera</p>
-                <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => void toggleCameraFacing()} disabled={cameraRecording}>
-                    Flip
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={closeCamera}>
-                    Close
-                  </Button>
+          <div className="fixed inset-0 z-[70] bg-black">
+            <div className="relative flex h-full w-full flex-col">
+              {/* Camera top bar */}
+              <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 pt-safe py-3">
+                <button onClick={closeCamera} className="rounded-full bg-black/40 p-2 text-white backdrop-blur">
+                  <X className="h-5 w-5" />
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCameraFlash(!cameraFlash)}
+                    className="rounded-full bg-black/40 p-2 text-white backdrop-blur"
+                  >
+                    {cameraFlash ? <Zap className="h-5 w-5" /> : <ZapOff className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
-              <div className="relative flex-1 overflow-hidden rounded-xl border border-white/20 bg-black">
+              {/* Camera viewfinder */}
+              <div className="flex-1 overflow-hidden">
                 <video
                   ref={cameraVideoRef}
                   autoPlay
@@ -2652,16 +2710,46 @@ const Create = () => {
                 />
               </div>
 
-              <div className="mt-4 flex items-center justify-center gap-2">
-                {!cameraRecording ? (
-                  <Button className="w-full" onClick={startRecording}>
-                    <Camera className="mr-2 h-4 w-4" /> Start recording
-                  </Button>
-                ) : (
-                  <Button variant="destructive" className="w-full" onClick={stopRecording}>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Stop & use clip
-                  </Button>
-                )}
+              {/* Camera bottom controls */}
+              <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-6 bg-gradient-to-t from-black/80 to-transparent px-6 pb-safe py-8">
+                <div className="flex w-full items-center justify-around">
+                  {/* Gallery shortcut */}
+                  <button
+                    onClick={() => {
+                      closeCamera();
+                      galleryGridInputRef.current?.click();
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 bg-white/10"
+                  >
+                    <ImageIcon className="h-5 w-5 text-white" />
+                  </button>
+
+                  {/* Capture button */}
+                  {!cameraRecording ? (
+                    <button
+                      onClick={startRecording}
+                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-white"
+                    >
+                      <div className="h-[60px] w-[60px] rounded-full bg-white" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopRecording}
+                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-red-500"
+                    >
+                      <div className="h-8 w-8 rounded-md bg-red-500" />
+                    </button>
+                  )}
+
+                  {/* Flip camera */}
+                  <button
+                    onClick={() => void toggleCameraFacing()}
+                    disabled={cameraRecording}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 disabled:opacity-40"
+                  >
+                    <SwitchCamera className="h-5 w-5 text-white" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
