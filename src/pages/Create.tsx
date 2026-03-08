@@ -754,6 +754,11 @@ const Create = () => {
   const [cameraFacingMode, setCameraFacingMode] = useState<"user" | "environment">("environment");
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [cameraRecording, setCameraRecording] = useState(false);
+  const [cameraFlash, setCameraFlash] = useState(false);
+  const [galleryThumbnails, setGalleryThumbnails] = useState<{ file: File; url: string }[]>([]);
+  const [selectedGalleryIndex, setSelectedGalleryIndex] = useState<number | null>(null);
+  const [selectBottomTab, setSelectBottomTab] = useState<"post" | "story" | "reel">("post");
+  const galleryGridInputRef = useRef<HTMLInputElement>(null);
 
   const [storyFile, setStoryFile] = useState<File | null>(null);
   const [storyPreviewUrl, setStoryPreviewUrl] = useState<string | null>(null);
