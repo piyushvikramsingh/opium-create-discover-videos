@@ -622,6 +622,20 @@ const Discover = () => {
           })}
       </div>
 
+      {/* Load more trigger for infinite scroll */}
+      {hasMoreVideos && (
+        <div ref={loadMoreRef} className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {/* End of content indicator */}
+      {hasRealVideos && !hasMoreVideos && filteredVideos && filteredVideos.length > ITEMS_PER_PAGE && (
+        <div className="py-8 text-center">
+          <p className="text-xs text-muted-foreground">You've seen all posts</p>
+        </div>
+      )}
+
       {!hasRealVideos && !isSearching && !activeTag && (
         <div className="px-6 py-16 text-center">
           <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full border-2 border-foreground/20">
