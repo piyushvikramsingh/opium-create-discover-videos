@@ -2623,6 +2623,62 @@ export function useDeleteHighlight() {
   });
 }
 
+export function useHighlightItems(highlightId: string | undefined) {
+  return useQuery({
+    queryKey: ["highlight-items", highlightId],
+    enabled: !!highlightId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("story_highlight_items")
+        .select("*, story:story_id(id, media_url, media_type, thumbnail_url, caption, created_at, user_id)")
+        .eq("highlight_id", highlightId!)
+        .order("added_at", { ascending: true });
+      if (error) {
+        if (isSchemaMismatchError(error)) return [];
+        throw error;
+      }
+      return data || [];
+    },
+  });
+}
+
+export function useAddStoryToHighlight() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ highlightId, storyId }: { highlightId: string; storyId: string }) => {
+      const { error } = await supabase.from("story_highlight_items").insert({
+        highlight_id: highlightId,
+        story_id: storyId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["highlight-items", vars.highlightId] });
+      qc.invalidateQueries({ queryKey: ["profile-highlights"] });
+    },
+  });
+}
+
+export function useRemoveStoryFromHighlight() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ highlightId, storyId }: { highlightId: string; storyId: string }) => {
+      const { error } = await supabase
+        .from("story_highlight_items")
+        .delete()
+        .eq("highlight_id", highlightId)
+        .eq("story_id", storyId);
+      if (error) throw error;
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["highlight-items", vars.highlightId] });
+      qc.invalidateQueries({ queryKey: ["profile-highlights"] });
+    },
+  });
+}
+
 export function useProfileLinks(userId: string | undefined) {
   return useQuery({
     queryKey: ["profile-links", userId],
