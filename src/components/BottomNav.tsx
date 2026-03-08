@@ -1,12 +1,12 @@
-import { Home, Search, PlusSquare, Film, MessageCircle, User } from "lucide-react";
+import { Home, Search, MessageCircle, Paperclip, User } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
   { icon: Search, label: "Explore", path: "/discover" },
-  { icon: PlusSquare, label: "", path: "/create", isCreate: true },
-  { icon: Film, label: "Reels", path: "/reels" },
-  { icon: MessageCircle, label: "Inbox", path: "/inbox" },
+  { icon: MessageCircle, label: "Messages", path: "/inbox" },
+  { icon: Paperclip, label: "Clippy", path: "/reels" },
+  { icon: User, label: "Profile", path: "/profile" },
 ];
 
 const BottomNav = () => {
