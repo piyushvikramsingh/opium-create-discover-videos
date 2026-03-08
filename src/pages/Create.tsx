@@ -2319,82 +2319,97 @@ const Create = () => {
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="rounded-2xl border border-border p-3">
               <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-black">
-                <video
-                  key={activeClip.id}
-                  src={activeClip.url}
-                  controls
-                  playsInline
-                  muted={activeClip.muteOriginal}
-                  className="h-full w-full object-contain"
-                  style={{
-                    filter: getClipFilterCss(activeClip),
-                  }}
-                />
-                <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
-                  {Math.max(0, activeClip.trimEnd - activeClip.trimStart).toFixed(1)}s
-                </div>
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="secondary"
-                  className="absolute right-2 top-2"
-                  onClick={() => updateActiveClip({ muteOriginal: !activeClip.muteOriginal })}
-                >
-                  {activeClip.muteOriginal ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </Button>
+                {activeClip.file.type.startsWith("image/") ? (
+                  <img
+                    key={activeClip.id}
+                    src={activeClip.url}
+                    alt=""
+                    className="h-full w-full object-contain"
+                    style={{ filter: getClipFilterCss(activeClip) }}
+                  />
+                ) : (
+                  <video
+                    key={activeClip.id}
+                    src={activeClip.url}
+                    controls
+                    playsInline
+                    muted={activeClip.muteOriginal}
+                    className="h-full w-full object-contain"
+                    style={{ filter: getClipFilterCss(activeClip) }}
+                  />
+                )}
+                {!activeClip.file.type.startsWith("image/") && (
+                  <>
+                    <div className="absolute left-2 top-2 rounded bg-black/60 px-2 py-1 text-xs text-white">
+                      {Math.max(0, activeClip.trimEnd - activeClip.trimStart).toFixed(1)}s
+                    </div>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="secondary"
+                      className="absolute right-2 top-2"
+                      onClick={() => updateActiveClip({ muteOriginal: !activeClip.muteOriginal })}
+                    >
+                      {activeClip.muteOriginal ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </Button>
+                  </>
+                )}
               </div>
 
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Trim start/end</span>
-                  <span className="text-xs text-muted-foreground">
-                    {activeClip.trimStart.toFixed(1)}s - {activeClip.trimEnd.toFixed(1)}s
-                  </span>
-                </div>
-                <Slider
-                  min={0}
-                  max={Math.max(activeClip.duration, 1)}
-                  step={0.1}
-                  value={[activeClip.trimStart, activeClip.trimEnd]}
-                  onValueChange={(value) => {
-                    const [start, end] = value;
-                    updateActiveClip({
-                      trimStart: Math.max(0, Math.min(start, end - 0.1)),
-                      trimEnd: Math.max(start + 0.1, end),
-                      coverTime: Math.min(Math.max(activeClip.coverTime, start), end),
-                    });
-                  }}
-                />
-              </div>
-
-              <div className="mt-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">Cover frame</span>
-                  <span className="text-xs text-muted-foreground">{activeClip.coverTime.toFixed(1)}s</span>
-                </div>
-                <Slider
-                  min={activeClip.trimStart}
-                  max={activeClip.trimEnd}
-                  step={0.1}
-                  value={[activeClip.coverTime]}
-                  onValueChange={(value) => updateActiveClip({ coverTime: value[0] })}
-                />
-                {/* Live thumbnail preview */}
-                <div className="mt-2 flex items-center gap-3">
-                  <div className="h-20 w-[45px] flex-shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
-                    {thumbnailPreviewUrl ? (
-                      <img src={thumbnailPreviewUrl} alt="Cover preview" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <Image className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    )}
+              {!activeClip.file.type.startsWith("image/") && (
+                <>
+                  <div className="mt-3 space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Trim start/end</span>
+                      <span className="text-xs text-muted-foreground">
+                        {activeClip.trimStart.toFixed(1)}s - {activeClip.trimEnd.toFixed(1)}s
+                      </span>
+                    </div>
+                    <Slider
+                      min={0}
+                      max={Math.max(activeClip.duration, 1)}
+                      step={0.1}
+                      value={[activeClip.trimStart, activeClip.trimEnd]}
+                      onValueChange={(value) => {
+                        const [start, end] = value;
+                        updateActiveClip({
+                          trimStart: Math.max(0, Math.min(start, end - 0.1)),
+                          trimEnd: Math.max(start + 0.1, end),
+                          coverTime: Math.min(Math.max(activeClip.coverTime, start), end),
+                        });
+                      }}
+                    />
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Cover preview updates as you adjust the frame.
-                  </p>
-                </div>
-              </div>
+
+                  <div className="mt-4 space-y-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">Cover frame</span>
+                      <span className="text-xs text-muted-foreground">{activeClip.coverTime.toFixed(1)}s</span>
+                    </div>
+                    <Slider
+                      min={activeClip.trimStart}
+                      max={activeClip.trimEnd}
+                      step={0.1}
+                      value={[activeClip.coverTime]}
+                      onValueChange={(value) => updateActiveClip({ coverTime: value[0] })}
+                    />
+                    <div className="mt-2 flex items-center gap-3">
+                      <div className="h-20 w-[45px] flex-shrink-0 overflow-hidden rounded-md border border-border bg-secondary">
+                        {thumbnailPreviewUrl ? (
+                          <img src={thumbnailPreviewUrl} alt="Cover preview" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Image className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Cover preview updates as you adjust the frame.
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )
 
               <div className="mt-4 grid gap-3">
                 <div>
