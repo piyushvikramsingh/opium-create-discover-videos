@@ -81,7 +81,7 @@ export const StoriesBar = () => {
           const hasUnviewed = !!group.hasUnviewed;
           return (
             <button
-              key={group.userId || index}
+              key={group.user?.id || index}
               onClick={() => handleOpenStory(index)}
               className="flex flex-col items-center gap-1.5 min-w-[66px]"
             >
@@ -94,9 +94,9 @@ export const StoriesBar = () => {
               >
                 <div className="w-[57px] h-[57px] rounded-full bg-background p-[2px]">
                   <Avatar className="h-full w-full">
-                    <AvatarImage src={group.avatarUrl || ""} className="object-cover" />
+                    <AvatarImage src={group.user?.avatar_url || ""} className="object-cover" />
                     <AvatarFallback className="text-xs font-semibold bg-secondary text-muted-foreground">
-                      {(group.username?.[0] || "U").toUpperCase()}
+                      {(group.user?.username?.[0] || "U").toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </div>
@@ -104,7 +104,7 @@ export const StoriesBar = () => {
               <span className={`text-[11px] leading-none max-w-[60px] truncate ${
                 hasUnviewed ? "text-foreground font-medium" : "text-muted-foreground"
               }`}>
-                {group.username || "user"}
+                {group.user?.username || "user"}
               </span>
             </button>
           );
@@ -113,7 +113,7 @@ export const StoriesBar = () => {
 
       {viewerOpen && sortedStoryGroups.length > 0 && (
         <StoryViewer
-          groups={sortedStoryGroups}
+          storyGroups={sortedStoryGroups}
           initialGroupIndex={selectedGroupIndex}
           initialStoryIndex={selectedStoryIndex}
           onClose={() => setViewerOpen(false)}
