@@ -2184,17 +2184,8 @@ const Create = () => {
             )}
           </div>
         )}
-                <video
-                  src={clips[0].url}
-                  muted
-                  playsInline
-                  loop
-                  autoPlay
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center gap-3 text-white/80">
-                  <Camera className="h-10 w-10" />
+
+
                   <p className="text-sm font-medium">Camera preview</p>
                   <p className="px-6 text-center text-xs text-white/60">Record a clip or upload from gallery to start creating.</p>
                 </div>
