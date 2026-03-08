@@ -2362,13 +2362,41 @@ const Create = () => {
         {step === "edit" && activeClip && (
           <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
             <div className="rounded-2xl border border-border p-3">
-              <div className="relative aspect-[9/16] overflow-hidden rounded-xl bg-black">
+              {/* Aspect Ratio Selector for images */}
+              {activeClip.file.type.startsWith("image/") && (
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">Crop:</span>
+                  {(["original", "1:1", "4:5", "16:9"] as const).map((ratio) => (
+                    <button
+                      key={ratio}
+                      onClick={() => setCropAspectRatio(ratio)}
+                      className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                        cropAspectRatio === ratio
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-secondary text-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      {ratio === "original" ? "Original" : ratio}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div
+                className={`relative overflow-hidden rounded-xl bg-black ${
+                  activeClip.file.type.startsWith("image/")
+                    ? cropAspectRatio === "1:1" ? "aspect-square"
+                      : cropAspectRatio === "4:5" ? "aspect-[4/5]"
+                      : cropAspectRatio === "16:9" ? "aspect-video"
+                      : "aspect-[9/16]"
+                    : "aspect-[9/16]"
+                }`}
+              >
                 {activeClip.file.type.startsWith("image/") ? (
                   <img
                     key={activeClip.id}
                     src={activeClip.url}
                     alt=""
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-cover"
                     style={{ filter: getClipFilterCss(activeClip) }}
                   />
                 ) : (
