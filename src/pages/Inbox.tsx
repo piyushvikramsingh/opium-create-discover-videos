@@ -40,6 +40,7 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useData";
 import {
   useConversations,
   useCreateConversation,
