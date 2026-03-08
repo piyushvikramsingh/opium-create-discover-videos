@@ -405,6 +405,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
         });
         setActiveCall({ type: payload.type });
         setCallStatus("incoming");
+        playIncomingCallRingtone();
       })
       .on("broadcast", { event: "call-answer" }, async ({ payload }) => {
         if (!payload || payload.toUserId !== user.id || payload.fromUserId === user.id) return;
