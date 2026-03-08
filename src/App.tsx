@@ -213,6 +213,7 @@ const App = () => (
                   <Route path="/" element={<HomeTan />} />
                   <Route path="/clipy" element={<Index />} />
                   <Route path="/discover" element={<Discover />} />
+                  <Route path="/reels" element={<Reels />} />
                   <Route path="/create" element={<Create />} />
                   <Route path="/inbox" element={<Inbox />} />
                   <Route path="/notifications" element={<Notifications />} />
