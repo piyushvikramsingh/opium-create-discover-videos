@@ -76,6 +76,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import HighlightViewer from "@/components/HighlightViewer";
 import { useCreateConversation } from "@/hooks/useMessages";
 import { useQueryClient } from "@tanstack/react-query";
 
