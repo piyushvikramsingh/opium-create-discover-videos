@@ -50,6 +50,13 @@ import SnapCamera from "@/components/SnapCamera";
 import SnapViewer from "@/components/SnapViewer";
 import { useToggleVanishMode, useReportScreenshot } from "@/hooks/useGroupChat";
 import {
+  playMessageSentSound,
+  playMessageReceivedSound,
+  playIncomingCallRingtone,
+  stopIncomingCallRingtone,
+  playCallEndSound,
+} from "@/hooks/useChatSounds";
+import {
   usePinnedMessages,
   usePinMessage,
   useUnpinMessage,
@@ -262,6 +269,19 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
     avatar_url: otherUser?.avatar_url || null,
   };
 
+  // Track previous message count to detect new incoming messages
+  const prevMessageCountRef = useRef<number>(0);
+  useEffect(() => {
+    const msgList = (messages ?? []) as ChatMessage[];
+    if (msgList.length > prevMessageCountRef.current && prevMessageCountRef.current > 0) {
+      const newest = msgList[msgList.length - 1];
+      if (newest && newest.sender_id !== user?.id) {
+        playMessageReceivedSound();
+      }
+    }
+    prevMessageCountRef.current = msgList.length;
+  }, [messages, user?.id]);
+
   useEffect(() => {
     readMarkRef.current = null;
     deliveredMarkRef.current = null;
@@ -398,6 +418,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
         });
         setActiveCall({ type: payload.type });
         setCallStatus("incoming");
+        playIncomingCallRingtone();
       })
       .on("broadcast", { event: "call-answer" }, async ({ payload }) => {
         if (!payload || payload.toUserId !== user.id || payload.fromUserId === user.id) return;
@@ -701,6 +722,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
           snapDuration: snapMode ? 5 : undefined,
           replyToMessageId: replyTo?.id,
         });
+        playMessageSentSound();
       }
       setText("");
       setReplyTo(null);
@@ -904,6 +926,8 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
   };
 
   const handleEndCall = useCallback((notifyRemote = true) => {
+    stopIncomingCallRingtone();
+    playCallEndSound();
     const callId = currentCallIdRef.current;
     if (notifyRemote && user && callId) {
       sendSignal("call-end", {
@@ -955,6 +979,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
 
   const handleRejectIncomingCall = async () => {
     if (!user || !incomingCall) return;
+    stopIncomingCallRingtone();
     await sendSignal("call-reject", {
       callId: incomingCall.callId,
       fromUserId: user.id,
@@ -968,6 +993,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
 
   const handleAcceptIncomingCall = async () => {
     if (!user || !incomingCall) return;
+    stopIncomingCallRingtone();
 
     try {
       setIsCallConnecting(true);
