@@ -2104,18 +2104,24 @@ const Create = () => {
                 }}
               />
 
-              {galleryThumbnails.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-3 py-12">
-                  <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">Tap the grid icon to add photos & videos</p>
-                  <button
-                    onClick={() => galleryGridInputRef.current?.click()}
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-                  >
-                    Select from Gallery
-                  </button>
-                </div>
-              ) : (
+              <div className="flex items-center gap-2 px-4 py-2">
+                <button
+                  onClick={() => {
+                    setMultiSelectMode(!multiSelectMode);
+                    if (multiSelectMode) {
+                      setSelectedGalleryIndices([]);
+                    }
+                  }}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    multiSelectMode
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-foreground"
+                  }`}
+                >
+                  <Grid3X3 className="h-3.5 w-3.5" />
+                  {multiSelectMode ? `${selectedGalleryIndices.length} selected` : "Select multiple"}
+                </button>
+              </div>
                 <div className="grid grid-cols-4 gap-0.5">
                   {galleryThumbnails.map((item, idx) => (
                     <button
