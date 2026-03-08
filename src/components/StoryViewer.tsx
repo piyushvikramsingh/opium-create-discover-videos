@@ -64,6 +64,8 @@ export const StoryViewer = ({
 
   const viewStory = useViewStory();
   const replyToStory = useReplyToStory();
+  const addStoryToHighlight = useAddStoryToHighlight();
+  const createHighlight = useCreateHighlight();
 
   const currentGroup = storyGroups[currentGroupIndex];
   const currentStory = currentGroup?.stories[currentStoryIndex];
@@ -71,6 +73,7 @@ export const StoryViewer = ({
   const { data: storyViewers = [] } = useStoryViewers(currentStory?.id || "");
   const { data: storyReplies = [] } = useStoryReplies(currentStory?.id || "");
   const { data: storyStickers = [] } = useStoryStickers(currentStory?.id || "");
+  const { data: myHighlights = [] } = useProfileHighlights(isOwnStory ? user?.id : undefined);
 
   const getFirstUnviewedIndex = useCallback((group?: StoryGroup) => {
     if (!group?.stories?.length) return 0;
