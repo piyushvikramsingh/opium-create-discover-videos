@@ -533,6 +533,8 @@ export function useForYouVideos() {
 
   return useQuery({
     queryKey: ["for-you-videos", user?.id],
+    refetchOnMount: "always",
+    staleTime: 30_000,
     queryFn: async () => {
       const engagementState = loadEngagementLoopState();
 
