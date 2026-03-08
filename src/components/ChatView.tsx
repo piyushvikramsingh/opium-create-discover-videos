@@ -50,6 +50,13 @@ import SnapCamera from "@/components/SnapCamera";
 import SnapViewer from "@/components/SnapViewer";
 import { useToggleVanishMode, useReportScreenshot } from "@/hooks/useGroupChat";
 import {
+  playMessageSentSound,
+  playMessageReceivedSound,
+  playIncomingCallRingtone,
+  stopIncomingCallRingtone,
+  playCallEndSound,
+} from "@/hooks/useChatSounds";
+import {
   usePinnedMessages,
   usePinMessage,
   useUnpinMessage,
