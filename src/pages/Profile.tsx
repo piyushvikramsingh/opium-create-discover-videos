@@ -622,14 +622,18 @@ const Profile = () => {
             {(highlights || []).map((highlight: any) => (
               <div key={highlight.id} className="shrink-0 text-center">
                 <button
-                  onClick={() => navigate("/clipy")}
-                  className="h-16 w-16 overflow-hidden rounded-full border border-border bg-secondary"
+                  onClick={() => setViewingHighlightId(highlight.id)}
+                  className="h-16 w-16 overflow-hidden rounded-full border-2 border-border/60 bg-secondary p-[2px]"
                 >
-                  {highlight.cover_url ? (
-                    <img src={highlight.cover_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">{highlight.title[0]}</div>
-                  )}
+                  <div className="h-full w-full rounded-full overflow-hidden">
+                    {highlight.cover_url ? (
+                      <img src={highlight.cover_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs font-semibold text-muted-foreground bg-secondary">
+                        {highlight.title[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
                 </button>
                 <div className="mt-1 flex items-center justify-center gap-1">
                   <p className="max-w-[62px] truncate text-[10px] text-muted-foreground">{highlight.title}</p>
