@@ -868,6 +868,42 @@ const HomeTan = () => {
                   <div
                     className="relative aspect-[4/5] overflow-hidden bg-secondary"
                     onDoubleClick={() => handleDoubleTapLike(post.id)}
+                    onTouchStart={(e) => {
+                      if (!hasCarousel) return;
+                      const touch = e.touches[0];
+                      if (!touch) return;
+                      (e.currentTarget as any)._swipeStartX = touch.clientX;
+                      (e.currentTarget as any)._swipeStartY = touch.clientY;
+                      (e.currentTarget as any)._swiping = false;
+                    }}
+                    onTouchMove={(e) => {
+                      if (!hasCarousel) return;
+                      const startX = (e.currentTarget as any)._swipeStartX;
+                      const startY = (e.currentTarget as any)._swipeStartY;
+                      if (startX == null) return;
+                      const touch = e.touches[0];
+                      if (!touch) return;
+                      const dx = Math.abs(touch.clientX - startX);
+                      const dy = Math.abs(touch.clientY - startY);
+                      if (dx > dy && dx > 10) {
+                        (e.currentTarget as any)._swiping = true;
+                        e.preventDefault();
+                      }
+                    }}
+                    onTouchEnd={(e) => {
+                      if (!hasCarousel) return;
+                      const startX = (e.currentTarget as any)._swipeStartX;
+                      if (startX == null || !(e.currentTarget as any)._swiping) return;
+                      const endX = e.changedTouches[0]?.clientX ?? startX;
+                      const delta = endX - startX;
+                      if (delta < -40 && currentSlide < slides.length - 1) {
+                        setCarouselIndex(post.id, currentSlide + 1);
+                      } else if (delta > 40 && currentSlide > 0) {
+                        setCarouselIndex(post.id, currentSlide - 1);
+                      }
+                      (e.currentTarget as any)._swipeStartX = null;
+                      (e.currentTarget as any)._swiping = false;
+                    }}
                   >
                     {!loadedImageIds.has(post.id) && (
                       <div className="absolute inset-0 animate-pulse bg-secondary" />

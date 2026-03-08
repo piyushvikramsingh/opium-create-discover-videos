@@ -17,6 +17,7 @@ import {
   Flame,
   Circle,
   MoreHorizontal,
+  ChevronDown,
   Pin,
   PinOff,
   Bell,
@@ -40,6 +41,7 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useProfile } from "@/hooks/useData";
 import {
   useConversations,
   useCreateConversation,
@@ -215,6 +217,7 @@ const CommunityTypeBadge = ({ type }: { type: string }) => {
 
 const Inbox = () => {
   const { user } = useAuth();
+  const { data: profile } = useProfile(user?.id);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -1399,73 +1402,26 @@ const Inbox = () => {
   return (
     <div className={`${isReturningFromChat ? "inbox-return" : "ig-screen"} ig-screen-spring ig-modern-page relative min-h-screen bg-background pb-24`}>
 
-      {/* Top Bar */}
+      {/* Instagram-style Top Bar */}
       <div className="ig-header ig-modern-header sticky top-0 z-10 border-b border-border/60 bg-background/95 backdrop-blur">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-2">
-            <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1.5 transition-colors hover:bg-secondary/70">
+            <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1 transition-colors hover:bg-secondary/70">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
-            <div>
-              <h1 className="ig-type-h1 text-foreground">Messages</h1>
-              <p className="ig-type-caption">Chats, communities, and requests</p>
-            </div>
-            {unreadTotal > 0 && (
-              <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">
-                {unreadTotal}
-              </span>
-            )}
+            <h1 className="text-[20px] font-bold tracking-tight text-foreground">
+              {profile?.username || user?.user_metadata?.username || "Messages"}
+            </h1>
+            <ChevronDown className="h-4 w-4 text-foreground" />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => setShowNewChat(true)}
               className="ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70"
-              aria-label="Search messages"
+              aria-label="Compose message"
             >
-              <Search className="h-5 w-5" />
+              <Edit3 className="h-[22px] w-[22px]" />
             </button>
-            <button
-              onClick={() => {
-                if (activeTab === "community") {
-                  setShowNewCommunity(true);
-                } else {
-                  setShowNewChat(true);
-                }
-              }}
-              className="ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70"
-              aria-label={activeTab === "community" ? "Create community" : "Compose message"}
-            >
-              <Edit3 className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4 pb-2">
-          <div className="scrollbar-hide flex items-center gap-1.5 overflow-x-auto">
-            <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] font-semibold text-foreground">
-              <MessageCircle className="h-3 w-3" />
-              {primaryConversations.length} chats
-            </span>
-            {unreadTotal > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                <Circle className="h-2.5 w-2.5 fill-primary text-primary" />
-                {unreadTotal} unread
-              </span>
-            )}
-            {activeTypingCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce" />
-                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:120ms]" />
-                <span className="h-1.5 w-1.5 rounded-full bg-primary animate-bounce [animation-delay:240ms]" />
-                {activeTypingCount} typing
-              </span>
-            )}
-            {isConversationsFetching && !isLoading && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                syncing
-              </span>
-            )}
           </div>
         </div>
 
