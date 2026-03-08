@@ -1719,11 +1719,12 @@ const Create = () => {
           }
         }
 
-        setUploadStage(`Uploading video ${index + 1}/${targets.length}…`);
+        const isImageFile = file.type.startsWith("image/");
+        setUploadStage(`Uploading ${isImageFile ? "photo" : "video"} ${index + 1}/${targets.length}…`);
         const { error: videoError } = await runWithRetry({
           attempts: 3,
           onRetry: (attempt) => {
-            setUploadStage(`Retrying video upload ${index + 1}/${targets.length} (${attempt}/3)…`);
+            setUploadStage(`Retrying upload ${index + 1}/${targets.length} (${attempt}/3)…`);
           },
           task: () =>
             supabase.storage
