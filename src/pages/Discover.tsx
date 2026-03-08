@@ -506,7 +506,7 @@ const Discover = () => {
       {/* Instagram-style Masonry Grid */}
       <div className="grid grid-cols-3 auto-rows-[120px] gap-0.5 p-0.5">
         {hasRealVideos &&
-          filteredVideos.map((video: any, index: number) => {
+          paginatedVideos.map((video: any, index: number) => {
             const pattern = getMasonryPattern(index);
             const isLarge = pattern.includes("col-span-2") || pattern.includes("row-span-2");
             const isHovered = hoveredVideoId === video.id;
