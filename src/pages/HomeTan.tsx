@@ -835,7 +835,19 @@ const HomeTan = () => {
                     {!loadedImageIds.has(post.id) && (
                       <div className="absolute inset-0 animate-pulse bg-secondary" />
                     )}
-                    {post.video_url ? (
+                    {isPhotoPost(post) ? (
+                      <img
+                        src={post.video_url || post.thumbnail_url}
+                        alt=""
+                        loading={index < 2 ? "eager" : "lazy"}
+                        decoding="async"
+                        onLoad={() => markImageLoaded(post.id)}
+                        onError={() => markImageLoaded(post.id)}
+                        className={`h-full w-full object-cover transition-opacity duration-300 ${
+                          loadedImageIds.has(post.id) ? "opacity-100" : "opacity-0"
+                        }`}
+                      />
+                    ) : post.video_url ? (
                       <video
                         data-post-id={post.id}
                         ref={(node) => {
@@ -900,7 +912,7 @@ const HomeTan = () => {
                         </div>
                       </div>
                     )}
-                    {post.video_url && (
+                    {!isPhotoPost(post) && post.video_url && (
                       <button
                         type="button"
                         onClick={(event) => {
