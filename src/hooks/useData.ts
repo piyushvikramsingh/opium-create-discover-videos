@@ -2589,13 +2589,14 @@ export function useCreateHighlight() {
     mutationFn: async ({ title, cover_url }: { title: string; cover_url?: string | null }) => {
       if (!user) throw new Error("Not authenticated");
 
-      const { error } = await supabase.from("profile_highlights").insert({
+      const { data, error } = await supabase.from("profile_highlights").insert({
         user_id: user.id,
         title,
         cover_url: cover_url || null,
-      });
+      }).select().single();
 
       if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["profile-highlights"] });
