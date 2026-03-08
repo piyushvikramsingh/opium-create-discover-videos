@@ -9,6 +9,7 @@ import {
   PlusSquare,
   Clapperboard,
   Images,
+  Film,
   Bookmark,
   Share2,
   RefreshCcw,
@@ -676,11 +677,20 @@ const HomeTan = () => {
           </div>
         </div>
 
-        {/* Top bar: Logo + action icons */}
+        {/* Top bar: Logo + action icons (Instagram style) */}
         <div className="flex items-center justify-between px-4 py-2.5">
-          <h1 className="text-[22px] font-bold tracking-tight text-foreground" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-            Opium
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-[22px] font-bold tracking-tight text-foreground" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+              Opium
+            </h1>
+            <button
+              onClick={() => setShowCreateOptions(true)}
+              className="ig-tap rounded-lg p-0.5 text-foreground"
+              aria-label="Create new post"
+            >
+              <PlusSquare className="h-[22px] w-[22px]" />
+            </button>
+          </div>
           <div className="flex items-center gap-1">
             <button
               onClick={() => navigate("/notifications")}
@@ -1132,26 +1142,38 @@ const HomeTan = () => {
       <Sheet open={showCreateOptions} onOpenChange={setShowCreateOptions}>
         <SheetContent side="bottom" className="rounded-t-2xl border-border bg-background p-0">
           <div className="border-b border-border px-4 py-3 text-center">
-            <SheetTitle className="text-sm font-semibold">Upload</SheetTitle>
+            <SheetTitle className="text-sm font-semibold">Create</SheetTitle>
           </div>
-          <div className="space-y-1 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
+          <div className="grid grid-cols-3 gap-3 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <button
               onClick={() => handleOpenCreate()}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-foreground hover:bg-secondary"
+              className="flex flex-col items-center gap-2 rounded-xl bg-secondary/60 px-3 py-4 text-foreground hover:bg-secondary"
             >
-              <Images className="h-4 w-4" /> Upload post or Clippy
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Images className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-xs font-medium">Post</span>
             </button>
             <button
               onClick={() => handleOpenCreate("story")}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-foreground hover:bg-secondary"
+              className="flex flex-col items-center gap-2 rounded-xl bg-secondary/60 px-3 py-4 text-foreground hover:bg-secondary"
             >
-              <Clapperboard className="h-4 w-4" /> Upload story
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Clapperboard className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-xs font-medium">Story</span>
             </button>
             <button
-              onClick={() => setShowCreateOptions(false)}
-              className="w-full rounded-xl bg-secondary px-3 py-3 text-sm font-semibold text-foreground"
+              onClick={() => {
+                setShowCreateOptions(false);
+                navigate("/create", { state: { createType: "reel" } });
+              }}
+              className="flex flex-col items-center gap-2 rounded-xl bg-secondary/60 px-3 py-4 text-foreground hover:bg-secondary"
             >
-              Cancel
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <Film className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-xs font-medium">Reel</span>
             </button>
           </div>
         </SheetContent>
