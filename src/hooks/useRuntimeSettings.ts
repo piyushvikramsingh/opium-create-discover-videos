@@ -28,7 +28,7 @@ export function useRuntimeSettings() {
       ? false
       : null;
     const settingsLowBandwidth = typeof app.low_bandwidth_mode === "boolean" ? app.low_bandwidth_mode : null;
-    const lowBandwidthMode = envLowBandwidthOverride ?? settingsLowBandwidth ?? true;
+    const lowBandwidthMode = envLowBandwidthOverride ?? settingsLowBandwidth ?? false;
 
     return {
       themePreference,
