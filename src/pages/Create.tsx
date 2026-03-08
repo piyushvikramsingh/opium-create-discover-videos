@@ -1345,6 +1345,44 @@ const Create = () => {
   };
 
   const generateThumbnailBlob = async (clip: ClipItem) => {
+    const isImage = clip.file.type.startsWith("image/");
+
+    if (isImage) {
+      const img = document.createElement("img");
+      img.src = clip.url;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Could not load image"));
+      });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth || 720;
+      canvas.height = img.naturalHeight || 1280;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Could not render thumbnail");
+
+      context.filter = getClipFilterCss(clip);
+      context.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      if (clip.thumbnailText.trim()) {
+        context.filter = "none";
+        context.fillStyle = "rgba(0,0,0,0.45)";
+        context.fillRect(0, canvas.height - 120, canvas.width, 120);
+        context.fillStyle = "#fff";
+        context.font = `bold ${Math.round(canvas.width * 0.06)}px Inter, sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(clip.thumbnailText.trim(), canvas.width / 2, canvas.height - 60);
+      }
+
+      return new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) reject(new Error("Could not export thumbnail"));
+          else resolve(blob);
+        }, "image/jpeg", 0.9);
+      });
+    }
+
     const video = document.createElement("video");
     video.preload = "auto";
     video.src = clip.url;
