@@ -101,7 +101,7 @@ const HomeTan = () => {
 
   const PULL_REFRESH_TRIGGER = 78;
   const PULL_REFRESH_MAX = 112;
-  const ACTIVE_VIDEO_KEEP_VISIBILITY = 0.45;
+  const ACTIVE_VIDEO_KEEP_VISIBILITY = 0.2;
   const ACTIVE_VIDEO_SWITCH_VISIBILITY = 0.65;
   const topIconButtonClass =
     "relative ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
