@@ -179,19 +179,16 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     playRequestInFlightRef.current = true;
 
     try {
+      // Always ensure muted first for mobile autoplay policy
+      vid.muted = true;
       await vid.play();
+      // Restore user's mute preference after successful play
+      vid.muted = isMuted;
       setIsPlaying(true);
       autoplayRecoveryRef.current = false;
     } catch {
-      if (!vid.muted) {
-        vid.muted = true;
-      }
-
-      if (!isMuted && !autoplayRecoveryRef.current) {
-        autoplayRecoveryRef.current = true;
-        onToggleMute();
-      }
-
+      // If even muted play fails, keep muted
+      vid.muted = true;
       try {
         await vid.play();
         setIsPlaying(true);
@@ -201,7 +198,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     } finally {
       playRequestInFlightRef.current = false;
     }
-  }, [isMuted, mediaError, onToggleMute]);
+  }, [isMuted, mediaError]);
 
   useEffect(() => {
     isActiveRef.current = isActive;
