@@ -309,6 +309,22 @@ const HomeTan = () => {
 
     document.addEventListener("visibilitychange", onVisibilityChange);
 
+    // Re-observe all existing video elements when observer is recreated
+    videoElementsRef.current.forEach((element) => {
+      videoObserverRef.current?.observe(element);
+    });
+
+    // Auto-play the first video if it's already loaded
+    const firstEntry = videoElementsRef.current.entries().next();
+    if (firstEntry.value) {
+      const [, element] = firstEntry.value;
+      if (element.readyState >= 2 && autoplayVideos) {
+        activeVideoIdRef.current = element.dataset.postId || null;
+        element.muted = isFeedMuted;
+        element.play().catch(() => undefined);
+      }
+    }
+
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       videoObserverRef.current?.disconnect();
