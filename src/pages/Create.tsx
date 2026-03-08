@@ -2212,7 +2212,20 @@ const Create = () => {
               <div className="flex items-center gap-3 px-4 pb-4">
                 <button
                   onClick={async () => {
-                    if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
+                    if (multiSelectMode && selectedGalleryIndices.length > 0) {
+                      const videoFiles = selectedGalleryIndices
+                        .map((i) => galleryThumbnails[i])
+                        .filter((item) => item.file.type.startsWith("video/"));
+                      if (videoFiles.length === 0) {
+                        toast("Select at least one video file for posts and reels");
+                        return;
+                      }
+                      for (const item of videoFiles) {
+                        await addDirectFile(item.file);
+                      }
+                      setMultiSelectMode(false);
+                      setSelectedGalleryIndices([]);
+                    } else if (selectedGalleryIndex !== null && galleryThumbnails[selectedGalleryIndex]) {
                       const selected = galleryThumbnails[selectedGalleryIndex];
                       if (selected.file.type.startsWith("video/")) {
                         await addDirectFile(selected.file);
@@ -2230,7 +2243,9 @@ const Create = () => {
                   }}
                   className="flex-1 rounded-lg bg-primary py-3 text-center text-sm font-semibold text-primary-foreground"
                 >
-                  Next
+                  {multiSelectMode && selectedGalleryIndices.length > 0
+                    ? `Next (${selectedGalleryIndices.length})`
+                    : "Next"}
                 </button>
               </div>
             </div>
