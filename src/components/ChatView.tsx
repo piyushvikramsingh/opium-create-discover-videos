@@ -913,6 +913,8 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
   };
 
   const handleEndCall = useCallback((notifyRemote = true) => {
+    stopIncomingCallRingtone();
+    playCallEndSound();
     const callId = currentCallIdRef.current;
     if (notifyRemote && user && callId) {
       sendSignal("call-end", {
