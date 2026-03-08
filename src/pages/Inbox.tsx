@@ -8,6 +8,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import BroadcastChannels from "@/components/BroadcastChannels";
 import {
   MessageCircle,
   Search,
