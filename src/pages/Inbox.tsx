@@ -217,6 +217,7 @@ const CommunityTypeBadge = ({ type }: { type: string }) => {
 
 const Inbox = () => {
   const { user } = useAuth();
+  const { data: profile } = useProfile(user?.id);
   const navigate = useNavigate();
   const location = useLocation();
 
