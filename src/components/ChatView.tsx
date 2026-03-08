@@ -979,6 +979,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
 
   const handleRejectIncomingCall = async () => {
     if (!user || !incomingCall) return;
+    stopIncomingCallRingtone();
     await sendSignal("call-reject", {
       callId: incomingCall.callId,
       fromUserId: user.id,
@@ -992,6 +993,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
 
   const handleAcceptIncomingCall = async () => {
     if (!user || !incomingCall) return;
+    stopIncomingCallRingtone();
 
     try {
       setIsCallConnecting(true);
