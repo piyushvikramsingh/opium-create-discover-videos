@@ -2682,21 +2682,25 @@ const Create = () => {
         )}
 
         {cameraOpen && (
-          <div className="fixed inset-0 z-[70] bg-black/95">
-            <div className="mx-auto flex h-full w-full max-w-md flex-col px-4 pb-8 pt-4">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-white">Camera</p>
-                <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => void toggleCameraFacing()} disabled={cameraRecording}>
-                    Flip
-                  </Button>
-                  <Button variant="destructive" size="sm" onClick={closeCamera}>
-                    Close
-                  </Button>
+          <div className="fixed inset-0 z-[70] bg-black">
+            <div className="relative flex h-full w-full flex-col">
+              {/* Camera top bar */}
+              <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 pt-safe py-3">
+                <button onClick={closeCamera} className="rounded-full bg-black/40 p-2 text-white backdrop-blur">
+                  <X className="h-5 w-5" />
+                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setCameraFlash(!cameraFlash)}
+                    className="rounded-full bg-black/40 p-2 text-white backdrop-blur"
+                  >
+                    {cameraFlash ? <Zap className="h-5 w-5" /> : <ZapOff className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
-              <div className="relative flex-1 overflow-hidden rounded-xl border border-white/20 bg-black">
+              {/* Camera viewfinder */}
+              <div className="flex-1 overflow-hidden">
                 <video
                   ref={cameraVideoRef}
                   autoPlay
@@ -2706,16 +2710,46 @@ const Create = () => {
                 />
               </div>
 
-              <div className="mt-4 flex items-center justify-center gap-2">
-                {!cameraRecording ? (
-                  <Button className="w-full" onClick={startRecording}>
-                    <Camera className="mr-2 h-4 w-4" /> Start recording
-                  </Button>
-                ) : (
-                  <Button variant="destructive" className="w-full" onClick={stopRecording}>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Stop & use clip
-                  </Button>
-                )}
+              {/* Camera bottom controls */}
+              <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-6 bg-gradient-to-t from-black/80 to-transparent px-6 pb-safe py-8">
+                <div className="flex w-full items-center justify-around">
+                  {/* Gallery shortcut */}
+                  <button
+                    onClick={() => {
+                      closeCamera();
+                      galleryGridInputRef.current?.click();
+                    }}
+                    className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 bg-white/10"
+                  >
+                    <ImageIcon className="h-5 w-5 text-white" />
+                  </button>
+
+                  {/* Capture button */}
+                  {!cameraRecording ? (
+                    <button
+                      onClick={startRecording}
+                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-white"
+                    >
+                      <div className="h-[60px] w-[60px] rounded-full bg-white" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopRecording}
+                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-red-500"
+                    >
+                      <div className="h-8 w-8 rounded-md bg-red-500" />
+                    </button>
+                  )}
+
+                  {/* Flip camera */}
+                  <button
+                    onClick={() => void toggleCameraFacing()}
+                    disabled={cameraRecording}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 disabled:opacity-40"
+                  >
+                    <SwitchCamera className="h-5 w-5 text-white" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
