@@ -2785,7 +2785,7 @@ const Create = () => {
                 </div>
               </div>
 
-              {/* Camera viewfinder */}
+              {/* Camera viewfinder with filter */}
               <div className="flex-1 overflow-hidden">
                 <video
                   ref={cameraVideoRef}
@@ -2793,7 +2793,29 @@ const Create = () => {
                   playsInline
                   muted={false}
                   className={`h-full w-full object-cover ${cameraFacingMode === "user" ? "scale-x-[-1]" : ""}`}
+                  style={{
+                    filter: CAMERA_FILTERS[cameraFilterIndex]?.css || "none",
+                  }}
                 />
+              </div>
+
+              {/* Filter carousel */}
+              <div className="absolute inset-x-0 bottom-36 z-10 px-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  {CAMERA_FILTERS.map((f, i) => (
+                    <button
+                      key={f.id}
+                      onClick={() => setCameraFilterIndex(i)}
+                      className={`flex-shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-all ${
+                        cameraFilterIndex === i
+                          ? "bg-white text-black shadow-lg"
+                          : "bg-white/15 text-white/80 backdrop-blur"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Camera bottom controls */}
@@ -2821,9 +2843,9 @@ const Create = () => {
                   ) : (
                     <button
                       onClick={stopRecording}
-                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-red-500"
+                      className="flex h-[72px] w-[72px] items-center justify-center rounded-full border-[4px] border-destructive"
                     >
-                      <div className="h-8 w-8 rounded-md bg-red-500" />
+                      <div className="h-8 w-8 rounded-md bg-destructive" />
                     </button>
                   )}
 
