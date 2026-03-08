@@ -1,5 +1,5 @@
-import { Search, Play, TrendingUp, Users, EyeOff, PlusSquare, Grid3X3, Film, Heart, Image as ImageIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, Play, TrendingUp, Users, EyeOff, PlusSquare, Grid3X3, Film, Heart, Image as ImageIcon, RefreshCw, Loader2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useContinueWatchingVideos,
@@ -14,7 +14,7 @@ import {
 } from "@/hooks/useData";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { buildOrIlikeClause, normalizeSearchInput } from "@/lib/search";
 import { getEngagementPersonalizationBoost, loadEngagementLoopState } from "@/lib/engagementLoop";
@@ -24,6 +24,9 @@ const trendingTags = [
   "dance", "viral", "foodie", "cats",
   "streetstyle", "comedy", "music", "fitness", "art",
 ];
+
+const ITEMS_PER_PAGE = 18;
+const PULL_THRESHOLD = 80;
 
 function useSearchProfiles(query: string) {
   return useQuery({
@@ -62,6 +65,7 @@ const getMasonryPattern = (index: number): string => {
 
 const Discover = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const [isFeedMuted, setIsFeedMuted] = useState<boolean>(() => {
@@ -78,8 +82,12 @@ const Discover = () => {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(ITEMS_PER_PAGE);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isPulling, setIsPulling] = useState(false);
   const isSearching = debouncedSearchQuery.length >= 2;
-  const { data: videos } = useVideos();
+  const { data: videos, refetch: refetchVideos, isFetching } = useVideos();
   const { data: continueWatching = [] } = useContinueWatchingVideos(12);
   const { data: followRecommendations = [] } = useFollowRecommendations(10, !isSearching);
   const logCreatorRecoClick = useLogCreatorRecommendationClick();
@@ -91,6 +99,10 @@ const Discover = () => {
   const { data: searchProfiles } = useSearchProfiles(debouncedSearchQuery);
   const loggedExposureKeysRef = useRef<Set<string>>(new Set());
   const hoverTimeoutRef = useRef<number | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const scrollTopAtStartRef = useRef<number>(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -206,7 +218,82 @@ const Discover = () => {
     return personalizeOrder(source);
   }, [videos, searchQuery, activeTag, isSearching]);
 
-  const hasRealVideos = filteredVideos && filteredVideos.length > 0;
+  // Paginated videos for infinite scroll
+  const paginatedVideos = useMemo(() => {
+    if (!filteredVideos) return [];
+    return filteredVideos.slice(0, visibleCount);
+  }, [filteredVideos, visibleCount]);
+
+  const hasMoreVideos = filteredVideos && visibleCount < filteredVideos.length;
+  const hasRealVideos = paginatedVideos && paginatedVideos.length > 0;
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const loadMoreElement = loadMoreRef.current;
+    if (!loadMoreElement || !hasMoreVideos) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreVideos) {
+          setVisibleCount((prev) => prev + ITEMS_PER_PAGE);
+        }
+      },
+      { rootMargin: "200px" }
+    );
+
+    observer.observe(loadMoreElement);
+    return () => observer.disconnect();
+  }, [hasMoreVideos]);
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(ITEMS_PER_PAGE);
+  }, [activeTag, debouncedSearchQuery]);
+
+  // Pull-to-refresh handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+    
+    touchStartYRef.current = e.touches[0].clientY;
+    scrollTopAtStartRef.current = scrollContainer.scrollTop;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (touchStartYRef.current === null || isRefreshing) return;
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - touchStartYRef.current;
+    
+    // Only trigger pull-to-refresh when at top of scroll
+    if (scrollTopAtStartRef.current <= 0 && deltaY > 0) {
+      setIsPulling(true);
+      setPullDistance(Math.min(deltaY * 0.5, PULL_THRESHOLD * 1.5));
+    }
+  }, [isRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(PULL_THRESHOLD);
+      
+      try {
+        await refetchVideos();
+        await queryClient.invalidateQueries({ queryKey: ["videos"] });
+        toast.success("Feed refreshed");
+      } catch {
+        toast.error("Failed to refresh");
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+    
+    setPullDistance(0);
+    setIsPulling(false);
+    touchStartYRef.current = null;
+  }, [pullDistance, isRefreshing, refetchVideos, queryClient]);
 
   const handleVideoHover = (videoId: string) => {
     if (hoverTimeoutRef.current) {
@@ -225,7 +312,32 @@ const Discover = () => {
   };
 
   return (
-    <div className="ig-screen-spring ig-modern-page min-h-screen bg-background pb-20 pt-safe fade-in">
+    <div 
+      ref={scrollContainerRef}
+      className="ig-screen-spring ig-modern-page min-h-screen bg-background pb-20 pt-safe fade-in overflow-y-auto"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Pull-to-refresh indicator */}
+      <div 
+        className="flex items-center justify-center overflow-hidden transition-all duration-200"
+        style={{ height: isPulling || isRefreshing ? pullDistance : 0 }}
+      >
+        <div className={`flex items-center gap-2 text-muted-foreground ${isRefreshing ? 'animate-pulse' : ''}`}>
+          {isRefreshing ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          ) : (
+            <RefreshCw 
+              className={`h-5 w-5 transition-transform duration-200 ${pullDistance >= PULL_THRESHOLD ? 'text-primary rotate-180' : ''}`}
+            />
+          )}
+          <span className="text-xs font-medium">
+            {isRefreshing ? "Refreshing..." : pullDistance >= PULL_THRESHOLD ? "Release to refresh" : "Pull to refresh"}
+          </span>
+        </div>
+      </div>
+
       {/* Instagram-style header */}
       <div className="ig-header sticky top-0 z-20 border-b border-border/40 bg-background/95 backdrop-blur-xl">
         <div className="px-4 pb-2 pt-3">
@@ -394,7 +506,7 @@ const Discover = () => {
       {/* Instagram-style Masonry Grid */}
       <div className="grid grid-cols-3 auto-rows-[120px] gap-0.5 p-0.5">
         {hasRealVideos &&
-          filteredVideos.map((video: any, index: number) => {
+          paginatedVideos.map((video: any, index: number) => {
             const pattern = getMasonryPattern(index);
             const isLarge = pattern.includes("col-span-2") || pattern.includes("row-span-2");
             const isHovered = hoveredVideoId === video.id;
@@ -509,6 +621,20 @@ const Discover = () => {
             );
           })}
       </div>
+
+      {/* Load more trigger for infinite scroll */}
+      {hasMoreVideos && (
+        <div ref={loadMoreRef} className="flex items-center justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {/* End of content indicator */}
+      {hasRealVideos && !hasMoreVideos && filteredVideos && filteredVideos.length > ITEMS_PER_PAGE && (
+        <div className="py-8 text-center">
+          <p className="text-xs text-muted-foreground">You've seen all posts</p>
+        </div>
+      )}
 
       {!hasRealVideos && !isSearching && !activeTag && (
         <div className="px-6 py-16 text-center">

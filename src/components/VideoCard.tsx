@@ -525,7 +525,10 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
 
   const triggerLikeBurst = useCallback(() => {
     setShowLikeBurst(true);
-    window.setTimeout(() => setShowLikeBurst(false), 620);
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(30);
+    }
+    window.setTimeout(() => setShowLikeBurst(false), 1000);
   }, []);
 
   const isVideo = !!video.video_url;
@@ -969,10 +972,54 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         </div>
       )}
 
-      {/* Double-tap like burst */}
+      {/* Instagram-style double-tap like burst */}
       {showLikeBurst && (
-        <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-          <Heart className="h-20 w-20 fill-primary text-primary animate-ping" />
+        <div className="absolute inset-0 z-20 pointer-events-none flex items-center justify-center">
+          {/* Main heart */}
+          <Heart
+            className="h-24 w-24 fill-white text-white drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]"
+            style={{
+              animation: "likeBurstMain 0.9s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards",
+            }}
+          />
+          {/* Scattered mini hearts */}
+          {[...Array(6)].map((_, i) => {
+            const angle = (i * 60) + Math.random() * 30;
+            const distance = 60 + Math.random() * 40;
+            const dx = Math.cos((angle * Math.PI) / 180) * distance;
+            const dy = Math.sin((angle * Math.PI) / 180) * distance;
+            const size = 10 + Math.random() * 10;
+            const delay = 0.1 + Math.random() * 0.15;
+            return (
+              <Heart
+                key={i}
+                className="absolute fill-white text-white"
+                style={{
+                  width: size,
+                  height: size,
+                  animation: `likeBurstParticle 0.7s ${delay}s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards`,
+                  opacity: 0,
+                  ["--dx" as string]: `${dx}px`,
+                  ["--dy" as string]: `${dy}px`,
+                }}
+              />
+            );
+          })}
+          <style>{`
+            @keyframes likeBurstMain {
+              0% { transform: scale(0); opacity: 0; }
+              15% { transform: scale(1.3); opacity: 1; }
+              30% { transform: scale(0.95); }
+              45% { transform: scale(1.05); }
+              60% { transform: scale(1); opacity: 1; }
+              100% { transform: scale(1); opacity: 0; }
+            }
+            @keyframes likeBurstParticle {
+              0% { transform: translate(0, 0) scale(0); opacity: 0; }
+              30% { opacity: 1; }
+              100% { transform: translate(var(--dx), var(--dy)) scale(0.5); opacity: 0; }
+            }
+          `}</style>
         </div>
       )}
 
