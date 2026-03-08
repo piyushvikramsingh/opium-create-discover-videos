@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { X, ChevronLeft, ChevronRight, MoreVertical, Send, Eye } from "lucide-react";
+import { X, ChevronLeft, ChevronRight, MoreVertical, Send, Eye, Bookmark, Plus, Check } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { useStoryStickers } from "@/hooks/useStoryStickers";
 import { InteractiveSticker } from "@/components/InteractiveStickers";
+import { useProfileHighlights, useAddStoryToHighlight, useCreateHighlight } from "@/hooks/useData";
+import { toast } from "sonner";
 
 export interface Story {
   id: string;
