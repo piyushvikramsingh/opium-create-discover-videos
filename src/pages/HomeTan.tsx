@@ -639,12 +639,14 @@ const HomeTan = () => {
         pullThresholdHapticSentRef.current = false;
       }}
     >
-      <div className="ig-header ig-modern-header sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur">
+      {/* Instagram-style sticky header */}
+      <div className="sticky top-0 z-30 border-b border-border/40 bg-background/95 backdrop-blur-xl">
+        {/* Pull to refresh indicator */}
         <div
           className="overflow-hidden transition-all duration-200"
-          style={{ height: `${isPullRefreshing ? 44 : Math.min(44, pullDistance)}px` }}
+          style={{ height: `${isPullRefreshing ? 40 : Math.min(40, pullDistance)}px` }}
         >
-          <div className="flex h-11 items-center justify-center gap-2 text-xs font-semibold text-muted-foreground">
+          <div className="flex h-10 items-center justify-center gap-2 text-xs font-medium text-muted-foreground">
             <RefreshCcw
               className={`h-3.5 w-3.5 ${isPullRefreshing || pullDistance >= PULL_REFRESH_TRIGGER ? "animate-spin" : ""}`}
             />
@@ -657,103 +659,66 @@ const HomeTan = () => {
             </span>
           </div>
         </div>
-        <div className="px-4 py-2.5">
-          <div className="flex items-center justify-between">
-            <div className="ig-type-h1 text-foreground">
-              Opium
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleRefreshFeed}
-                className={topIconButtonClass}
-                aria-label="Refresh feed"
-                disabled={isFetching || isPullRefreshing}
-              >
-                <RefreshCcw className={`h-5 w-5 ${isFetching || isPullRefreshing ? "animate-spin" : ""}`} />
-              </button>
-              <button
-                onClick={() => setShowCreateOptions(true)}
-                className={topIconButtonClass}
-                aria-label="Create"
-              >
-                <PlusSquare className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => navigate("/inbox", { state: { focus: "notifications" } })}
-                className={topIconButtonClass}
-                aria-label="Notifications"
-              >
-                <Heart className="h-5 w-5" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute -right-1 -top-1 rounded-full bg-primary px-1.5 py-0.5 text-[9px] font-semibold text-primary-foreground">
-                    {formatBadgeCount(unreadNotifications)}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => navigate("/inbox")}
-                className={topIconButtonClass}
-                aria-label="Messages"
-              >
-                <MessageCircle className="h-5 w-5" />
-                {unreadMessagesCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-primary" />
-                )}
-              </button>
-            </div>
+
+        {/* Top bar: Logo + action icons */}
+        <div className="flex items-center justify-between px-4 py-2.5">
+          <h1 className="text-[22px] font-bold tracking-tight text-foreground" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+            Opium
+          </h1>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navigate("/notifications")}
+              className={topIconButtonClass}
+              aria-label="Notifications"
+            >
+              <Heart className="h-[22px] w-[22px]" />
+              {unreadNotifications > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {formatBadgeCount(unreadNotifications)}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => navigate("/inbox")}
+              className={topIconButtonClass}
+              aria-label="Messages"
+            >
+              <MessageCircle className="h-[22px] w-[22px]" />
+              {unreadMessagesCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {formatBadgeCount(unreadMessagesCount)}
+                </span>
+              )}
+            </button>
           </div>
         </div>
-        <div className="flex items-center justify-center gap-6 border-t border-border/70 px-4 pb-2 pt-2 text-sm font-semibold">
+
+        {/* For You / Following tabs */}
+        <div className="flex items-center justify-center gap-0">
           <button
             onClick={() => setFeedMode("forYou")}
             aria-pressed={feedMode === "forYou"}
-            data-active={feedMode === "forYou"}
-            className={`relative px-1 py-1 transition-colors duration-200 ${
-              feedMode === "forYou"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+            className={`relative flex-1 py-2.5 text-center text-[13px] font-semibold transition-colors ${
+              feedMode === "forYou" ? "text-foreground" : "text-muted-foreground"
             }`}
           >
             For You
-            {feedMode === "forYou" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 mx-auto h-0.5 w-full rounded-full bg-foreground" />}
+            {feedMode === "forYou" && (
+              <span className="absolute bottom-0 left-1/2 h-[2px] w-12 -translate-x-1/2 rounded-full bg-foreground" />
+            )}
           </button>
           <button
             onClick={() => setFeedMode("following")}
             aria-pressed={feedMode === "following"}
-            data-active={feedMode === "following"}
-            className={`relative px-1 py-1 transition-colors duration-200 ${
-              feedMode === "following"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground"
+            className={`relative flex-1 py-2.5 text-center text-[13px] font-semibold transition-colors ${
+              feedMode === "following" ? "text-foreground" : "text-muted-foreground"
             }`}
           >
             Following
-            {feedMode === "following" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 mx-auto h-0.5 w-full rounded-full bg-foreground" />}
+            {feedMode === "following" && (
+              <span className="absolute bottom-0 left-1/2 h-[2px] w-16 -translate-x-1/2 rounded-full bg-foreground" />
+            )}
           </button>
-        </div>
-        <div className="flex items-center gap-2 border-t border-border/60 px-4 pb-2 pt-2">
-          {[
-            { id: "all", label: "All", count: mediaFilterCounts.all },
-            { id: "videos", label: "Videos", count: mediaFilterCounts.videos },
-            { id: "photos", label: "Photos", count: mediaFilterCounts.photos },
-          ].map((filter) => (
-            <button
-              key={filter.id}
-              onClick={() => setMediaFilter(filter.id as "all" | "videos" | "photos")}
-              aria-pressed={mediaFilter === filter.id}
-              className={`ig-modern-chip ig-icon-btn inline-flex items-center gap-1.5 px-3 py-1 text-[11px] font-semibold transition-colors ${
-                mediaFilter === filter.id
-                  ? "text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-              data-active={mediaFilter === filter.id}
-            >
-              <span>{filter.label}</span>
-              <span className="rounded-full bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                {filter.count}
-              </span>
-            </button>
-          ))}
         </div>
       </div>
 
