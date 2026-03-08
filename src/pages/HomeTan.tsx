@@ -1007,7 +1007,7 @@ const HomeTan = () => {
             </Fragment>
           ))}
 
-          {filteredFeedPosts.length > 0 && (
+          {feedPosts.length > 0 && (
             <div className="bg-background px-4 py-6 text-center">
               <p className="text-sm font-semibold text-foreground">You're all caught up</p>
               <p className="mt-1 text-xs text-muted-foreground">You’ve seen the latest posts in Home.</p>
