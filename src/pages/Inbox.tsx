@@ -1177,6 +1177,10 @@ const Inbox = () => {
 
   const renderCommunityTab = () => (
     <>
+      {/* Broadcast Channels */}
+      <div className="border-b border-border/60">
+        <BroadcastChannels />
+      </div>
       {/* Streak Leaderboard */}
       {(streaks as ChatStreak[]).length > 0 && (
         <div className="border-b border-border/60 px-4 py-3">
