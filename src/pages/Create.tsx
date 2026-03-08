@@ -1018,8 +1018,8 @@ const Create = () => {
 
     const selectedFiles = Array.from(fileList);
     const validFiles = selectedFiles.filter((file) => {
-      if (!file.type.startsWith("video/")) {
-        toast.error(`${file.name}: only video files are supported`);
+      if (!file.type.startsWith("video/") && !file.type.startsWith("image/")) {
+        toast.error(`${file.name}: only image and video files are supported`);
         return false;
       }
       if (file.size > MAX_FILE_SIZE) {
@@ -1033,7 +1033,8 @@ const Create = () => {
 
     const newClips = await Promise.all(
       validFiles.map(async (file) => {
-        const duration = await getDuration(file);
+        const isImage = file.type.startsWith("image/");
+        const duration = isImage ? 0 : await getDuration(file);
         const id = asId();
         return {
           id,
@@ -1042,7 +1043,7 @@ const Create = () => {
           duration,
           trimStart: 0,
           trimEnd: duration,
-          coverTime: Math.min(1, duration),
+          coverTime: 0,
           brightness: 100,
           contrast: 100,
           saturation: 100,
