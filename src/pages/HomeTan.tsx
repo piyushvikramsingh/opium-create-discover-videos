@@ -859,7 +859,12 @@ const HomeTan = () => {
                   </button>
                 </div>
 
-                {(post.video_url || post.thumbnail_url) && (
+                {(post.video_url || post.thumbnail_url) && (() => {
+                  const slides = carouselMedia.get(post.id);
+                  const hasCarousel = slides && slides.length > 1;
+                  const currentSlide = carouselIndices.get(post.id) || 0;
+
+                  return (
                   <div
                     className="relative aspect-[4/5] overflow-hidden bg-secondary"
                     onDoubleClick={() => handleDoubleTapLike(post.id)}
@@ -867,7 +872,59 @@ const HomeTan = () => {
                     {!loadedImageIds.has(post.id) && (
                       <div className="absolute inset-0 animate-pulse bg-secondary" />
                     )}
-                    {isPhotoPost(post) ? (
+
+                    {hasCarousel ? (
+                      <>
+                        <div
+                          className="flex h-full transition-transform duration-300 ease-out"
+                          style={{ transform: `translateX(-${currentSlide * 100}%)`, width: `${slides.length * 100}%` }}
+                        >
+                          {slides.map((slide, si) => (
+                            <div key={si} className="h-full flex-shrink-0" style={{ width: `${100 / slides.length}%` }}>
+                              {slide.media_type === "video" ? (
+                                <video src={slide.media_url} className="h-full w-full object-cover" playsInline muted loop />
+                              ) : (
+                                <img
+                                  src={slide.media_url}
+                                  alt=""
+                                  loading="lazy"
+                                  onLoad={() => markImageLoaded(post.id)}
+                                  className="h-full w-full object-cover"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Carousel nav arrows */}
+                        {currentSlide > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setCarouselIndex(post.id, currentSlide - 1); }}
+                            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-1.5 text-white backdrop-blur-sm"
+                          >
+                            <ChevronUp className="h-4 w-4 -rotate-90" />
+                          </button>
+                        )}
+                        {currentSlide < slides.length - 1 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setCarouselIndex(post.id, currentSlide + 1); }}
+                            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-1.5 text-white backdrop-blur-sm"
+                          >
+                            <ChevronUp className="h-4 w-4 rotate-90" />
+                          </button>
+                        )}
+                        {/* Dots indicator */}
+                        <div className="absolute bottom-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
+                          {slides.map((_, di) => (
+                            <div
+                              key={di}
+                              className={`h-1.5 rounded-full transition-all ${
+                                di === currentSlide ? "w-4 bg-white" : "w-1.5 bg-white/50"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    ) : isPhotoPost(post) ? (
                       <img
                         src={post.video_url || post.thumbnail_url}
                         alt=""
@@ -944,7 +1001,7 @@ const HomeTan = () => {
                         </div>
                       </div>
                     )}
-                    {!isPhotoPost(post) && post.video_url && (
+                    {!hasCarousel && !isPhotoPost(post) && post.video_url && (
                       <button
                         type="button"
                         onClick={(event) => {
@@ -957,6 +1014,9 @@ const HomeTan = () => {
                         {isFeedMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                       </button>
                     )}
+                  </div>
+                  );
+                })()}
                   </div>
                 )}
 
