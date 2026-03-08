@@ -1017,8 +1017,6 @@ const HomeTan = () => {
                   </div>
                   );
                 })()}
-                  </div>
-                )}
 
                 <div className="px-3 py-2.5">
                   <div className="flex items-center justify-between">
