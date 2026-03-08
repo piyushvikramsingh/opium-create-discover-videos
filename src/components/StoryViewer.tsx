@@ -57,6 +57,8 @@ export const StoryViewer = ({
   const [isPaused, setIsPaused] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [showInsights, setShowInsights] = useState(false);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [newHighlightName, setNewHighlightName] = useState("");
   const [resolvedDurationMs, setResolvedDurationMs] = useState(5000);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
