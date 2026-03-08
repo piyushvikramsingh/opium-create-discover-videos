@@ -289,7 +289,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
       if (watchStartAtRef.current && user) {
         const watchMs = Date.now() - watchStartAtRef.current;
         if (watchMs > 500) {
-          trackEventRef.current.mutate({ videoId: video.id, eventType: "view_end", watchMs });
+          trackEventRef.current.mutate({ videoId: video.id, eventType: "view_start", watchMs });
         }
 
         if (!tracked3sRef.current && !trackedSkipRef.current && watchMs < 1800) {
