@@ -1014,7 +1014,7 @@ const HomeTan = () => {
             </div>
           )}
 
-          {filteredFeedPosts.length === 0 && (
+          {feedPosts.length === 0 && (
             <div className="panel-surface mx-3 rounded-xl px-4 py-12 text-center">
               <p className="text-sm font-semibold text-foreground">
                 {feedMode === "following"
