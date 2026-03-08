@@ -17,6 +17,7 @@ import AppLayout from "@/layouts/AppLayout";
 const HomeTan = lazy(() => import("./pages/HomeTan"));
 const Index = lazy(() => import("./pages/Index"));
 const Discover = lazy(() => import("./pages/Discover"));
+const Reels = lazy(() => import("./pages/Reels"));
 const Create = lazy(() => import("./pages/Create"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -212,6 +213,7 @@ const App = () => (
                   <Route path="/" element={<HomeTan />} />
                   <Route path="/clipy" element={<Index />} />
                   <Route path="/discover" element={<Discover />} />
+                  <Route path="/reels" element={<Reels />} />
                   <Route path="/create" element={<Create />} />
                   <Route path="/inbox" element={<Inbox />} />
                   <Route path="/notifications" element={<Notifications />} />
