@@ -72,9 +72,10 @@ const isDocumentVisible = () => {
 const getVisibilityAwareRefetchInterval = (
   visibleMs: number,
   hiddenMs: number | false = false,
-) => {
+): number | false => {
   if (isSupabaseEgressRestricted()) return false;
-  return () => (isDocumentVisible() ? visibleMs : hiddenMs);
+  if (typeof document === "undefined") return visibleMs;
+  return document.visibilityState === "visible" ? visibleMs : (hiddenMs === false ? false : hiddenMs);
 };
 
 export type ConversationSettings = {
