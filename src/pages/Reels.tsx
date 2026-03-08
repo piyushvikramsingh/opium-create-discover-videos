@@ -182,7 +182,7 @@ const Reels = () => {
         isFeedPanelHidden ? "opacity-0 -translate-y-2" : "opacity-100"
       }`}>
         <div className="flex items-center justify-between px-4 py-3 pt-safe">
-          <h1 className="text-xl font-bold text-white drop-shadow-lg">Reels</h1>
+          <h1 className="text-xl font-bold text-white drop-shadow-lg">Clippy</h1>
           <button
             onClick={() => navigate("/create")}
             className="pointer-events-auto rounded-full bg-white/20 p-2 backdrop-blur-sm"
