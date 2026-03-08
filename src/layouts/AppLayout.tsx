@@ -4,9 +4,9 @@ import TopMoreMenu from "@/components/TopMoreMenu";
 
 const AppLayout = () => {
   return (
-    <div className="relative mx-auto min-h-screen w-full max-w-lg overflow-x-hidden bg-background lg:min-h-[100dvh] lg:border-x lg:border-border/40">
+    <div className="relative mx-auto min-h-[100dvh] w-full max-w-lg overflow-x-hidden bg-background lg:border-x lg:border-border/30">
       <TopMoreMenu />
-      <div className="pb-[calc(4rem+env(safe-area-inset-bottom))]">
+      <div className="pb-[calc(3.75rem+env(safe-area-inset-bottom))]">
         <Outlet />
       </div>
       <BottomNav />
