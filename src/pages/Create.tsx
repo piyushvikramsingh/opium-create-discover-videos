@@ -2122,29 +2122,60 @@ const Create = () => {
                   {multiSelectMode ? `${selectedGalleryIndices.length} selected` : "Select multiple"}
                 </button>
               </div>
+              {galleryThumbnails.length === 0 ? (
+                <div className="flex flex-col items-center justify-center gap-3 py-12">
+                  <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">Tap the grid icon to add photos & videos</p>
+                  <button
+                    onClick={() => galleryGridInputRef.current?.click()}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+                  >
+                    Select from Gallery
+                  </button>
+                </div>
+              ) : (
                 <div className="grid grid-cols-4 gap-0.5">
-                  {galleryThumbnails.map((item, idx) => (
-                    <button
-                      key={idx}
-                      className={`relative aspect-square overflow-hidden ${
-                        selectedGalleryIndex === idx
-                          ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
-                          : ""
-                      }`}
-                      onClick={() => setSelectedGalleryIndex(idx)}
-                    >
-                      {item.file.type.startsWith("video/") ? (
-                        <>
-                          <video src={item.url} muted playsInline className="h-full w-full object-cover" />
-                          <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5">
-                            <Clapperboard className="h-3 w-3 text-white" />
+                  {galleryThumbnails.map((item, idx) => {
+                    const multiIdx = selectedGalleryIndices.indexOf(idx);
+                    const isMultiSelected = multiSelectMode && multiIdx !== -1;
+                    const isSingleSelected = !multiSelectMode && selectedGalleryIndex === idx;
+                    return (
+                      <button
+                        key={idx}
+                        className={`relative aspect-square overflow-hidden ${
+                          isSingleSelected
+                            ? "ring-2 ring-primary ring-offset-1 ring-offset-background"
+                            : isMultiSelected
+                            ? "opacity-80"
+                            : ""
+                        }`}
+                        onClick={() => toggleGallerySelection(idx)}
+                      >
+                        {item.file.type.startsWith("video/") ? (
+                          <>
+                            <video src={item.url} muted playsInline className="h-full w-full object-cover" />
+                            <div className="absolute bottom-1 right-1 rounded bg-black/60 px-1 py-0.5">
+                              <Clapperboard className="h-3 w-3 text-white" />
+                            </div>
+                          </>
+                        ) : (
+                          <img src={item.url} alt="" className="h-full w-full object-cover" />
+                        )}
+                        {/* Multi-select badge */}
+                        {multiSelectMode && (
+                          <div
+                            className={`absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 text-[10px] font-bold ${
+                              isMultiSelected
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-white/70 bg-black/30"
+                            }`}
+                          >
+                            {isMultiSelected ? multiIdx + 1 : ""}
                           </div>
-                        </>
-                      ) : (
-                        <img src={item.url} alt="" className="h-full w-full object-cover" />
-                      )}
-                    </button>
-                  ))}
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
