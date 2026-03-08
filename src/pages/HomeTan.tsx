@@ -101,8 +101,8 @@ const HomeTan = () => {
 
   const PULL_REFRESH_TRIGGER = 78;
   const PULL_REFRESH_MAX = 112;
-  const ACTIVE_VIDEO_KEEP_VISIBILITY = 0.45;
-  const ACTIVE_VIDEO_SWITCH_VISIBILITY = 0.65;
+  const ACTIVE_VIDEO_KEEP_VISIBILITY = 0.2;
+  const ACTIVE_VIDEO_SWITCH_VISIBILITY = 0.3;
   const topIconButtonClass =
     "relative ig-tap ig-icon-btn rounded-full p-2 text-foreground transition-colors hover:bg-secondary/70";
   const feedIconButtonClass =
@@ -308,6 +308,22 @@ const HomeTan = () => {
     };
 
     document.addEventListener("visibilitychange", onVisibilityChange);
+
+    // Re-observe all existing video elements when observer is recreated
+    videoElementsRef.current.forEach((element) => {
+      videoObserverRef.current?.observe(element);
+    });
+
+    // Auto-play the first video if it's already loaded
+    const firstEntry = videoElementsRef.current.entries().next();
+    if (firstEntry.value) {
+      const [, element] = firstEntry.value;
+      if (element.readyState >= 2 && autoplayVideos) {
+        activeVideoIdRef.current = element.dataset.postId || null;
+        element.muted = isFeedMuted;
+        element.play().catch(() => undefined);
+      }
+    }
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
@@ -827,11 +843,20 @@ const HomeTan = () => {
                         }}
                         src={post.video_url}
                         poster={post.thumbnail_url || undefined}
-                        autoPlay={lowBandwidthMode ? false : autoplayVideos}
+                        autoPlay={false}
                         muted={isFeedMuted}
                         loop={loopVideos}
                         playsInline
-                        preload={lowBandwidthMode ? (index === 0 ? "metadata" : "none") : index < 2 ? "auto" : "metadata"}
+                        preload={index < 2 ? "auto" : "metadata"}
+                        onCanPlay={(e) => {
+                          const vid = e.currentTarget;
+                          const postId = vid.dataset.postId;
+                          if (postId && (!activeVideoIdRef.current || activeVideoIdRef.current === postId) && autoplayVideos) {
+                            activeVideoIdRef.current = postId;
+                            vid.muted = true;
+                            vid.play().catch(() => undefined);
+                          }
+                        }}
                         onLoadedData={() => markImageLoaded(post.id)}
                         onError={() => markImageLoaded(post.id)}
                         className={`h-full w-full object-cover transition-opacity duration-300 ${
