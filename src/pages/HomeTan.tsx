@@ -101,6 +101,8 @@ const HomeTan = () => {
   const videoObserverRef = useRef<IntersectionObserver | null>(null);
   const videoVisibilityRef = useRef<Map<string, number>>(new Map());
   const activeVideoIdRef = useRef<string | null>(null);
+  const [carouselMedia, setCarouselMedia] = useState<Map<string, Array<{ media_url: string; media_type: string; sort_order: number }>>>(new Map());
+  const [carouselIndices, setCarouselIndices] = useState<Map<string, number>>(new Map());
 
   const PULL_REFRESH_TRIGGER = 78;
   const PULL_REFRESH_MAX = 112;
