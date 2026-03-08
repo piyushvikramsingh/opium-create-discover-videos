@@ -9,6 +9,7 @@ import {
   PlusSquare,
   Clapperboard,
   Images,
+  Film,
   Bookmark,
   Share2,
   RefreshCcw,
