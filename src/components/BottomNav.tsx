@@ -22,20 +22,6 @@ const BottomNav = () => {
             : location.pathname.startsWith(item.path);
           const Icon = item.icon;
 
-          if (item.isCreate) {
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                aria-label="Create"
-                className="relative flex items-center justify-center p-2 transition-all duration-150 active:scale-90"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg border-2 border-foreground/80">
-                  <Icon className="h-5 w-5 text-foreground" strokeWidth={2} />
-                </div>
-              </button>
-            );
-          }
 
           return (
             <button
