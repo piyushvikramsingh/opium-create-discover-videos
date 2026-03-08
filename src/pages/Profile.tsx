@@ -1113,6 +1113,13 @@ const Profile = () => {
       {showFollowersModal && (
         <PeopleModal title="Followers" people={followersList || []} onClose={() => setShowFollowersModal(false)} onOpenProfile={(id) => navigate(`/profile/${id}`)} />
       )}
+      {viewingHighlightId && (
+        <HighlightViewer
+          highlightId={viewingHighlightId}
+          highlightTitle={(highlights || []).find((h: any) => h.id === viewingHighlightId)?.title || "Highlight"}
+          onClose={() => setViewingHighlightId(null)}
+        />
+      )}
       {showFollowingModal && (
         <PeopleModal title="Following" people={followingList || []} onClose={() => setShowFollowingModal(false)} onOpenProfile={(id) => navigate(`/profile/${id}`)} />
       )}
