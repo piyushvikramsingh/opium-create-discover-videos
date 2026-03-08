@@ -709,6 +709,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
           snapDuration: snapMode ? 5 : undefined,
           replyToMessageId: replyTo?.id,
         });
+        playMessageSentSound();
       }
       setText("");
       setReplyTo(null);
