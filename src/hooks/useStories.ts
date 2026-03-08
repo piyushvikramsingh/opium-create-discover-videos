@@ -46,7 +46,7 @@ export const useStories = () => {
         .select(`
           *,
           profiles!stories_user_id_fkey (
-            id,
+            user_id,
             username,
             display_name,
             avatar_url,
@@ -67,7 +67,13 @@ export const useStories = () => {
         const userId = story.user_id;
         if (!acc[userId]) {
           acc[userId] = {
-            user: story.profiles,
+            user: {
+              id: userId,
+              username: story.profiles?.username || "user",
+              display_name: story.profiles?.display_name || "User",
+              avatar_url: story.profiles?.avatar_url || "",
+              is_verified: story.profiles?.is_verified || false,
+            },
             stories: [],
             hasUnviewed: false,
             hasCloseFriendsStory: false,
