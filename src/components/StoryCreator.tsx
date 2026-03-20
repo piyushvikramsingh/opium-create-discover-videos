@@ -635,6 +635,17 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
         )}
       </AnimatePresence>
 
+      {/* Music indicator */}
+      {selectedMusic && (
+        <div className="mx-4 mb-1 flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm z-20">
+          <Music className="w-3.5 h-3.5 text-white/70" />
+          <span className="text-xs text-white/80 truncate flex-1">{selectedMusic.title} · {selectedMusic.artist}</span>
+          <button onClick={() => setSelectedMusic(null)} className="text-white/40">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Bottom toolbar */}
       <div className="flex items-center justify-between gap-3 px-4 pb-safe py-3 z-20">
         <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowCaptionInput(true)}
@@ -651,6 +662,17 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
           Share
         </motion.button>
       </div>
+
+      {/* Music selector overlay */}
+      <AnimatePresence>
+        {showMusicSelector && (
+          <MusicSelector
+            selectedTrack={selectedMusic}
+            onSelect={(track) => { setSelectedMusic(track); setShowMusicSelector(false); }}
+            onClose={() => setShowMusicSelector(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
