@@ -91,6 +91,7 @@ const Profile = () => {
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showHiddenVideosModal, setShowHiddenVideosModal] = useState(false);
+  const [showStoryArchive, setShowStoryArchive] = useState(false);
   const [newHighlightTitle, setNewHighlightTitle] = useState("");
   const [viewingHighlightId, setViewingHighlightId] = useState<string | null>(null);
   const [gridLayout, setGridLayout] = useState<"grid-3" | "grid-2" | "list">("grid-3");
