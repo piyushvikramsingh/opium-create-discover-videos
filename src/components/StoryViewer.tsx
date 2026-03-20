@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { useStoryStickers } from "@/hooks/useStoryStickers";
 import { InteractiveSticker } from "@/components/InteractiveStickers";
 import { useProfileHighlights, useAddStoryToHighlight, useCreateHighlight } from "@/hooks/useData";
+import StickerEngagementInsights from "@/components/StickerEngagementInsights";
 import { toast } from "sonner";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 
