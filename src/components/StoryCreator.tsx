@@ -5,9 +5,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateStory } from "@/hooks/useStories";
+import { useAddStorySticker } from "@/hooks/useStoryStickers";
+import { useArchiveStory } from "@/hooks/useStoryArchive";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
+import MusicSelector from "@/components/MusicSelector";
+import type { MusicTrack } from "@/hooks/useMusicTracks";
 
 interface StoryCreatorProps {
   mediaFile: File;
@@ -78,6 +82,8 @@ const INTERACTIVE_STICKERS = [
 export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, onSuccess }: StoryCreatorProps) {
   const { user } = useAuth();
   const createStory = useCreateStory();
+  const addSticker = useAddStorySticker();
+  const archiveStory = useArchiveStory();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [activeTool, setActiveTool] = useState<Tool>("none");
@@ -98,6 +104,8 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
   const [showCaptionInput, setShowCaptionInput] = useState(false);
   const [audience, setAudience] = useState<"followers" | "close_friends">("followers");
   const [interactiveSetup, setInteractiveSetup] = useState<{ type: string } | null>(null);
+  const [showMusicSelector, setShowMusicSelector] = useState(false);
+  const [selectedMusic, setSelectedMusic] = useState<MusicTrack | null>(null);
 
   // Interactive sticker setup state
   const [pollQuestion, setPollQuestion] = useState("");
@@ -212,10 +220,35 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
       const { error: uploadError } = await (supabase as any).storage.from("videos").upload(filePath, mediaFile);
       if (uploadError) throw uploadError;
       const { data: urlData } = (supabase as any).storage.from("videos").getPublicUrl(filePath);
-      await createStory.mutateAsync({
+      const storyResult = await createStory.mutateAsync({
         media_url: urlData.publicUrl, media_type: mediaType,
         caption: caption || undefined, audience, duration: mediaType === "video" ? 15 : 5,
       });
+
+      // Save interactive stickers to DB
+      if (storyResult?.id && interactiveStickers.length > 0) {
+        for (const s of interactiveStickers) {
+          await addSticker.mutateAsync({
+            story_id: storyResult.id,
+            sticker_type: s.type as any,
+            position_x: s.x / 100,
+            position_y: s.y / 100,
+            data: s.data,
+          });
+        }
+      }
+
+      // Auto-archive the story
+      archiveStory.mutate({
+        original_story_id: storyResult?.id,
+        media_url: urlData.publicUrl,
+        media_type: mediaType,
+        caption: caption || undefined,
+        audience,
+        duration: mediaType === "video" ? 15 : 5,
+        stickers: interactiveStickers.map((s) => ({ type: s.type, data: s.data })),
+      });
+
       toast.success("Story posted!");
       onSuccess?.();
       onClose();
@@ -293,10 +326,11 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
             key={label || tool}
             whileTap={{ scale: 0.85 }}
             onClick={() => {
-              if (label === "music") { toast("Music coming soon!"); return; }
+              if (label === "music") { setShowMusicSelector(true); return; }
               setActiveTool(activeTool === tool ? "none" : tool);
             }}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+              label === "music" && selectedMusic ? "bg-green-500 text-white" :
               activeTool === tool ? "bg-white text-black" : "bg-black/50 text-white backdrop-blur-sm"
             }`}
           >
@@ -601,6 +635,17 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
         )}
       </AnimatePresence>
 
+      {/* Music indicator */}
+      {selectedMusic && (
+        <div className="mx-4 mb-1 flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm z-20">
+          <Music className="w-3.5 h-3.5 text-white/70" />
+          <span className="text-xs text-white/80 truncate flex-1">{selectedMusic.title} · {selectedMusic.artist}</span>
+          <button onClick={() => setSelectedMusic(null)} className="text-white/40">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Bottom toolbar */}
       <div className="flex items-center justify-between gap-3 px-4 pb-safe py-3 z-20">
         <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowCaptionInput(true)}
@@ -617,6 +662,17 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
           Share
         </motion.button>
       </div>
+
+      {/* Music selector overlay */}
+      <AnimatePresence>
+        {showMusicSelector && (
+          <MusicSelector
+            selectedTrack={selectedMusic}
+            onSelect={(track) => { setSelectedMusic(track); setShowMusicSelector(false); }}
+            onClose={() => setShowMusicSelector(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

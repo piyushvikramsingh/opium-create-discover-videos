@@ -451,6 +451,42 @@ export type Database = {
           },
         ]
       }
+      music_tracks: {
+        Row: {
+          artist: string
+          cover_url: string | null
+          created_at: string
+          duration_seconds: number | null
+          genre: string | null
+          id: string
+          is_trending: boolean | null
+          preview_url: string | null
+          title: string
+        }
+        Insert: {
+          artist: string
+          cover_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          genre?: string | null
+          id?: string
+          is_trending?: boolean | null
+          preview_url?: string | null
+          title: string
+        }
+        Update: {
+          artist?: string
+          cover_url?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          genre?: string | null
+          id?: string
+          is_trending?: boolean | null
+          preview_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           body: string | null
@@ -641,6 +677,94 @@ export type Database = {
           },
         ]
       }
+      story_archive: {
+        Row: {
+          archived_at: string
+          audience: string
+          background_color: string | null
+          caption: string | null
+          duration: number
+          id: string
+          media_type: string
+          media_url: string
+          original_created_at: string
+          original_story_id: string | null
+          stickers: Json | null
+          thumbnail_url: string | null
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string
+          audience?: string
+          background_color?: string | null
+          caption?: string | null
+          duration?: number
+          id?: string
+          media_type?: string
+          media_url: string
+          original_created_at?: string
+          original_story_id?: string | null
+          stickers?: Json | null
+          thumbnail_url?: string | null
+          user_id: string
+        }
+        Update: {
+          archived_at?: string
+          audience?: string
+          background_color?: string | null
+          caption?: string | null
+          duration?: number
+          id?: string
+          media_type?: string
+          media_url?: string
+          original_created_at?: string
+          original_story_id?: string | null
+          stickers?: Json | null
+          thumbnail_url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_archive_original_story_id_fkey"
+            columns: ["original_story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_emoji_slider_votes: {
+        Row: {
+          created_at: string
+          id: string
+          sticker_id: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sticker_id: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sticker_id?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_emoji_slider_votes_sticker_id_fkey"
+            columns: ["sticker_id"]
+            isOneToOne: false
+            referencedRelation: "story_stickers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       story_highlight_items: {
         Row: {
           added_at: string
@@ -677,6 +801,102 @@ export type Database = {
           },
         ]
       }
+      story_poll_votes: {
+        Row: {
+          created_at: string
+          id: string
+          option_index: number
+          sticker_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          option_index: number
+          sticker_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          option_index?: number
+          sticker_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_poll_votes_sticker_id_fkey"
+            columns: ["sticker_id"]
+            isOneToOne: false
+            referencedRelation: "story_stickers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_question_responses: {
+        Row: {
+          created_at: string
+          id: string
+          response_text: string
+          sticker_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          response_text: string
+          sticker_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          response_text?: string
+          sticker_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_question_responses_sticker_id_fkey"
+            columns: ["sticker_id"]
+            isOneToOne: false
+            referencedRelation: "story_stickers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_quiz_answers: {
+        Row: {
+          created_at: string
+          id: string
+          selected_index: number
+          sticker_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          selected_index: number
+          sticker_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          selected_index?: number
+          sticker_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_quiz_answers_sticker_id_fkey"
+            columns: ["sticker_id"]
+            isOneToOne: false
+            referencedRelation: "story_stickers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       story_replies: {
         Row: {
           created_at: string
@@ -702,6 +922,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "story_replies_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      story_stickers: {
+        Row: {
+          created_at: string
+          id: string
+          payload: Json
+          position_x: number
+          position_y: number
+          rotation: number
+          scale: number
+          sticker_type: string
+          story_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          position_x?: number
+          position_y?: number
+          rotation?: number
+          scale?: number
+          sticker_type: string
+          story_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payload?: Json
+          position_x?: number
+          position_y?: number
+          rotation?: number
+          scale?: number
+          sticker_type?: string
+          story_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_stickers_story_id_fkey"
             columns: ["story_id"]
             isOneToOne: false
             referencedRelation: "stories"
