@@ -4,6 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useViewStory, useReplyToStory, useDeleteStory, useStoryViewers, useStoryReplies } from "@/hooks/useStories";
+import { usePollResults, useQuizResults, useEmojiSliderAverage, useQuestionResponses } from "@/hooks/useStoryStickers";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { useStoryStickers } from "@/hooks/useStoryStickers";

@@ -1135,6 +1135,9 @@ const Profile = () => {
           onClose={() => setViewingHighlightId(null)}
         />
       )}
+      {showStoryArchive && (
+        <StoryArchive onClose={() => setShowStoryArchive(false)} />
+      )}
       {showFollowingModal && (
         <PeopleModal title="Following" people={followingList || []} onClose={() => setShowFollowingModal(false)} onOpenProfile={(id) => navigate(`/profile/${id}`)} />
       )}
