@@ -220,10 +220,35 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
       const { error: uploadError } = await (supabase as any).storage.from("videos").upload(filePath, mediaFile);
       if (uploadError) throw uploadError;
       const { data: urlData } = (supabase as any).storage.from("videos").getPublicUrl(filePath);
-      await createStory.mutateAsync({
+      const storyResult = await createStory.mutateAsync({
         media_url: urlData.publicUrl, media_type: mediaType,
         caption: caption || undefined, audience, duration: mediaType === "video" ? 15 : 5,
       });
+
+      // Save interactive stickers to DB
+      if (storyResult?.id && interactiveStickers.length > 0) {
+        for (const s of interactiveStickers) {
+          await addSticker.mutateAsync({
+            story_id: storyResult.id,
+            sticker_type: s.type as any,
+            position_x: s.x / 100,
+            position_y: s.y / 100,
+            data: s.data,
+          });
+        }
+      }
+
+      // Auto-archive the story
+      archiveStory.mutate({
+        original_story_id: storyResult?.id,
+        media_url: urlData.publicUrl,
+        media_type: mediaType,
+        caption: caption || undefined,
+        audience,
+        duration: mediaType === "video" ? 15 : 5,
+        stickers: interactiveStickers.map((s) => ({ type: s.type, data: s.data })),
+      });
+
       toast.success("Story posted!");
       onSuccess?.();
       onClose();
