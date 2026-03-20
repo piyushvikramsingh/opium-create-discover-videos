@@ -326,10 +326,11 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
             key={label || tool}
             whileTap={{ scale: 0.85 }}
             onClick={() => {
-              if (label === "music") { toast("Music coming soon!"); return; }
+              if (label === "music") { setShowMusicSelector(true); return; }
               setActiveTool(activeTool === tool ? "none" : tool);
             }}
             className={`w-11 h-11 rounded-full flex items-center justify-center transition-colors ${
+              label === "music" && selectedMusic ? "bg-green-500 text-white" :
               activeTool === tool ? "bg-white text-black" : "bg-black/50 text-white backdrop-blur-sm"
             }`}
           >
