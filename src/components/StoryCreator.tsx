@@ -82,6 +82,8 @@ const INTERACTIVE_STICKERS = [
 export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, onSuccess }: StoryCreatorProps) {
   const { user } = useAuth();
   const createStory = useCreateStory();
+  const addSticker = useAddStorySticker();
+  const archiveStory = useArchiveStory();
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [activeTool, setActiveTool] = useState<Tool>("none");
