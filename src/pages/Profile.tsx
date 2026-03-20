@@ -622,6 +622,19 @@ const Profile = () => {
               </div>
             )}
 
+            {isOwnProfile && (
+              <div className="shrink-0 text-center">
+                <button
+                  onClick={() => setShowStoryArchive(true)}
+                  className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-border/60 bg-secondary"
+                  title="Story Archive"
+                >
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                </button>
+                <p className="mt-1 text-[10px] text-muted-foreground">Archive</p>
+              </div>
+            )}
+
             {(highlights || []).map((highlight: any) => (
               <div key={highlight.id} className="shrink-0 text-center">
                 <button
