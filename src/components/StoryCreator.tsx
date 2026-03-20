@@ -104,6 +104,8 @@ export default function StoryCreator({ mediaFile, mediaUrl, mediaType, onClose, 
   const [showCaptionInput, setShowCaptionInput] = useState(false);
   const [audience, setAudience] = useState<"followers" | "close_friends">("followers");
   const [interactiveSetup, setInteractiveSetup] = useState<{ type: string } | null>(null);
+  const [showMusicSelector, setShowMusicSelector] = useState(false);
+  const [selectedMusic, setSelectedMusic] = useState<MusicTrack | null>(null);
 
   // Interactive sticker setup state
   const [pollQuestion, setPollQuestion] = useState("");
