@@ -77,6 +77,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import HighlightViewer from "@/components/HighlightViewer";
+import StoryArchive from "@/components/StoryArchive";
 import { useCreateConversation } from "@/hooks/useMessages";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -90,6 +91,7 @@ const Profile = () => {
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showHiddenVideosModal, setShowHiddenVideosModal] = useState(false);
+  const [showStoryArchive, setShowStoryArchive] = useState(false);
   const [newHighlightTitle, setNewHighlightTitle] = useState("");
   const [viewingHighlightId, setViewingHighlightId] = useState<string | null>(null);
   const [gridLayout, setGridLayout] = useState<"grid-3" | "grid-2" | "list">("grid-3");
@@ -620,6 +622,19 @@ const Profile = () => {
               </div>
             )}
 
+            {isOwnProfile && (
+              <div className="shrink-0 text-center">
+                <button
+                  onClick={() => setShowStoryArchive(true)}
+                  className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-border/60 bg-secondary"
+                  title="Story Archive"
+                >
+                  <Clock className="h-5 w-5 text-muted-foreground" />
+                </button>
+                <p className="mt-1 text-[10px] text-muted-foreground">Archive</p>
+              </div>
+            )}
+
             {(highlights || []).map((highlight: any) => (
               <div key={highlight.id} className="shrink-0 text-center">
                 <button
@@ -1119,6 +1134,9 @@ const Profile = () => {
           highlightTitle={(highlights || []).find((h: any) => h.id === viewingHighlightId)?.title || "Highlight"}
           onClose={() => setViewingHighlightId(null)}
         />
+      )}
+      {showStoryArchive && (
+        <StoryArchive onClose={() => setShowStoryArchive(false)} />
       )}
       {showFollowingModal && (
         <PeopleModal title="Following" people={followingList || []} onClose={() => setShowFollowingModal(false)} onOpenProfile={(id) => navigate(`/profile/${id}`)} />

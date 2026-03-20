@@ -4,11 +4,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useViewStory, useReplyToStory, useDeleteStory, useStoryViewers, useStoryReplies } from "@/hooks/useStories";
+import { usePollResults, useQuizResults, useEmojiSliderAverage, useQuestionResponses } from "@/hooks/useStoryStickers";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { useStoryStickers } from "@/hooks/useStoryStickers";
 import { InteractiveSticker } from "@/components/InteractiveStickers";
 import { useProfileHighlights, useAddStoryToHighlight, useCreateHighlight } from "@/hooks/useData";
+import StickerEngagementInsights from "@/components/StickerEngagementInsights";
 import { toast } from "sonner";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 
@@ -605,6 +607,7 @@ export const StoryViewer = ({
                           </div>
                         </div>
                       </div>
+                      <StickerEngagementInsights stickers={storyStickers} />
                     </motion.div>
                   )}
                 </AnimatePresence>
