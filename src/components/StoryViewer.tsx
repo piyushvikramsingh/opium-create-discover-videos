@@ -607,6 +607,7 @@ export const StoryViewer = ({
                           </div>
                         </div>
                       </div>
+                      <StickerEngagementInsights stickers={storyStickers} />
                     </motion.div>
                   )}
                 </AnimatePresence>
