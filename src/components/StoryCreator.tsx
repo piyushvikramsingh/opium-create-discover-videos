@@ -5,9 +5,13 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useCreateStory } from "@/hooks/useStories";
+import { useAddStorySticker } from "@/hooks/useStoryStickers";
+import { useArchiveStory } from "@/hooks/useStoryArchive";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
+import MusicSelector from "@/components/MusicSelector";
+import type { MusicTrack } from "@/hooks/useMusicTracks";
 
 interface StoryCreatorProps {
   mediaFile: File;
