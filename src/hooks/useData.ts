@@ -651,7 +651,7 @@ export function useForYouVideos() {
         throw rpcResult.error;
       }
 
-      const [{ hiddenVideoIds, blockedUserIds, mutedUserIds }, eventsRes, followsRes, interestsRes] = await Promise.all([
+      const [{ hiddenVideoIds, blockedUserIds, mutedUserIds }, eventsRes, followsRes, interestsRes, affinityRes] = await Promise.all([
         loadSafetyFilters(user.id),
         supabase
           .from("video_events")
@@ -665,6 +665,10 @@ export function useForYouVideos() {
           .select("interests")
           .eq("user_id", user.id)
           .maybeSingle(),
+        supabase
+          .from("user_interest_affinity")
+          .select("interest_category, score")
+          .eq("user_id", user.id),
       ]);
 
       if (eventsRes.error && !isSchemaMismatchError(eventsRes.error)) throw eventsRes.error;
@@ -718,6 +722,17 @@ export function useForYouVideos() {
 
       const creatorAffinity = new Map<string, number>();
 
+      // Auto-learned interest affinity map: category -> score
+      const interestAffinityMap = new Map<string, number>();
+      let maxAffinityScore = 0;
+      ((affinityRes as any)?.data || []).forEach((row: any) => {
+        if (row?.interest_category) {
+          const s = Number(row.score || 0);
+          interestAffinityMap.set(row.interest_category, s);
+          if (s > maxAffinityScore) maxAffinityScore = s;
+        }
+      });
+
       const filtered = (videos || [])
         .map((video: any) => withPlayableVideoUrl(video))
         .filter((video: any) => !!video.video_url)
@@ -769,6 +784,13 @@ export function useForYouVideos() {
             0,
           );
           const interestBoost = interestMatches * 10.5;
+          // Auto-learned interest affinity boost (clippy personalization)
+          const videoCategory = (video as any).interest_category as string | null;
+          const categoryAffinity = videoCategory ? (interestAffinityMap.get(videoCategory) || 0) : 0;
+          // Normalize to roughly 0..25 range so it competes with other boosts
+          const interestAffinityBoost = maxAffinityScore > 0
+            ? (categoryAffinity / maxAffinityScore) * 25
+            : 0;
           const stalePenalty = hoursSinceCreated > 24 * 14 ? 4 : 0;
 
           return {
@@ -779,6 +801,7 @@ export function useForYouVideos() {
               followingBoost +
               recencyBoost +
               interestBoost +
+              interestAffinityBoost +
               completionBoost +
               creatorBoost +
               watchDepthBoost -

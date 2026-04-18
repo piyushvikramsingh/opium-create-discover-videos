@@ -1062,6 +1062,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_interest_affinity: {
+        Row: {
+          id: string
+          interest_category: string
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          interest_category: string
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          interest_category?: string
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_mutes: {
         Row: {
           created_at: string
@@ -1199,6 +1223,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          interest_category: string | null
           likes_count: number
           music: string | null
           shares_count: number
@@ -1212,6 +1237,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          interest_category?: string | null
           likes_count?: number
           music?: string | null
           shares_count?: number
@@ -1225,6 +1251,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          interest_category?: string | null
           likes_count?: number
           music?: string | null
           shares_count?: number
@@ -1247,6 +1274,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_top_interests: {
+        Args: { _limit?: number; _user_id: string }
+        Returns: {
+          interest_category: string
+          score: number
+        }[]
+      }
       increment_story_view_count: {
         Args: { story_id: string }
         Returns: undefined

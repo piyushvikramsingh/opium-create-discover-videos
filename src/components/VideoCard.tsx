@@ -9,6 +9,7 @@ import Hls from "hls.js";
 import { useEngagementLoop } from "@/hooks/useEngagementLoop";
 import type { EngagementActionType } from "@/lib/engagementLoop";
 import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
+import { useTrackInterestAffinity } from "@/hooks/useInterestAffinity";
 
 const getNetworkTier = (): "slow" | "normal" => {
   const connection = (navigator as Navigator & {
@@ -63,6 +64,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const toggleLike = useToggleLike();
   const toggleBookmark = useToggleBookmark();
   const trackEvent = useTrackVideoEvent();
+  const trackInterest = useTrackInterestAffinity();
   const shareVideo = useShareVideo();
   const hideVideo = useHideVideo();
   const unhideVideo = useUnhideVideo();
@@ -355,13 +357,14 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
     toggleLike.mutate({ videoId: video.id, isLiked });
     if (!isLiked) {
       trackEvent.mutate({ videoId: video.id, eventType: "like" });
+      void trackInterest((video as any).interest_category, "like");
       triggerEngagementReward("like");
       if (video.user_id !== user.id) {
         setShowFollowPrompt(true);
         window.setTimeout(() => setShowFollowPrompt(false), 4500);
       }
     }
-  }, [user, navigate, toggleLike, video.id, isLiked, trackEvent, triggerEngagementReward, video.user_id]);
+  }, [user, navigate, toggleLike, video, isLiked, trackEvent, trackInterest, triggerEngagementReward]);
 
   const profile = video.profiles;
   const avatarUrl = profile?.avatar_url || `https://i.pravatar.cc/100?u=${video.user_id}`;
@@ -417,6 +420,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
       shareVideo.mutate({ videoId: video.id });
       if (user) {
         trackEvent.mutate({ videoId: video.id, eventType: "share" });
+        void trackInterest((video as any).interest_category, "share");
         triggerEngagementReward("share");
       }
     } catch {
@@ -825,6 +829,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         eventType: "view_complete",
         watchMs: Math.round(vid.currentTime * 1000),
       });
+      void trackInterest((video as any).interest_category, "view_complete");
       triggerEngagementReward("view_complete");
 
       setShowMoreLikeChip(true);
@@ -846,7 +851,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         }
       }
     }
-  }, [isActive, trackEvent, triggerEngagementReward, user, video.id]);
+  }, [isActive, trackEvent, trackInterest, triggerEngagementReward, user, video]);
 
   return (
     <div className="feed-item relative h-full w-full overflow-hidden bg-background">
