@@ -784,6 +784,13 @@ export function useForYouVideos() {
             0,
           );
           const interestBoost = interestMatches * 10.5;
+          // Auto-learned interest affinity boost (clippy personalization)
+          const videoCategory = (video as any).interest_category as string | null;
+          const categoryAffinity = videoCategory ? (interestAffinityMap.get(videoCategory) || 0) : 0;
+          // Normalize to roughly 0..25 range so it competes with other boosts
+          const interestAffinityBoost = maxAffinityScore > 0
+            ? (categoryAffinity / maxAffinityScore) * 25
+            : 0;
           const stalePenalty = hoursSinceCreated > 24 * 14 ? 4 : 0;
 
           return {
@@ -794,6 +801,7 @@ export function useForYouVideos() {
               followingBoost +
               recencyBoost +
               interestBoost +
+              interestAffinityBoost +
               completionBoost +
               creatorBoost +
               watchDepthBoost -
