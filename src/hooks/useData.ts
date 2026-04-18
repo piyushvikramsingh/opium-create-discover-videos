@@ -651,7 +651,7 @@ export function useForYouVideos() {
         throw rpcResult.error;
       }
 
-      const [{ hiddenVideoIds, blockedUserIds, mutedUserIds }, eventsRes, followsRes, interestsRes] = await Promise.all([
+      const [{ hiddenVideoIds, blockedUserIds, mutedUserIds }, eventsRes, followsRes, interestsRes, affinityRes] = await Promise.all([
         loadSafetyFilters(user.id),
         supabase
           .from("video_events")
@@ -665,6 +665,10 @@ export function useForYouVideos() {
           .select("interests")
           .eq("user_id", user.id)
           .maybeSingle(),
+        supabase
+          .from("user_interest_affinity")
+          .select("interest_category, score")
+          .eq("user_id", user.id),
       ]);
 
       if (eventsRes.error && !isSchemaMismatchError(eventsRes.error)) throw eventsRes.error;
