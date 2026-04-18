@@ -49,6 +49,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { InterestPicker } from "@/components/InterestPicker";
+import type { InterestCategory } from "@/lib/interests";
 
 const MAX_FILE_SIZE = 100 * 1024 * 1024;
 const MAX_DIRECT_UPLOAD_SIZE = 30 * 1024 * 1024;
@@ -727,6 +729,7 @@ const Create = () => {
   const [collaborators, setCollaborators] = useState("");
   const [taggedPeople, setTaggedPeople] = useState("");
   const [location, setLocation] = useState("");
+  const [interestCategory, setInterestCategory] = useState<InterestCategory | null>(null);
 
   const [audience, setAudience] = useState<Audience>("public");
   const [commentsEnabled, setCommentsEnabled] = useState(true);
@@ -1602,6 +1605,7 @@ const Create = () => {
           cross_post_reel: crossPostReel,
           cross_post_profile: crossPostProfile,
           location: location.trim() || null,
+          interest_category: interestCategory,
           hashtags: hashtagValues,
           mentions: mentionValues,
           collaborators: collaboratorValues,
