@@ -733,6 +733,8 @@ export function useForYouVideos() {
         }
       });
 
+      const filtered = (videos || [])
+        .map((video: any) => withPlayableVideoUrl(video))
         .filter((video: any) => !!video.video_url)
         .filter((video: any) => {
           if (!video?.scheduled_for) return true;
