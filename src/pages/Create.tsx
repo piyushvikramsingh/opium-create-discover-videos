@@ -2723,6 +2723,17 @@ const Create = () => {
                     />
                   </div>
                 </div>
+
+                <div className="rounded-lg border border-border p-3">
+                  <InterestPicker
+                    text={`${caption} ${location}`}
+                    value={interestCategory}
+                    onChange={setInterestCategory}
+                  />
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Helps Clippy show your video to viewers who love this topic.
+                  </p>
+                </div>
               </div>
             </div>
 
