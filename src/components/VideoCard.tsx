@@ -851,7 +851,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
         }
       }
     }
-  }, [isActive, trackEvent, triggerEngagementReward, user, video.id]);
+  }, [isActive, trackEvent, trackInterest, triggerEngagementReward, user, video]);
 
   return (
     <div className="feed-item relative h-full w-full overflow-hidden bg-background">
