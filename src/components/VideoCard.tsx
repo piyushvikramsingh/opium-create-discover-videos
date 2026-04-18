@@ -906,11 +906,34 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
       />
       <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-background/30 pointer-events-none" />
 
-      <div className="absolute left-3 top-16 z-10">
+      <div className="absolute left-3 top-16 z-10 flex flex-wrap items-center gap-1.5">
         <div className="inline-flex items-center gap-1 rounded-full bg-black/45 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm">
           <Flame className="h-3 w-3" />
           {socialProofLabel}
         </div>
+        {(video as any).interest_category && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/discover?interest=${encodeURIComponent((video as any).interest_category)}`);
+            }}
+            className="inline-flex items-center gap-1 rounded-full bg-primary/85 px-2 py-1 text-[10px] font-semibold text-primary-foreground backdrop-blur-sm hover:bg-primary"
+            title={`Why this clip: matches your interest in ${(video as any).interest_category}`}
+          >
+            <Sparkles className="h-3 w-3" />
+            {String((video as any).interest_category).charAt(0).toUpperCase() + String((video as any).interest_category).slice(1)}
+          </button>
+        )}
+        {(video as any)._surprise && (
+          <div
+            className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/85 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm"
+            title="A fresh pick outside your usual interests"
+          >
+            <Sparkles className="h-3 w-3" />
+            Surprise
+          </div>
+        )}
       </div>
 
       {sessionStreakCount > 0 && (

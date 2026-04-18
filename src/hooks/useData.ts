@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useEffect } from "react";
 import { getEngagementPersonalizationBoost, loadEngagementLoopState } from "@/lib/engagementLoop";
 import { diversifyFeedRanking } from "@/lib/feedDiversity";
+import { injectSurpriseDiscovery } from "@/lib/surpriseInjection";
 
 const lowBandwidthEnv = String(import.meta.env.VITE_LOW_BANDWIDTH_MODE || "").toLowerCase();
 const LOW_BANDWIDTH_MODE = lowBandwidthEnv === "true";
@@ -828,20 +829,36 @@ export function useForYouVideos() {
         candidateWindow: 20,
       });
 
+      // "Surprise me" discovery injection: every 5th slot, slip in a clip from
+      // a category outside the user's top interests so the feed never feels
+      // monotonous and they can discover new topics.
+      const topInterestList = Array.from(interestAffinityMap.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 3)
+        .map(([cat]) => cat);
+      const finalRanked = topInterestList.length > 0
+        ? injectSurpriseDiscovery(diversifiedRanked as any[], {
+            interval: 5,
+            topInterests: topInterestList,
+            maxInjections: 6,
+          })
+        : diversifiedRanked;
+
       logForYouTelemetry(
-        diversifiedRanked.map((video: any, index: number) => ({
+        finalRanked.map((video: any, index: number) => ({
           video_id: video.id,
           score: Number(video._finalScore || video._score || 0),
           rank_position: index + 1,
           components: {
             source: "client_fallback",
             diversity_adjustment: Number(video._diversityAdjustment || 0),
+            surprise: !!video._surprise,
             ...(video._personalization || {}),
           },
         })),
       );
 
-      return diversifiedRanked;
+      return finalRanked;
     },
   });
 }

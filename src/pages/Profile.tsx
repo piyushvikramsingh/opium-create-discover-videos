@@ -71,6 +71,7 @@ import {
   useUpdateVideo,
 } from "@/hooks/useData";
 import { useNavigate, useParams } from "react-router-dom";
+import { YourInterests } from "@/components/YourInterests";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -663,6 +664,8 @@ const Profile = () => {
             ))}
           </div>
         </div>
+
+        {isOwnProfile && user?.id && <YourInterests userId={user.id} />}
 
         {(profile?.professional_account || isOwnProfile) && !!professionalDashboard && (
           <div className="ig-list-item-enter ig-modern-card mt-5 p-4">
