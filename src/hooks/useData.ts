@@ -722,8 +722,17 @@ export function useForYouVideos() {
 
       const creatorAffinity = new Map<string, number>();
 
-      const filtered = (videos || [])
-        .map((video: any) => withPlayableVideoUrl(video))
+      // Auto-learned interest affinity map: category -> score
+      const interestAffinityMap = new Map<string, number>();
+      let maxAffinityScore = 0;
+      ((affinityRes as any)?.data || []).forEach((row: any) => {
+        if (row?.interest_category) {
+          const s = Number(row.score || 0);
+          interestAffinityMap.set(row.interest_category, s);
+          if (s > maxAffinityScore) maxAffinityScore = s;
+        }
+      });
+
         .filter((video: any) => !!video.video_url)
         .filter((video: any) => {
           if (!video?.scheduled_for) return true;
