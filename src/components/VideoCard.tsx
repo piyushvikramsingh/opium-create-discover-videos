@@ -9,6 +9,7 @@ import Hls from "hls.js";
 import { useEngagementLoop } from "@/hooks/useEngagementLoop";
 import type { EngagementActionType } from "@/lib/engagementLoop";
 import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
+import { useTrackInterestAffinity } from "@/hooks/useInterestAffinity";
 
 const getNetworkTier = (): "slow" | "normal" => {
   const connection = (navigator as Navigator & {
@@ -63,6 +64,7 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const toggleLike = useToggleLike();
   const toggleBookmark = useToggleBookmark();
   const trackEvent = useTrackVideoEvent();
+  const trackInterest = useTrackInterestAffinity();
   const shareVideo = useShareVideo();
   const hideVideo = useHideVideo();
   const unhideVideo = useUnhideVideo();
