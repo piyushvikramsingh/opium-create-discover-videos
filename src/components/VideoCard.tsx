@@ -89,9 +89,15 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
   const [showSpeedPicker, setShowSpeedPicker] = useState(false);
   const [showLikeBurst, setShowLikeBurst] = useState(false);
   const [showWhySheet, setShowWhySheet] = useState(false);
-  const [whySignals, setWhySignals] = useState<{ top: Array<{ interest_category: string; score: number }>; loading: boolean }>({ top: [], loading: false });
+  const [whySignals, setWhySignals] = useState<{
+    top: Array<{ interest_category: string; score: number }>;
+    isFollowing: boolean;
+    loading: boolean;
+  }>({ top: [], isFollowing: false, loading: false });
+  const [interestTagPressing, setInterestTagPressing] = useState(false);
   const interestTagPressTimerRef = useRef<number | null>(null);
   const interestTagLongPressedRef = useRef(false);
+  const interestTagPressStartRef = useRef<{ x: number; y: number } | null>(null);
   const { state: engagementState, recordAction } = useEngagementLoop();
   const { autoplayVideos, loopVideos, hideLikeCount, lowBandwidthMode } = useRuntimeSettings();
   const longPressTimeoutRef = useRef<number | null>(null);
