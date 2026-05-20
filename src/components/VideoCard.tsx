@@ -1333,6 +1333,63 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
               )}
             </div>
 
+            {(() => {
+              // Per-signal contribution breakdown for THIS specific clip.
+              const cat = String((video as any).interest_category || "").toLowerCase();
+              const maxAff = Math.max(1, ...whySignals.top.map((t) => Number(t.score) || 0));
+              const matchScore = whySignals.top.find((t) => t.interest_category.toLowerCase() === cat)?.score || 0;
+              const interestPct = cat ? Math.round((Number(matchScore) / maxAff) * 100) : 0;
+
+              const followPct = whySignals.isFollowing ? 100 : 0;
+
+              const ts = (video as any).created_at ? new Date((video as any).created_at).getTime() : null;
+              const hoursOld = ts ? Math.max(0, (Date.now() - ts) / 3_600_000) : 72;
+              // Decay over 72h: 100% if just posted, ~0% at 3+ days
+              const recencyPct = Math.max(0, Math.min(100, Math.round((1 - hoursOld / 72) * 100)));
+
+              const engagementRaw = (video.likes_count || 0) + (video.shares_count || 0) * 3 + (video.comments_count || 0) * 1.5;
+              const engagementPct = Math.min(100, Math.round(Math.log10(engagementRaw + 1) * 25));
+
+              const rawTotal = interestPct + followPct + recencyPct + engagementPct;
+              const norm = rawTotal > 0 ? rawTotal : 1;
+              const rows: Array<{ key: string; label: string; pct: number; share: number; note: string }> = [
+                { key: "interest", label: "Matches your interests", pct: interestPct, share: Math.round((interestPct / norm) * 100), note: cat ? (matchScore > 0 ? `${Math.round(matchScore)} pts in ${cat}` : "not in your top categories yet") : "uncategorized clip" },
+                { key: "follow", label: "You follow the creator", pct: followPct, share: Math.round((followPct / norm) * 100), note: whySignals.isFollowing ? `@${profile?.username || "creator"}` : "not following" },
+                { key: "recency", label: "Recency", pct: recencyPct, share: Math.round((recencyPct / norm) * 100), note: ts ? `${hoursOld < 24 ? `${Math.max(1, Math.round(hoursOld))}h` : `${Math.round(hoursOld / 24)}d`} old` : "unknown" },
+                { key: "trending", label: "Trending engagement", pct: engagementPct, share: Math.round((engagementPct / norm) * 100), note: `${formatCount(video.likes_count || 0)} likes · ${formatCount(video.shares_count || 0)} shares` },
+              ].sort((a, b) => b.share - a.share);
+
+              return (
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Why this clip — signal breakdown</div>
+                  {whySignals.loading ? (
+                    <div className="text-xs text-muted-foreground">Calculating…</div>
+                  ) : (
+                    <ul className="space-y-2">
+                      {rows.map((r, i) => (
+                        <li key={r.key} className="space-y-1">
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="text-foreground font-medium">
+                              {i === 0 && r.share > 0 && <span className="mr-1 text-[9px] uppercase tracking-wide text-primary">top</span>}
+                              {r.label}
+                            </span>
+                            <span className="tabular-nums text-muted-foreground">{r.share}%</span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                            <div
+                              className={`h-full rounded-full transition-all ${i === 0 ? "bg-primary" : "bg-primary/50"}`}
+                              style={{ width: `${Math.max(2, r.share)}%` }}
+                            />
+                          </div>
+                          <div className="text-[10px] text-muted-foreground">{r.note}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })()}
+
             <div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Your top interests (auto-learned)</div>
               {!user ? (
@@ -1359,32 +1416,11 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Other signals</div>
-              <div className="text-xs text-muted-foreground">
-                • Engagement on this clip: <span className="text-foreground">{formatCount(video.likes_count || 0)} likes · {formatCount(video.comments_count || 0)} comments · {formatCount(video.shares_count || 0)} shares</span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                • Recency: <span className="text-foreground">{(() => {
-                  const ts = (video as any).created_at ? new Date((video as any).created_at).getTime() : null;
-                  if (!ts) return "recent";
-                  const hours = Math.max(1, Math.round((Date.now() - ts) / 3_600_000));
-                  if (hours < 24) return `${hours}h ago`;
-                  return `${Math.round(hours / 24)}d ago`;
-                })()}</span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                • Creator: <span className="text-foreground">@{profile?.username || "user"}</span>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                • Trending boost based on shares & velocity.
-              </div>
-            </div>
-
             <div className="pt-2 text-[11px] text-muted-foreground">
-              Tip: manage these categories in Profile → Your interests.
+              Tip: manage these categories in Profile → Your interests. Down-ranked categories stay suppressed across sessions.
             </div>
           </div>
+
         </SheetContent>
       </Sheet>
     </div>
