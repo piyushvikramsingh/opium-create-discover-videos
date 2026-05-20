@@ -1256,6 +1256,87 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
       </div>
 
       <CommentsSheet videoId={video.id} open={showComments} onOpenChange={setShowComments} />
+
+      <Sheet open={showWhySheet} onOpenChange={setShowWhySheet}>
+        <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Why am I seeing this?
+            </SheetTitle>
+            <SheetDescription>
+              Signals we used to surface this clippy for you.
+            </SheetDescription>
+          </SheetHeader>
+
+          <div className="mt-4 space-y-4 text-sm">
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">This clip's category</div>
+              <div className="inline-flex items-center gap-1 rounded-full bg-primary/15 text-primary px-2.5 py-1 text-xs font-semibold">
+                <Sparkles className="h-3 w-3" />
+                {String((video as any).interest_category || "uncategorized").replace(/^\w/, (c) => c.toUpperCase())}
+              </div>
+              {(video as any)._surprise && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Marked as a <span className="text-foreground font-medium">Surprise pick</span> — outside your usual top interests to help you discover something new.
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Your top interests (auto-learned)</div>
+              {!user ? (
+                <div className="text-xs text-muted-foreground">Sign in to personalize your feed.</div>
+              ) : whySignals.loading ? (
+                <div className="text-xs text-muted-foreground">Loading…</div>
+              ) : whySignals.top.length === 0 ? (
+                <div className="text-xs text-muted-foreground">No interest data yet — keep watching and we'll learn.</div>
+              ) : (
+                <ul className="space-y-1.5">
+                  {whySignals.top.map((t) => {
+                    const isMatch = String((video as any).interest_category || "").toLowerCase() === t.interest_category.toLowerCase();
+                    return (
+                      <li key={t.interest_category} className="flex items-center justify-between gap-2">
+                        <span className={`text-xs ${isMatch ? "text-primary font-semibold" : "text-foreground"}`}>
+                          {t.interest_category.replace(/^\w/, (c) => c.toUpperCase())}
+                          {isMatch && <span className="ml-1 text-[10px] uppercase tracking-wide">match</span>}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">{Math.round(Number(t.score) || 0)} pts</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground mb-1">Other signals</div>
+              <div className="text-xs text-muted-foreground">
+                • Engagement on this clip: <span className="text-foreground">{formatCount(video.likes_count || 0)} likes · {formatCount(video.comments_count || 0)} comments · {formatCount(video.shares_count || 0)} shares</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                • Recency: <span className="text-foreground">{(() => {
+                  const ts = (video as any).created_at ? new Date((video as any).created_at).getTime() : null;
+                  if (!ts) return "recent";
+                  const hours = Math.max(1, Math.round((Date.now() - ts) / 3_600_000));
+                  if (hours < 24) return `${hours}h ago`;
+                  return `${Math.round(hours / 24)}d ago`;
+                })()}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                • Creator: <span className="text-foreground">@{profile?.username || "user"}</span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                • Trending boost based on shares & velocity.
+              </div>
+            </div>
+
+            <div className="pt-2 text-[11px] text-muted-foreground">
+              Tip: manage these categories in Profile → Your interests.
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
