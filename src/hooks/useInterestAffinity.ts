@@ -31,15 +31,19 @@ export function useTrackInterestAffinity() {
       if (weight === 0) return;
 
       try {
-        // Read current score (so we add to it; no DB function needed)
+        // Read current row including suppression multiplier so down-rank decisions
+        // persist across sessions — positive engagement is scaled down for suppressed cats.
         const { data: existing } = await supabase
           .from("user_interest_affinity")
-          .select("score")
+          .select("score, suppression_multiplier, is_suppressed")
           .eq("user_id", user.id)
           .eq("interest_category", interestCategory)
           .maybeSingle();
 
-        const nextScore = Number(existing?.score || 0) + weight;
+        const mult = Number(existing?.suppression_multiplier ?? 1) || 1;
+        // Only scale positive gains. Negative signals (hide/report) still apply at full strength.
+        const effectiveWeight = weight > 0 ? weight * mult : weight;
+        const nextScore = Math.max(0, Number(existing?.score || 0) + effectiveWeight);
 
         if (existing) {
           await supabase
