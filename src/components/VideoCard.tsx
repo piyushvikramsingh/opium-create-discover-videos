@@ -921,10 +921,43 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
             type="button"
             onClick={(e) => {
               e.stopPropagation();
+              if (interestTagLongPressedRef.current) {
+                interestTagLongPressedRef.current = false;
+                return;
+              }
               navigate(`/discover?interest=${encodeURIComponent((video as any).interest_category)}`);
             }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              interestTagLongPressedRef.current = false;
+              if (interestTagPressTimerRef.current) window.clearTimeout(interestTagPressTimerRef.current);
+              interestTagPressTimerRef.current = window.setTimeout(async () => {
+                interestTagLongPressedRef.current = true;
+                if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15);
+                setShowWhySheet(true);
+                if (user) {
+                  setWhySignals((s) => ({ ...s, loading: true }));
+                  const top = await fetchTopInterests(user.id, 5);
+                  setWhySignals({ top, loading: false });
+                }
+              }, 500);
+            }}
+            onPointerUp={(e) => {
+              e.stopPropagation();
+              if (interestTagPressTimerRef.current) {
+                window.clearTimeout(interestTagPressTimerRef.current);
+                interestTagPressTimerRef.current = null;
+              }
+            }}
+            onPointerLeave={() => {
+              if (interestTagPressTimerRef.current) {
+                window.clearTimeout(interestTagPressTimerRef.current);
+                interestTagPressTimerRef.current = null;
+              }
+            }}
+            onContextMenu={(e) => e.preventDefault()}
             className="inline-flex items-center gap-1 rounded-full bg-primary/85 px-2 py-1 text-[10px] font-semibold text-primary-foreground backdrop-blur-sm hover:bg-primary"
-            title={`Why this clip: matches your interest in ${(video as any).interest_category}`}
+            title={`Why this clip: matches your interest in ${(video as any).interest_category}. Long-press for details.`}
           >
             <Sparkles className="h-3 w-3" />
             {String((video as any).interest_category).charAt(0).toUpperCase() + String((video as any).interest_category).slice(1)}
