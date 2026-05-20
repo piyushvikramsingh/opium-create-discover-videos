@@ -44,12 +44,19 @@ export function YourInterests({ userId }: YourInterestsProps) {
   const handleDownrank = async (cat: string) => {
     setBusy(cat);
     try {
-      // Cut score in half so the category drops in ranking but isn't fully erased.
+      // Persist a sticky suppression — even if the user keeps engaging with this
+      // category, future affinity gains are scaled down so the down-rank survives sessions.
       const current = top.find((r) => r.interest_category === cat);
       const next = Math.max(0, Number(current?.score || 0) * 0.4);
       await supabase
         .from("user_interest_affinity")
-        .update({ score: next, updated_at: new Date().toISOString() })
+        .update({
+          score: next,
+          is_suppressed: true,
+          suppressed_at: new Date().toISOString(),
+          suppression_multiplier: 0.25,
+          updated_at: new Date().toISOString(),
+        })
         .eq("user_id", userId)
         .eq("interest_category", cat);
       toast.success(`Showing less ${INTEREST_LABELS[cat as InterestCategory] || cat}`);
