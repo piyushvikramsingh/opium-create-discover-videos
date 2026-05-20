@@ -11,6 +11,8 @@ import type { EngagementActionType } from "@/lib/engagementLoop";
 import { useRuntimeSettings } from "@/hooks/useRuntimeSettings";
 import { useTrackInterestAffinity, fetchTopInterests } from "@/hooks/useInterestAffinity";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { supabase as _whySupabase } from "@/integrations/supabase/client";
+const supabase: any = _whySupabase;
 
 const getNetworkTier = (): "slow" | "normal" => {
   const connection = (navigator as Navigator & {
