@@ -130,10 +130,11 @@ export function YourInterests({ userId }: YourInterestsProps) {
             const label = INTEREST_LABELS[row.interest_category as InterestCategory] || row.interest_category;
             const pct = Math.min(100, Math.round((Number(row.score) / maxScore) * 100));
             const isBusy = busy === row.interest_category;
+            const isHighlighted = highlightedCat && row.interest_category.toLowerCase() === highlightedCat;
             return (
               <li
                 key={row.interest_category}
-                className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-2"
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${isHighlighted ? "bg-primary/15 ring-2 ring-primary animate-pulse" : "bg-secondary/40"}`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
