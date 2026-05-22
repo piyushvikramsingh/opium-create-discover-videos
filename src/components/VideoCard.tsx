@@ -1455,8 +1455,23 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
               )}
             </div>
 
-            <div className="pt-2 text-[11px] text-muted-foreground">
-              Tip: manage these categories in Profile → Your interests. Down-ranked categories stay suppressed across sessions.
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const cat = String((video as any).interest_category || "");
+                  setShowWhySheet(false);
+                  const qs = cat ? `?highlight=${encodeURIComponent(cat)}` : "";
+                  navigate(`/profile${qs}#your-interests`);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Settings2 className="h-3.5 w-3.5" aria-hidden />
+                Manage "{String((video as any).interest_category || "this category").replace(/^\w/, (c) => c.toUpperCase())}" in your interests
+              </button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Down-ranked categories stay suppressed across sessions.
+              </p>
             </div>
           </div>
 
