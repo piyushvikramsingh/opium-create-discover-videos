@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Share2, Bookmark, Music, Plus, Volume2, VolumeX, MoreHorizontal, Flag, EyeOff, UserX, BellOff, Sparkles, Flame, Gauge } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Music, Plus, Volume2, VolumeX, MoreHorizontal, Flag, EyeOff, UserX, BellOff, Sparkles, Flame, Gauge, Info, Settings2 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToggleLike, useToggleBookmark, useTrackVideoEvent, useShareVideo, useHideVideo, useUnhideVideo, useBlockUser, useMuteUser, useReportVideo, useToggleFollow } from "@/hooks/useData";
