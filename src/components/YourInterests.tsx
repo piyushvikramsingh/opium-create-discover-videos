@@ -111,7 +111,7 @@ export function YourInterests({ userId }: YourInterestsProps) {
   if (isLoading) return null;
 
   return (
-    <div className="ig-list-item-enter ig-modern-card mt-5 p-4">
+    <div ref={sectionRef} id="your-interests" className="ig-list-item-enter ig-modern-card mt-5 p-4 scroll-mt-20">
       <div className="flex items-center justify-between gap-2">
         <div className="inline-flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
