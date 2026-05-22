@@ -14,7 +14,27 @@ interface YourInterestsProps {
 
 export function YourInterests({ userId }: YourInterestsProps) {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const sectionRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [highlightedCat, setHighlightedCat] = useState<string | null>(null);
+
+  // Read ?highlight=<cat> + #your-interests deep link from the Why-am-I-seeing-this sheet.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hl = params.get("highlight");
+    if (hl) {
+      setHighlightedCat(hl.toLowerCase());
+      const t = window.setTimeout(() => setHighlightedCat(null), 4000);
+      return () => window.clearTimeout(t);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (location.hash === "#your-interests" && sectionRef.current) {
+      sectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [location.hash, location.search]);
 
   const { data: rows, refetch, isLoading } = useQuery({
     queryKey: ["user-interest-affinity", userId],
