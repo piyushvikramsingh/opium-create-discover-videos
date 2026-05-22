@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, RotateCcw, ArrowDown, X } from "lucide-react";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { INTEREST_LABELS, type InterestCategory } from "@/lib/interests";
 import { toast } from "sonner";
+import { useLocation } from "react-router-dom";
 
 const supabase: any = _supabase;
 
