@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Share2, Bookmark, Music, Plus, Volume2, VolumeX, MoreHorizontal, Flag, EyeOff, UserX, BellOff, Sparkles, Flame, Gauge } from "lucide-react";
+import { Heart, MessageCircle, Share2, Bookmark, Music, Plus, Volume2, VolumeX, MoreHorizontal, Flag, EyeOff, UserX, BellOff, Sparkles, Flame, Gauge, Info, Settings2 } from "lucide-react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToggleLike, useToggleBookmark, useTrackVideoEvent, useShareVideo, useHideVideo, useUnhideVideo, useBlockUser, useMuteUser, useReportVideo, useToggleFollow } from "@/hooks/useData";
@@ -924,95 +924,134 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
           <Flame className="h-3 w-3" />
           {socialProofLabel}
         </div>
-        {(video as any).interest_category && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (interestTagLongPressedRef.current) {
-                interestTagLongPressedRef.current = false;
-                return;
-              }
-              navigate(`/discover?interest=${encodeURIComponent((video as any).interest_category)}`);
-            }}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              interestTagLongPressedRef.current = false;
-              interestTagPressStartRef.current = { x: e.clientX, y: e.clientY };
-              if (interestTagPressTimerRef.current) window.clearTimeout(interestTagPressTimerRef.current);
-              setInterestTagPressing(true);
-              interestTagPressTimerRef.current = window.setTimeout(async () => {
-                interestTagLongPressedRef.current = true;
-                setInterestTagPressing(false);
-                if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15);
-                setShowWhySheet(true);
-                if (user) {
-                  setWhySignals((s) => ({ ...s, loading: true }));
-                  const [top, followRes] = await Promise.all([
-                    fetchTopInterests(user.id, 5),
-                    (supabase as any)
-                      .from("follows")
-                      .select("id")
-                      .eq("follower_id", user.id)
-                      .eq("following_id", video.user_id)
-                      .maybeSingle(),
-                  ] as any);
-                  setWhySignals({
-                    top,
-                    isFollowing: !!followRes?.data,
-                    loading: false,
-                  });
-                }
-              }, 500);
-            }}
-            onPointerMove={(e) => {
-              const start = interestTagPressStartRef.current;
-              if (!start) return;
-              const dx = Math.abs(e.clientX - start.x);
-              const dy = Math.abs(e.clientY - start.y);
-              if (dx > 8 || dy > 8) {
-                if (interestTagPressTimerRef.current) {
-                  window.clearTimeout(interestTagPressTimerRef.current);
-                  interestTagPressTimerRef.current = null;
-                }
-                setInterestTagPressing(false);
-                interestTagPressStartRef.current = null;
-              }
-            }}
-            onPointerUp={(e) => {
-              e.stopPropagation();
-              setInterestTagPressing(false);
-              interestTagPressStartRef.current = null;
-              if (interestTagPressTimerRef.current) {
-                window.clearTimeout(interestTagPressTimerRef.current);
-                interestTagPressTimerRef.current = null;
-              }
-            }}
-            onPointerLeave={() => {
-              setInterestTagPressing(false);
-              interestTagPressStartRef.current = null;
-              if (interestTagPressTimerRef.current) {
-                window.clearTimeout(interestTagPressTimerRef.current);
-                interestTagPressTimerRef.current = null;
-              }
-            }}
-            onContextMenu={(e) => e.preventDefault()}
-            className="relative inline-flex select-none items-center gap-1 overflow-hidden rounded-full bg-primary/85 px-2 py-1 text-[10px] font-semibold text-primary-foreground backdrop-blur-sm hover:bg-primary"
-            style={{ touchAction: "manipulation" }}
-            title={`Why this clip: matches your interest in ${(video as any).interest_category}. Long-press for details.`}
-          >
-            {interestTagPressing && (
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-y-0 left-0 bg-primary-foreground/30 animate-[interest-press_500ms_linear_forwards]"
-              />
-            )}
-            <Sparkles className="relative h-3 w-3" />
-            <span className="relative">
-              {String((video as any).interest_category).charAt(0).toUpperCase() + String((video as any).interest_category).slice(1)}
-            </span>
-          </button>
-        )}
+        {(video as any).interest_category && (() => {
+          const cat = String((video as any).interest_category);
+          const catLabel = cat.charAt(0).toUpperCase() + cat.slice(1);
+          const openWhySheet = async () => {
+            if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(15);
+            setShowWhySheet(true);
+            if (user) {
+              setWhySignals((s) => ({ ...s, loading: true }));
+              const [top, followRes] = await Promise.all([
+                fetchTopInterests(user.id, 5),
+                (supabase as any)
+                  .from("follows")
+                  .select("id")
+                  .eq("follower_id", user.id)
+                  .eq("following_id", video.user_id)
+                  .maybeSingle(),
+              ] as any);
+              setWhySignals({
+                top,
+                isFollowing: !!followRes?.data,
+                loading: false,
+              });
+            }
+          };
+          return (
+            <div className="inline-flex items-center gap-1" role="group" aria-label={`Interest tag ${catLabel}`}>
+              <button
+                type="button"
+                aria-label={`Filter Discover by ${catLabel}. Press Shift+Enter or use the adjacent info button to learn why you're seeing this clip.`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (interestTagLongPressedRef.current) {
+                    interestTagLongPressedRef.current = false;
+                    return;
+                  }
+                  navigate(`/discover?interest=${encodeURIComponent(cat)}`);
+                }}
+                onKeyDown={(e) => {
+                  // Keyboard-accessible equivalent of long-press: Shift+Enter or
+                  // Alt+Enter opens the "Why am I seeing this?" sheet without
+                  // needing to hold a pointer.
+                  if ((e.key === "Enter" && (e.shiftKey || e.altKey)) || e.key === "?") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    interestTagLongPressedRef.current = true;
+                    void openWhySheet();
+                  }
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  interestTagLongPressedRef.current = false;
+                  interestTagPressStartRef.current = { x: e.clientX, y: e.clientY };
+                  if (interestTagPressTimerRef.current) window.clearTimeout(interestTagPressTimerRef.current);
+                  setInterestTagPressing(true);
+                  interestTagPressTimerRef.current = window.setTimeout(() => {
+                    interestTagLongPressedRef.current = true;
+                    setInterestTagPressing(false);
+                    void openWhySheet();
+                  }, 500);
+                }}
+                onPointerMove={(e) => {
+                  const start = interestTagPressStartRef.current;
+                  if (!start) return;
+                  const dx = Math.abs(e.clientX - start.x);
+                  const dy = Math.abs(e.clientY - start.y);
+                  if (dx > 8 || dy > 8) {
+                    if (interestTagPressTimerRef.current) {
+                      window.clearTimeout(interestTagPressTimerRef.current);
+                      interestTagPressTimerRef.current = null;
+                    }
+                    setInterestTagPressing(false);
+                    interestTagPressStartRef.current = null;
+                  }
+                }}
+                onPointerUp={(e) => {
+                  e.stopPropagation();
+                  setInterestTagPressing(false);
+                  interestTagPressStartRef.current = null;
+                  if (interestTagPressTimerRef.current) {
+                    window.clearTimeout(interestTagPressTimerRef.current);
+                    interestTagPressTimerRef.current = null;
+                  }
+                }}
+                onPointerLeave={() => {
+                  setInterestTagPressing(false);
+                  interestTagPressStartRef.current = null;
+                  if (interestTagPressTimerRef.current) {
+                    window.clearTimeout(interestTagPressTimerRef.current);
+                    interestTagPressTimerRef.current = null;
+                  }
+                }}
+                onContextMenu={(e) => {
+                  // Right-click / two-finger tap is a non-touch equivalent of long-press.
+                  e.preventDefault();
+                  e.stopPropagation();
+                  interestTagLongPressedRef.current = true;
+                  void openWhySheet();
+                }}
+                className="relative inline-flex select-none items-center gap-1 overflow-hidden rounded-full bg-primary/85 px-2 py-1 text-[10px] font-semibold text-primary-foreground backdrop-blur-sm hover:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                style={{ touchAction: "manipulation" }}
+                title={`Why this clip: matches your interest in ${cat}. Long-press, right-click, or press Shift+Enter for details.`}
+              >
+                {interestTagPressing && (
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 left-0 bg-primary-foreground/30 animate-[interest-press_500ms_linear_forwards]"
+                  />
+                )}
+                <Sparkles className="relative h-3 w-3" aria-hidden />
+                <span className="relative">{catLabel}</span>
+              </button>
+              <button
+                type="button"
+                aria-label={`Why am I seeing this clip? Opens recommendation signals for ${catLabel}.`}
+                aria-haspopup="dialog"
+                aria-expanded={showWhySheet}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  interestTagLongPressedRef.current = true;
+                  void openWhySheet();
+                }}
+                className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm hover:bg-black/65 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              >
+                <Info className="h-3 w-3" aria-hidden />
+              </button>
+            </div>
+          );
+        })()}
         {(video as any)._surprise && (
           <div
             className="inline-flex items-center gap-1 rounded-full bg-fuchsia-500/85 px-2 py-1 text-[10px] font-semibold text-white backdrop-blur-sm"
@@ -1416,8 +1455,23 @@ const VideoCard = ({ video, isLiked, isBookmarked, isActive, isNearActive, isMut
               )}
             </div>
 
-            <div className="pt-2 text-[11px] text-muted-foreground">
-              Tip: manage these categories in Profile → Your interests. Down-ranked categories stay suppressed across sessions.
+            <div className="pt-2 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const cat = String((video as any).interest_category || "");
+                  setShowWhySheet(false);
+                  const qs = cat ? `?highlight=${encodeURIComponent(cat)}` : "";
+                  navigate(`/profile${qs}#your-interests`);
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                <Settings2 className="h-3.5 w-3.5" aria-hidden />
+                Manage "{String((video as any).interest_category || "this category").replace(/^\w/, (c) => c.toUpperCase())}" in your interests
+              </button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Down-ranked categories stay suppressed across sessions.
+              </p>
             </div>
           </div>
 

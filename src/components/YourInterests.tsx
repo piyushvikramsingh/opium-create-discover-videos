@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, RotateCcw, ArrowDown, X } from "lucide-react";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { INTEREST_LABELS, type InterestCategory } from "@/lib/interests";
 import { toast } from "sonner";
+import { useLocation } from "react-router-dom";
 
 const supabase: any = _supabase;
 
@@ -13,7 +14,27 @@ interface YourInterestsProps {
 
 export function YourInterests({ userId }: YourInterestsProps) {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  const sectionRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [highlightedCat, setHighlightedCat] = useState<string | null>(null);
+
+  // Read ?highlight=<cat> + #your-interests deep link from the Why-am-I-seeing-this sheet.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const hl = params.get("highlight");
+    if (hl) {
+      setHighlightedCat(hl.toLowerCase());
+      const t = window.setTimeout(() => setHighlightedCat(null), 4000);
+      return () => window.clearTimeout(t);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    if (location.hash === "#your-interests" && sectionRef.current) {
+      sectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [location.hash, location.search]);
 
   const { data: rows, refetch, isLoading } = useQuery({
     queryKey: ["user-interest-affinity", userId],
@@ -90,7 +111,7 @@ export function YourInterests({ userId }: YourInterestsProps) {
   if (isLoading) return null;
 
   return (
-    <div className="ig-list-item-enter ig-modern-card mt-5 p-4">
+    <div ref={sectionRef} id="your-interests" className="ig-list-item-enter ig-modern-card mt-5 p-4 scroll-mt-20">
       <div className="flex items-center justify-between gap-2">
         <div className="inline-flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-primary" />
@@ -109,10 +130,11 @@ export function YourInterests({ userId }: YourInterestsProps) {
             const label = INTEREST_LABELS[row.interest_category as InterestCategory] || row.interest_category;
             const pct = Math.min(100, Math.round((Number(row.score) / maxScore) * 100));
             const isBusy = busy === row.interest_category;
+            const isHighlighted = highlightedCat && row.interest_category.toLowerCase() === highlightedCat;
             return (
               <li
                 key={row.interest_category}
-                className="flex items-center gap-3 rounded-lg bg-secondary/40 px-3 py-2"
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${isHighlighted ? "bg-primary/15 ring-2 ring-primary animate-pulse" : "bg-secondary/40"}`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-2">
