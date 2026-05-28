@@ -1466,7 +1466,7 @@ const Inbox = () => {
               <MessageCircle className="h-3.5 w-3.5" />
               Primary
             </span>
-            {activeTab === "primary" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
+            {activeTab === "primary" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-primary" />}
           </button>
           <button
             onClick={() => setActiveTab("community")}
@@ -1484,7 +1484,7 @@ const Inbox = () => {
                 </span>
               )}
             </span>
-            {activeTab === "community" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
+            {activeTab === "community" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-primary" />}
           </button>
           <button
             onClick={() => setActiveTab("requests")}
@@ -1502,7 +1502,7 @@ const Inbox = () => {
                 </span>
               )}
             </span>
-            {activeTab === "requests" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
+            {activeTab === "requests" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-primary" />}
           </button>
         </div>
       </div>
