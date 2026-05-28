@@ -446,7 +446,7 @@ const Settings = () => {
 
       <div className="px-4 py-4">
         <section className="mb-4 overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/20 via-background to-cyan-500/10 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account center</p>
+          <p className="ig-section-label">Account center</p>
           <div className="mt-2">
             <p className="text-lg font-semibold text-foreground">{displayName || username || "Your account"}</p>
             <p className="text-xs text-muted-foreground">@{username || "username"}</p>
@@ -472,7 +472,7 @@ const Settings = () => {
         </section>
 
         <section className="ig-modern-card mb-4 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick access</p>
+          <p className="ig-section-label">Quick access</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
             <Button variant="secondary" size="sm" onClick={() => navigate("/engagement")}>Engagement</Button>
             <Button variant="secondary" size="sm" onClick={() => navigate("/live")}>Live</Button>
@@ -500,7 +500,7 @@ const Settings = () => {
 
           <TabsContent value="account" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <UserRound className="h-3.5 w-3.5" /> Personal details
               </p>
               <div className="mt-3 space-y-2">
@@ -516,7 +516,7 @@ const Settings = () => {
             </section>
 
             <section className="rounded-2xl panel-surface p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Password and security</p>
+              <p className="ig-section-label">Password and security</p>
               <div className="mt-3 space-y-3">
                 <div className="space-y-2">
                   <Input value={accountEmail} onChange={(event) => setAccountEmail(event.target.value)} placeholder="Login email" type="email" />
@@ -551,7 +551,7 @@ const Settings = () => {
             </section>
 
             <section className="rounded-2xl panel-surface p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Account controls</p>
+              <p className="ig-section-label">Account controls</p>
               <div className="mt-3 space-y-3">
                 <div>
                   <p className="mb-1 text-sm font-medium text-foreground">Linked accounts</p>
@@ -586,7 +586,7 @@ const Settings = () => {
 
           <TabsContent value="notifications" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <Bell className="h-3.5 w-3.5" /> Notifications
               </p>
               <div className="mt-3 space-y-3">
@@ -695,7 +695,7 @@ const Settings = () => {
 
           <TabsContent value="privacy" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <Lock className="h-3.5 w-3.5" /> Account privacy
               </p>
               <div className="mt-3 space-y-3">
@@ -755,7 +755,7 @@ const Settings = () => {
 
           <TabsContent value="security" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <ShieldCheck className="h-3.5 w-3.5" /> Account protection
               </p>
               <div className="mt-3 space-y-3">
@@ -782,7 +782,7 @@ const Settings = () => {
             </section>
 
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <BellOff className="h-3.5 w-3.5" /> Inbox controls
               </p>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -804,7 +804,7 @@ const Settings = () => {
             </section>
 
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <VideoOff className="h-3.5 w-3.5" /> Hidden videos
               </p>
               <p className="mt-1 text-xs text-muted-foreground">Manage videos you've hidden from your feed.</p>
@@ -829,7 +829,7 @@ const Settings = () => {
             </section>
 
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <Lock className="h-3.5 w-3.5" /> Blocked accounts
               </p>
               <div className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
@@ -859,7 +859,7 @@ const Settings = () => {
             </section>
 
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <VolumeX className="h-3.5 w-3.5" /> Muted accounts
               </p>
               <div className="mt-3 max-h-52 space-y-1 overflow-y-auto rounded-lg border border-border/60 p-2">
@@ -891,7 +891,7 @@ const Settings = () => {
 
           <TabsContent value="creator" className="space-y-3">
             <section className="rounded-2xl border border-border p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Creator account</p>
+              <p className="ig-section-label">Creator account</p>
               <div className="mt-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -931,7 +931,7 @@ const Settings = () => {
 
             {!!profile?.is_admin && (
               <section className="rounded-2xl panel-surface p-4">
-                <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <p className="inline-flex items-center gap-2 ig-section-label">
                   <Shield className="h-3.5 w-3.5" /> Admin controls
                 </p>
                 <div className="mt-3 space-y-3">
@@ -960,7 +960,7 @@ const Settings = () => {
 
           <TabsContent value="payments" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <CreditCard className="h-3.5 w-3.5" /> Payments and earnings
               </p>
               <div className="mt-3 space-y-3">
@@ -1009,7 +1009,7 @@ const Settings = () => {
 
           <TabsContent value="data" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <HardDrive className="h-3.5 w-3.5" /> Data and storage
               </p>
               <div className="mt-3 space-y-3">
@@ -1057,7 +1057,7 @@ const Settings = () => {
 
           <TabsContent value="help" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <HelpCircle className="h-3.5 w-3.5" /> Help and support
               </p>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -1077,7 +1077,7 @@ const Settings = () => {
 
           <TabsContent value="business" className="space-y-3">
             <section className="ig-modern-card p-4">
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <p className="inline-flex items-center gap-2 ig-section-label">
                 <Briefcase className="h-3.5 w-3.5" /> Opium for Business
               </p>
               <p className="mt-2 text-sm text-foreground">
@@ -1109,7 +1109,7 @@ const Settings = () => {
 
           <TabsContent value="content" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Content preferences</p>
+              <p className="ig-section-label">Content preferences</p>
               <div className="mt-3 space-y-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Content interests</p>
@@ -1188,7 +1188,7 @@ const Settings = () => {
 
           <TabsContent value="interactions" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Interactions</p>
+              <p className="ig-section-label">Interactions</p>
               <div className="mt-3 space-y-3">
                 <div>
                   <p className="text-sm font-medium text-foreground">Story replies</p>
@@ -1318,7 +1318,7 @@ const Settings = () => {
 
           <TabsContent value="ads" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ad preferences</p>
+              <p className="ig-section-label">Ad preferences</p>
               <div className="mt-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-foreground">Ads based on your activity</p>
@@ -1351,7 +1351,7 @@ const Settings = () => {
 
           <TabsContent value="accessibility" className="space-y-3">
             <section className="rounded-2xl panel-surface p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Accessibility and display</p>
+              <p className="ig-section-label">Accessibility and display</p>
               <div className="mt-3 space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-foreground">Auto captions</p>

@@ -1118,7 +1118,7 @@ const Inbox = () => {
       {incomingFollowRequests.length > 0 && (
         <div className="border-b border-border/60 bg-background px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Follow Requests</p>
+            <p className="ig-section-label">Follow Requests</p>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-foreground">
               {incomingFollowRequests.length}
             </span>
@@ -1229,7 +1229,7 @@ const Inbox = () => {
         <div className="border-b border-border/60 px-4 py-3">
           <div className="mb-2 flex items-center gap-1.5">
             <TrendingUp className="h-3.5 w-3.5 text-primary" />
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top Streaks</p>
+            <p className="ig-section-label">Top Streaks</p>
           </div>
           <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
             {[...(streaks as ChatStreak[])]
