@@ -1459,7 +1459,7 @@ const Inbox = () => {
             onClick={() => setActiveTab("primary")}
             data-active={activeTab === "primary"}
             className={`relative px-1 py-1 transition-colors duration-200 ${
-              activeTab === "primary" ? "text-foreground" : "text-muted-foreground"
+              activeTab === "primary" ? "text-primary" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -1472,7 +1472,7 @@ const Inbox = () => {
             onClick={() => setActiveTab("community")}
             data-active={activeTab === "community"}
             className={`relative px-1 py-1 transition-colors duration-200 ${
-              activeTab === "community" ? "text-foreground" : "text-muted-foreground"
+              activeTab === "community" ? "text-primary" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -1490,7 +1490,7 @@ const Inbox = () => {
             onClick={() => setActiveTab("requests")}
             data-active={activeTab === "requests"}
             className={`relative px-1 py-1 transition-colors duration-200 ${
-              activeTab === "requests" ? "text-foreground" : "text-muted-foreground"
+              activeTab === "requests" ? "text-primary" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
