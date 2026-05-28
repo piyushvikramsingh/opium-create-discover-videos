@@ -989,13 +989,15 @@ const Inbox = () => {
                 <button
                   key={item.convoId}
                   onClick={() => openConversation(item.convoId, other)}
-                  className="ig-tap relative shrink-0 rounded-xl border border-border/60 bg-background p-2 transition-colors hover:bg-secondary/25"
+                  className="ig-tap relative shrink-0 rounded-2xl p-1.5 transition-colors hover:bg-secondary/40"
                 >
-                  <img
-                    src={avatarUrl}
-                    alt={other.display_name}
-                    className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/30"
-                  />
+                  <span className={item.unreadCount > 0 ? "ig-story-ring inline-block" : "ig-story-ring ig-story-ring--muted inline-block"}>
+                    <img
+                      src={avatarUrl}
+                      alt={other.display_name}
+                      className="block h-14 w-14 rounded-full object-cover ring-2 ring-background"
+                    />
+                  </span>
                   {quickStatusMeta && (
                     <span
                       key={`${item.convoId}-${quickStatusMeta.label}`}
