@@ -842,7 +842,7 @@ const Inbox = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 {lastMsg?.created_at && (
-                  <span className={`text-[10px] ${isUnread ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  <span className={`text-[11px] ${isUnread ? "font-semibold text-primary" : "text-muted-foreground"}`}>
                     {formatTime(lastMsg.created_at)}
                   </span>
                 )}
