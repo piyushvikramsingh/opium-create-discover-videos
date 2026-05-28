@@ -462,47 +462,62 @@ const Profile = () => {
       </div>
 
       <div className="px-4 pt-5">
-        <div className="flex items-start gap-4">
-          <div className="h-20 w-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden shrink-0 ring-1 ring-border/70 text-2xl font-bold text-muted-foreground">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              (profile?.display_name?.[0] || "U").toUpperCase()
-            )}
-          </div>
+        <div className="flex items-center gap-5">
+          <button
+            onClick={() => isOwnProfile && setShowEditModal(true)}
+            className="ig-tap shrink-0"
+            aria-label="Profile photo"
+          >
+            <span className="ig-story-ring inline-block">
+              <span className="block h-[88px] w-[88px] overflow-hidden rounded-full bg-secondary ring-2 ring-background">
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-2xl font-bold text-muted-foreground">
+                    {(profile?.display_name?.[0] || "U").toUpperCase()}
+                  </span>
+                )}
+              </span>
+            </span>
+          </button>
 
-          <div className="flex-1">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <button onClick={() => setActiveTab("posts")} className="ig-tap p-1">
-                <p className="text-lg font-bold text-foreground">{displayStats.posts}</p>
-                <p className="text-xs text-muted-foreground">Posts</p>
+          <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-3 gap-1">
+              <button onClick={() => setActiveTab("posts")} className="ig-tap ig-stat">
+                <span className="ig-stat-value">{displayStats.posts}</span>
+                <span className="ig-stat-label">Posts</span>
               </button>
-              <button onClick={() => setShowFollowersModal(true)} className="ig-tap p-1">
-                <p className="text-lg font-bold text-foreground">{displayStats.followers}</p>
-                <p className="text-xs text-muted-foreground">Followers</p>
+              <button onClick={() => setShowFollowersModal(true)} className="ig-tap ig-stat">
+                <span className="ig-stat-value">{displayStats.followers}</span>
+                <span className="ig-stat-label">Followers</span>
               </button>
-              <button onClick={() => setShowFollowingModal(true)} className="ig-tap p-1">
-                <p className="text-lg font-bold text-foreground">{displayStats.following}</p>
-                <p className="text-xs text-muted-foreground">Following</p>
+              <button onClick={() => setShowFollowingModal(true)} className="ig-tap ig-stat">
+                <span className="ig-stat-value">{displayStats.following}</span>
+                <span className="ig-stat-label">Following</span>
               </button>
             </div>
           </div>
         </div>
 
-        <div className="mt-3">
+        <div className="mt-4">
           <div className="flex items-center gap-1.5">
             <p className="ig-type-h2 text-foreground">{profile?.display_name || "User"}</p>
+            {profile?.is_verified && <BadgeCheck className="h-4 w-4 text-primary" />}
             {profile?.is_private && <Lock className="h-3.5 w-3.5 text-muted-foreground" />}
           </div>
-          {profile?.category && <p className="mt-0.5 text-xs text-muted-foreground">{profile.category}</p>}
-          <p className="mt-1 text-sm text-foreground/90 whitespace-pre-line">{profile?.bio || "No bio yet."}</p>
+          {profile?.category && (
+            <p className="mt-0.5 inline-block rounded-full bg-secondary/50 px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              {profile.category}
+            </p>
+          )}
+          <p className="mt-1.5 text-sm leading-relaxed text-foreground/90 whitespace-pre-line">{profile?.bio || "No bio yet."}</p>
           {!!profile?.website_url && (
-            <a href={profile.website_url} target="_blank" rel="noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-primary">
+            <a href={profile.website_url} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               <LinkIcon className="h-3.5 w-3.5" />
-              {profile.website_url}
+              {profile.website_url.replace(/^https?:\/\//, "")}
             </a>
           )}
-          {activityText && <p className="mt-1 text-[11px] text-muted-foreground">{activityText}</p>}
+          {activityText && <p className="mt-1.5 text-[11px] text-muted-foreground">{activityText}</p>}
         </div>
 
         {!isOwnProfile && !!mutualFollowers?.length && (
