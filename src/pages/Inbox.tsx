@@ -817,15 +817,18 @@ const Inbox = () => {
             handleConversationLongPressEnd();
           }}
           onTouchCancel={() => handleConversationLongPressEnd()}
-          className={`ig-tap group relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-secondary/40 ${
-            isUnread
-              ? "bg-primary/5"
-              : "bg-background"
+          className={`ig-tap ig-row group relative flex w-full items-center gap-3 px-4 py-3 text-left ${
+            isUnread ? "bg-primary/[0.04]" : ""
           } ${isSwiped ? "-translate-x-36" : "translate-x-0"}`}
         >
-          <div className="relative">
-            <img src={avatarUrl} alt={other.display_name} className="h-11 w-11 rounded-full object-cover ring-2 ring-background transition-transform duration-200 group-hover:scale-[1.02]" />
-            {isUnread && <Circle className="absolute -right-0.5 top-0 h-3.5 w-3.5 fill-primary text-primary" />}
+          <div className="relative shrink-0">
+            {isUnread ? (
+              <span className="ig-story-ring inline-block">
+                <img src={avatarUrl} alt={other.display_name} className="block h-12 w-12 rounded-full object-cover ring-2 ring-background" />
+              </span>
+            ) : (
+              <img src={avatarUrl} alt={other.display_name} className="block h-12 w-12 rounded-full object-cover" />
+            )}
           </div>
           <div className="flex-1 overflow-hidden text-left">
             <div className="flex items-center justify-between">
