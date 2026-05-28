@@ -1028,7 +1028,7 @@ const Inbox = () => {
       {/* Instagram-style Notes — speech bubble above avatar */}
       <div className="border-b border-border/60 bg-background px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+          <p className="ig-section-label">Notes</p>
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Timer className="h-3 w-3" />
             24h
