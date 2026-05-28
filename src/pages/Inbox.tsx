@@ -977,7 +977,7 @@ const Inbox = () => {
       {/* Quick Chats */}
       {!!quickContacts.length && (
         <div className="border-b border-border/60 bg-background px-4 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Chats</p>
+          <p className="ig-section-label mb-2">Quick Chats</p>
           <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-1">
             {quickContacts.map((item) => {
               const other = item.other!;
