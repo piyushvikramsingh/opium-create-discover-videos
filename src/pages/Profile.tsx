@@ -582,7 +582,7 @@ const Profile = () => {
 
         {isOwnProfile && !!incomingFollowRequests?.length && (
           <div className="ig-list-item-enter ig-modern-card mt-4 p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Follow Requests</p>
+            <p className="ig-section-label">Follow Requests</p>
             <div className="mt-2 space-y-2">
               {incomingFollowRequests.slice(0, 3).map((request: any) => (
                 <div key={request.id} className="flex items-center gap-2">
@@ -733,7 +733,7 @@ const Profile = () => {
 
             <div className="mt-3 rounded-lg bg-secondary/35 p-3">
               <div className="mb-2 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Content interactions</p>
+                <p className="ig-section-label">Content interactions</p>
                 <p className="text-[10px] text-muted-foreground">Last 7 days</p>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
@@ -755,7 +755,7 @@ const Profile = () => {
             {!!professionalDashboard.topContent.length && (
               <div className="mt-3 rounded-lg bg-secondary/35 p-3">
                 <div className="mb-2 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top content</p>
+                  <p className="ig-section-label">Top content</p>
                   <button
                     onClick={() => navigate("/clipy")}
                     className="text-[10px] font-semibold text-primary"
@@ -821,7 +821,7 @@ const Profile = () => {
 
         {!isOwnProfile && !!suggestedUsers?.length && (
           <div className="mt-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Suggested Accounts</p>
+            <p className="mb-2 ig-section-label">Suggested Accounts</p>
             <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-1">
               {suggestedUsers.map((suggested: any) => (
                 <button
@@ -1639,7 +1639,7 @@ function EditProfileModal({
           </div>
 
           <div className="rounded-xl border border-border p-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Custom Links</p>
+            <p className="mb-2 ig-section-label">Custom Links</p>
             <div className="space-y-2">
               {links.map((link: any) => (
                 <div key={link.id} className="flex items-center gap-2">
@@ -1712,7 +1712,7 @@ function EditVideoModal({
           </div>
         )}
         <div>
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="mb-1 block ig-section-label">
             Caption
           </label>
           <Textarea

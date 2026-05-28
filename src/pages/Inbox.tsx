@@ -817,15 +817,18 @@ const Inbox = () => {
             handleConversationLongPressEnd();
           }}
           onTouchCancel={() => handleConversationLongPressEnd()}
-          className={`ig-tap group relative flex w-full items-center gap-3 px-4 py-3 text-left transition-colors active:bg-secondary/40 ${
-            isUnread
-              ? "bg-primary/5"
-              : "bg-background"
+          className={`ig-tap ig-row group relative flex w-full items-center gap-3 px-4 py-3 text-left ${
+            isUnread ? "bg-primary/[0.04]" : ""
           } ${isSwiped ? "-translate-x-36" : "translate-x-0"}`}
         >
-          <div className="relative">
-            <img src={avatarUrl} alt={other.display_name} className="h-11 w-11 rounded-full object-cover ring-2 ring-background transition-transform duration-200 group-hover:scale-[1.02]" />
-            {isUnread && <Circle className="absolute -right-0.5 top-0 h-3.5 w-3.5 fill-primary text-primary" />}
+          <div className="relative shrink-0">
+            {isUnread ? (
+              <span className="ig-story-ring inline-block">
+                <img src={avatarUrl} alt={other.display_name} className="block h-12 w-12 rounded-full object-cover ring-2 ring-background" />
+              </span>
+            ) : (
+              <img src={avatarUrl} alt={other.display_name} className="block h-12 w-12 rounded-full object-cover" />
+            )}
           </div>
           <div className="flex-1 overflow-hidden text-left">
             <div className="flex items-center justify-between">
@@ -839,7 +842,7 @@ const Inbox = () => {
               </div>
               <div className="flex items-center gap-1.5">
                 {lastMsg?.created_at && (
-                  <span className={`text-[10px] ${isUnread ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+                  <span className={`text-[11px] ${isUnread ? "font-semibold text-primary" : "text-muted-foreground"}`}>
                     {formatTime(lastMsg.created_at)}
                   </span>
                 )}
@@ -953,9 +956,10 @@ const Inbox = () => {
                     </span>
                   )}
                   {isUnread && (
-                    <span className="rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">
-                      {unreadCount > 9 ? "9+" : unreadCount > 0 ? unreadCount : "1"}
-                    </span>
+                    <span
+                      className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                      aria-label={unreadCount > 1 ? `${unreadCount} unread` : "unread"}
+                    />
                   )}
                 </div>
               )}
@@ -973,7 +977,7 @@ const Inbox = () => {
       {/* Quick Chats */}
       {!!quickContacts.length && (
         <div className="border-b border-border/60 bg-background px-4 py-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Quick Chats</p>
+          <p className="ig-section-label mb-2">Quick Chats</p>
           <div className="scrollbar-hide flex gap-3 overflow-x-auto pb-1">
             {quickContacts.map((item) => {
               const other = item.other!;
@@ -985,13 +989,15 @@ const Inbox = () => {
                 <button
                   key={item.convoId}
                   onClick={() => openConversation(item.convoId, other)}
-                  className="ig-tap relative shrink-0 rounded-xl border border-border/60 bg-background p-2 transition-colors hover:bg-secondary/25"
+                  className="ig-tap relative shrink-0 rounded-2xl p-1.5 transition-colors hover:bg-secondary/40"
                 >
-                  <img
-                    src={avatarUrl}
-                    alt={other.display_name}
-                    className="h-14 w-14 rounded-full object-cover ring-2 ring-primary/30"
-                  />
+                  <span className={item.unreadCount > 0 ? "ig-story-ring inline-block" : "ig-story-ring ig-story-ring--muted inline-block"}>
+                    <img
+                      src={avatarUrl}
+                      alt={other.display_name}
+                      className="block h-14 w-14 rounded-full object-cover ring-2 ring-background"
+                    />
+                  </span>
                   {quickStatusMeta && (
                     <span
                       key={`${item.convoId}-${quickStatusMeta.label}`}
@@ -1022,7 +1028,7 @@ const Inbox = () => {
       {/* Instagram-style Notes — speech bubble above avatar */}
       <div className="border-b border-border/60 bg-background px-4 py-3">
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+          <p className="ig-section-label">Notes</p>
           <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Timer className="h-3 w-3" />
             24h
@@ -1112,7 +1118,7 @@ const Inbox = () => {
       {incomingFollowRequests.length > 0 && (
         <div className="border-b border-border/60 bg-background px-4 py-3">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Follow Requests</p>
+            <p className="ig-section-label">Follow Requests</p>
             <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-foreground">
               {incomingFollowRequests.length}
             </span>
@@ -1223,7 +1229,7 @@ const Inbox = () => {
         <div className="border-b border-border/60 px-4 py-3">
           <div className="mb-2 flex items-center gap-1.5">
             <TrendingUp className="h-3.5 w-3.5 text-primary" />
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Top Streaks</p>
+            <p className="ig-section-label">Top Streaks</p>
           </div>
           <div className="scrollbar-hide flex gap-2 overflow-x-auto pb-1">
             {[...(streaks as ChatStreak[])]
@@ -1453,20 +1459,20 @@ const Inbox = () => {
             onClick={() => setActiveTab("primary")}
             data-active={activeTab === "primary"}
             className={`relative px-1 py-1 transition-colors duration-200 ${
-              activeTab === "primary" ? "text-foreground" : "text-muted-foreground"
+              activeTab === "primary" ? "text-primary" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
               <MessageCircle className="h-3.5 w-3.5" />
               Primary
             </span>
-            {activeTab === "primary" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
+            {activeTab === "primary" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-primary" />}
           </button>
           <button
             onClick={() => setActiveTab("community")}
             data-active={activeTab === "community"}
             className={`relative px-1 py-1 transition-colors duration-200 ${
-              activeTab === "community" ? "text-foreground" : "text-muted-foreground"
+              activeTab === "community" ? "text-primary" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -1478,13 +1484,13 @@ const Inbox = () => {
                 </span>
               )}
             </span>
-            {activeTab === "community" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
+            {activeTab === "community" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-primary" />}
           </button>
           <button
             onClick={() => setActiveTab("requests")}
             data-active={activeTab === "requests"}
             className={`relative px-1 py-1 transition-colors duration-200 ${
-              activeTab === "requests" ? "text-foreground" : "text-muted-foreground"
+              activeTab === "requests" ? "text-primary" : "text-muted-foreground"
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -1496,7 +1502,7 @@ const Inbox = () => {
                 </span>
               )}
             </span>
-            {activeTab === "requests" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-0.5 rounded-full bg-foreground" />}
+            {activeTab === "requests" && <span className="ig-tab-indicator absolute -bottom-1 left-0 right-0 h-[2px] rounded-full bg-primary" />}
           </button>
         </div>
       </div>
