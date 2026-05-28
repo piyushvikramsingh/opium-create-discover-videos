@@ -956,9 +956,10 @@ const Inbox = () => {
                     </span>
                   )}
                   {isUnread && (
-                    <span className="rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">
-                      {unreadCount > 9 ? "9+" : unreadCount > 0 ? unreadCount : "1"}
-                    </span>
+                    <span
+                      className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                      aria-label={unreadCount > 1 ? `${unreadCount} unread` : "unread"}
+                    />
                   )}
                 </div>
               )}
