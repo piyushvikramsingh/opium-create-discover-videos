@@ -454,8 +454,11 @@
   .ig-tab-trigger {
     min-height: 2.25rem;
     border-radius: 9999px;
-    border: 1px solid hsl(var(--border));
+    border: 1px solid transparent;
+    background: hsl(var(--secondary) / 0.4);
+    color: hsl(var(--muted-foreground));
     padding-inline: 1rem;
+    font-weight: 600;
     transition:
       background-color var(--ig-dur-base) var(--ig-ease-standard),
       color var(--ig-dur-base) var(--ig-ease-standard),
@@ -463,14 +466,19 @@
       transform var(--ig-dur-fast) var(--ig-ease-standard);
   }
 
+  .ig-tab-trigger:hover {
+    color: hsl(var(--foreground));
+    background: hsl(var(--secondary) / 0.6);
+  }
+
   .ig-tab-trigger:active {
     transform: scale(0.98);
   }
 
   .ig-tab-trigger[data-state="active"] {
-    border-color: hsl(var(--primary));
-    background: hsl(var(--primary));
-    color: hsl(var(--primary-foreground));
+    border-color: hsl(var(--primary) / 0.4);
+    background: hsl(var(--primary) / 0.12);
+    color: hsl(var(--primary));
   }
 
   .ig-status-pop {
