@@ -6,25 +6,25 @@
 
 @layer base {
   :root {
-    --background: 210 25% 96%;
-    --foreground: 220 15% 13%;
+    --background: 0 0% 100%;
+    --foreground: 0 0% 7%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 15% 13%;
+    --card-foreground: 0 0% 7%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 13%;
+    --popover-foreground: 0 0% 7%;
 
-    --primary: 214 89% 52%;
+    --primary: 348 83% 47%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 20% 94%;
-    --secondary-foreground: 220 15% 13%;
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 0 0% 7%;
 
-    --muted: 210 20% 94%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 40%;
 
-    --accent: 214 89% 52%;
+    --accent: 348 83% 47%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84.2% 60.2%;
@@ -779,52 +779,56 @@
   to { width: 100%; }
 }
 
-/* === Meta-style utilities (Facebook blue auth + cards) === */
+/* === Auth screen utilities (Instagram-style: dark + crimson/gradient) === */
 .meta-auth-bg {
   background:
-    radial-gradient(1200px 600px at 20% 0%, hsl(214 89% 52% / 0.12), transparent 60%),
-    radial-gradient(900px 500px at 100% 100%, hsl(214 89% 52% / 0.08), transparent 55%),
+    radial-gradient(900px 500px at 15% 0%, hsl(348 83% 47% / 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, hsl(320 80% 50% / 0.14), transparent 60%),
     hsl(var(--background));
 }
 .meta-wordmark {
-  background: linear-gradient(135deg, hsl(214 89% 52%), hsl(220 95% 60%));
+  background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   letter-spacing: -0.04em;
+  font-family: 'Space Grotesk', 'Inter', sans-serif;
 }
 .meta-card {
-  background: hsl(var(--card));
-  border: 1px solid hsl(var(--border));
-  border-radius: 14px;
-  box-shadow: 0 2px 12px hsl(220 15% 13% / 0.06), 0 1px 2px hsl(220 15% 13% / 0.04);
+  background: hsl(var(--card) / 0.85);
+  border: 1px solid hsl(var(--border) / 0.6);
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px hsl(0 0% 0% / 0.35);
 }
 .meta-input {
   width: 100%;
-  border-radius: 10px;
-  background: hsl(var(--background));
-  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--secondary) / 0.6);
+  border: 1px solid hsl(var(--border) / 0.5);
   padding: 0.85rem 1rem;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: hsl(var(--foreground));
   outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 .meta-input::placeholder { color: hsl(var(--muted-foreground)); }
 .meta-input:focus {
-  border-color: hsl(var(--primary));
-  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.18);
+  border-color: hsl(var(--primary) / 0.7);
+  background: hsl(var(--secondary) / 0.9);
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.2);
 }
 .meta-primary-btn {
-  background: linear-gradient(180deg, hsl(214 95% 56%), hsl(214 89% 48%));
+  background: linear-gradient(135deg, hsl(348 83% 47%), hsl(320 80% 50%));
   color: hsl(var(--primary-foreground));
-  font-weight: 700;
-  font-size: 1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
   padding: 0.85rem 1rem;
-  border-radius: 10px;
-  transition: transform 120ms ease, opacity 160ms ease, box-shadow 160ms ease;
-  box-shadow: 0 4px 14px hsl(214 89% 52% / 0.35);
+  border-radius: 12px;
+  transition: transform 120ms ease, opacity 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  box-shadow: 0 6px 20px hsl(348 83% 47% / 0.35);
 }
-.meta-primary-btn:hover { box-shadow: 0 6px 18px hsl(214 89% 52% / 0.42); }
+.meta-primary-btn:hover { filter: brightness(1.05); box-shadow: 0 8px 24px hsl(348 83% 47% / 0.45); }
 .meta-primary-btn:active { transform: scale(0.985); }
-.meta-primary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.meta-primary-btn:disabled { opacity: 0.6; cursor: not-allowed; filter: none; }
