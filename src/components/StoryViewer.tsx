@@ -628,7 +628,7 @@ export const StoryViewer = ({
                     </motion.button>
                   ))}
                 </div>
-                {/* Reply input */}
+                {/* Reply input — IG style: input + heart + share */}
                 <div className="flex items-center gap-2">
                   <div className="flex-1 relative">
                     <Input
@@ -636,20 +636,40 @@ export const StoryViewer = ({
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
                       placeholder={`Reply to ${currentGroup.user.username}...`}
-                      className="w-full bg-white/10 border-white/20 text-white placeholder:text-white/40 rounded-full pr-10 backdrop-blur-sm"
+                      className="w-full bg-transparent border border-white/40 text-white placeholder:text-white/60 rounded-full h-11 px-4 backdrop-blur-sm focus-visible:ring-0 focus-visible:border-white"
                       onFocus={() => setIsPaused(true)}
                       onBlur={() => { if (!replyText) setIsPaused(false); }}
                       onKeyDown={(e) => { if (e.key === "Enter") { sendReply(replyText); setIsPaused(false); } }}
                     />
                   </div>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => { sendReply(replyText); setIsPaused(false); }}
-                    disabled={!replyText.trim()}
-                    className="w-10 h-10 rounded-full bg-primary flex items-center justify-center disabled:opacity-30 transition-opacity"
-                  >
-                    <Send className="w-4 h-4 text-primary-foreground" />
-                  </motion.button>
+                  {replyText.trim() ? (
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => { sendReply(replyText); setIsPaused(false); }}
+                      className="h-11 px-4 rounded-full text-white font-semibold text-sm bg-gradient-to-tr from-[#feda75] via-[#fa7e1e] via-[#d62976] to-[#962fbf]"
+                    >
+                      Send
+                    </motion.button>
+                  ) : (
+                    <>
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => handleQuickReaction("❤️")}
+                        className="h-11 w-11 flex items-center justify-center text-white"
+                        aria-label="Like story"
+                      >
+                        <Heart className="w-7 h-7" strokeWidth={2} />
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => { navigator.clipboard.writeText(window.location.href); toast.success("Link copied"); }}
+                        className="h-11 w-11 flex items-center justify-center text-white"
+                        aria-label="Share story"
+                      >
+                        <Send className="w-6 h-6" strokeWidth={2} />
+                      </motion.button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -32,18 +32,18 @@
 
     --border: 0 0% 88%;
     --input: 0 0% 88%;
-    --ring: 204 100% 48%;
+    --ring: 348 83% 47%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 0 0% 7%;
-    --sidebar-primary: 204 100% 48%;
+    --sidebar-primary: 348 83% 47%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 0 0% 95%;
     --sidebar-accent-foreground: 0 0% 7%;
     --sidebar-border: 0 0% 88%;
-    --sidebar-ring: 204 100% 48%;
+    --sidebar-ring: 348 83% 47%;
   }
 
   @media (prefers-color-scheme: dark) {
@@ -57,7 +57,7 @@
       --popover: 0 0% 7%;
       --popover-foreground: 0 0% 100%;
 
-      --primary: 204 100% 48%;
+      --primary: 348 83% 47%;
       --primary-foreground: 0 0% 100%;
 
       --secondary: 0 0% 12%;
@@ -66,7 +66,7 @@
       --muted: 0 0% 15%;
       --muted-foreground: 0 0% 64%;
 
-      --accent: 204 100% 48%;
+      --accent: 348 83% 47%;
       --accent-foreground: 0 0% 100%;
 
       --destructive: 0 84.2% 60.2%;
@@ -74,16 +74,16 @@
 
       --border: 0 0% 18%;
       --input: 0 0% 18%;
-      --ring: 204 100% 48%;
+      --ring: 348 83% 47%;
 
       --sidebar-background: 0 0% 5%;
       --sidebar-foreground: 0 0% 100%;
-      --sidebar-primary: 204 100% 48%;
+      --sidebar-primary: 348 83% 47%;
       --sidebar-primary-foreground: 0 0% 100%;
       --sidebar-accent: 0 0% 12%;
       --sidebar-accent-foreground: 0 0% 100%;
       --sidebar-border: 0 0% 18%;
-      --sidebar-ring: 204 100% 48%;
+      --sidebar-ring: 348 83% 47%;
     }
   }
 }
@@ -106,7 +106,8 @@
 
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Space Grotesk', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-feature-settings: 'ss01', 'cv11';
     -webkit-tap-highlight-color: transparent;
     overscroll-behavior: none;
     text-rendering: optimizeLegibility;
@@ -115,6 +116,13 @@
     background-image: none;
     background-attachment: initial;
   }
+
+  /* Instagram-like type ramp: tighter tracking, slightly heavier display weights */
+  h1, .h1 { font-size: 1.5rem; line-height: 1.15; font-weight: 700; letter-spacing: -0.02em; }
+  h2, .h2 { font-size: 1.125rem; line-height: 1.2; font-weight: 700; letter-spacing: -0.015em; }
+  h3, .h3 { font-size: 1rem; line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
+  p, span, li { font-size: 0.9375rem; line-height: 1.4; }
+  small, .text-xs { letter-spacing: 0; }
 
   button,
   input,

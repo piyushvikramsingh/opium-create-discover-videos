@@ -1,26 +1,31 @@
-import { Home, Compass, MessageCircle, Scissors, User } from "lucide-react";
+import { Home, Search, Film, MessageCircle, User } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { icon: Home, label: "Home", path: "/" },
-  { icon: Compass, label: "Explore", path: "/discover" },
+  { icon: Search, label: "Search", path: "/discover" },
+  { icon: Film, label: "Reels", path: "/reels" },
   { icon: MessageCircle, label: "Messages", path: "/inbox" },
-  { icon: Scissors, label: "Clippy", path: "/reels" },
-  { icon: User, label: "Profile", path: "/profile" },
 ];
 
 const BottomNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+
+  const isProfileActive = location.pathname.startsWith("/profile");
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/20 bg-background/80 backdrop-blur-2xl pb-safe">
-      <div className="mx-auto flex max-w-lg items-center justify-around px-1 py-0.5">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/60 bg-background pb-safe">
+      <div className="mx-auto flex max-w-lg items-center justify-around px-2 py-2">
         {navItems.map((item) => {
-          const isActive = item.path === "/"
-            ? location.pathname === "/"
-            : location.pathname.startsWith(item.path);
+          const isActive =
+            item.path === "/"
+              ? location.pathname === "/"
+              : location.pathname.startsWith(item.path);
           const Icon = item.icon;
 
           return (
@@ -28,37 +33,40 @@ const BottomNav = () => {
               key={item.path}
               onClick={() => navigate(item.path)}
               aria-label={item.label}
-              className={cn(
-                "group relative flex flex-col items-center justify-center gap-0.5 rounded-xl px-4 py-2 transition-all duration-200 active:scale-90",
-                isActive
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground/80"
-              )}
+              className="group flex h-11 w-11 items-center justify-center rounded-md transition-transform active:scale-90"
             >
-              {/* Active indicator dot */}
-              {isActive && (
-                <span className="absolute -top-0.5 left-1/2 h-[3px] w-5 -translate-x-1/2 rounded-full bg-primary animate-scale-in" />
-              )}
-
               <Icon
                 className={cn(
-                  "h-[22px] w-[22px] transition-all duration-200",
-                  isActive && "drop-shadow-[0_0_6px_hsl(var(--primary)/0.4)]"
+                  "h-7 w-7 transition-colors",
+                  isActive ? "text-foreground" : "text-foreground/80"
                 )}
-                strokeWidth={isActive ? 2.5 : 1.5}
+                strokeWidth={isActive ? 2.4 : 1.8}
                 fill={isActive ? "currentColor" : "none"}
               />
-              <span
-                className={cn(
-                  "text-[10px] leading-none transition-all duration-200",
-                  isActive ? "font-semibold" : "font-medium opacity-70"
-                )}
-              >
-                {item.label}
-              </span>
             </button>
           );
         })}
+
+        {/* Profile avatar tab (IG-style) */}
+        <button
+          onClick={() => navigate("/profile")}
+          aria-label="Profile"
+          className="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90"
+        >
+          <span
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-full",
+              isProfileActive && "ring-2 ring-foreground ring-offset-2 ring-offset-background"
+            )}
+          >
+            <Avatar className="h-7 w-7">
+              <AvatarImage src={user?.user_metadata?.avatar_url as string | undefined} />
+              <AvatarFallback className="text-[10px]">
+                {(user?.email?.[0] || "U").toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </span>
+        </button>
       </div>
     </nav>
   );
