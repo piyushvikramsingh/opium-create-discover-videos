@@ -1,9 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 const Auth = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,7 +16,19 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const navigate = useNavigate();
+
+  // If already authenticated, bounce to home.
+  useEffect(() => {
+    if (!authLoading && user) navigate("/", { replace: true });
+  }, [authLoading, user, navigate]);
+
+  const friendlyError = (raw: string) => {
+    if (/invalid login credentials/i.test(raw)) return "Wrong email or password.";
+    if (/already registered/i.test(raw)) return "That email is already in use. Try signing in.";
+    if (/rate limit/i.test(raw)) return "Too many attempts. Please wait a moment and try again.";
+    if (/password.*pwned|leaked/i.test(raw)) return "This password has been exposed in a data breach. Pick a stronger one.";
+    return raw || "Something went wrong.";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,92 +40,123 @@ const Auth = () => {
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate("/");
+        navigate("/", { replace: true });
       } else {
-        const { error } = await supabase.auth.signUp({
+        const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 24);
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { username, display_name: username },
+            data: { username: cleanUsername, display_name: username.trim() || cleanUsername },
             emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        setMessage("Check your email to verify your account before signing in.");
+        // Auto-confirm is on, so a session is returned immediately.
+        if (data.session) {
+          navigate("/", { replace: true });
+        } else {
+          setMessage("Account created. You can sign in now.");
+          setIsLogin(true);
+        }
       }
     } catch (err: any) {
-      setError(err.message || "An error occurred");
+      setError(friendlyError(err?.message ?? ""));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fade-in flex min-h-screen flex-col items-center justify-center bg-background px-6">
-      <h1 className="mb-2 text-3xl font-bold text-foreground text-glow">Opium</h1>
-      <p className="mb-8 text-sm text-muted-foreground">
-        {isLogin ? "Welcome back" : "Create your account"}
-      </p>
-
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4">
-        {!isLogin && (
-          <input
-            type="text"
-            placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            required
-            className="w-full rounded-xl bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary"
-          />
-        )}
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="w-full rounded-xl bg-secondary px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary"
-        />
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={6}
-            className="w-full rounded-xl bg-secondary px-4 py-3 pr-12 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          >
-            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          </button>
+    <div className="meta-auth-bg flex min-h-[100dvh] flex-col items-center justify-center px-6 py-10">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 text-center">
+          <h1 className="meta-wordmark text-5xl font-extrabold tracking-tight">opium</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {isLogin ? "Log in to continue" : "Create a new account"}
+          </p>
         </div>
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
-        {message && <p className="text-xs text-primary">{message}</p>}
+        <div className="meta-card space-y-3 p-4">
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {!isLogin && (
+              <input
+                type="text"
+                placeholder="Username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                minLength={2}
+                maxLength={24}
+                className="meta-input"
+              />
+            )}
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+              className="meta-input"
+            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+                autoComplete={isLogin ? "current-password" : "new-password"}
+                className="meta-input pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
 
-        <button
-          type="submit"
-          disabled={loading}
-          className="lift-on-tap w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-50"
-        >
-          {loading ? "Loading..." : isLogin ? "Sign In" : "Sign Up"}
-        </button>
-      </form>
+            {error && <p className="text-xs font-medium text-destructive">{error}</p>}
+            {message && <p className="text-xs font-medium text-primary">{message}</p>}
 
-      <button
-        onClick={() => { setIsLogin(!isLogin); setError(""); setMessage(""); }}
-        className="mt-6 text-sm text-muted-foreground"
-      >
-        {isLogin ? "Don't have an account? " : "Already have an account? "}
-        <span className="text-primary font-medium">
-          {isLogin ? "Sign Up" : "Sign In"}
-        </span>
-      </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="meta-primary-btn flex w-full items-center justify-center gap-2"
+            >
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              {isLogin ? "Log in" : "Sign up"}
+            </button>
+          </form>
+
+          <div className="pt-1 text-center">
+            <button
+              type="button"
+              onClick={() => { setError(""); setMessage(""); }}
+              className="text-xs font-medium text-primary hover:underline"
+            >
+              Forgot password?
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 meta-card p-4 text-center text-sm">
+          <span className="text-muted-foreground">
+            {isLogin ? "Don't have an account?" : "Already have an account?"}
+          </span>{" "}
+          <button
+            onClick={() => { setIsLogin(!isLogin); setError(""); setMessage(""); }}
+            className="font-semibold text-primary"
+          >
+            {isLogin ? "Sign up" : "Log in"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
