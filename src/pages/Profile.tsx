@@ -577,10 +577,10 @@ const Profile = () => {
               <button
                 onClick={handleFollow}
                 disabled={toggleFollow.isPending}
-                className={`ig-tap ig-icon-btn flex-1 rounded-xl border px-4 py-2 text-sm font-semibold ${
+                className={`ig-tap ig-icon-btn flex-1 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
                   isFollowing || hasPendingRequest
-                    ? "border-border/70 bg-background text-secondary-foreground"
-                    : "border-primary bg-primary text-primary-foreground"
+                    ? "border border-border/70 bg-secondary text-secondary-foreground"
+                    : "border border-transparent text-primary-foreground bg-gradient-to-r from-[hsl(348_83%_47%)] to-[hsl(320_80%_50%)] shadow-[0_6px_18px_hsl(348_83%_47%/0.35)]"
                 }`}
               >
                 {isFollowing ? "Following" : hasPendingRequest ? "Requested" : "Follow"}

@@ -280,10 +280,10 @@ export const StoryViewer = ({
           )}
 
           {/* Progress bars */}
-          <div className="absolute top-0 left-0 right-0 z-30 px-3 pt-3">
-            <div className="flex gap-[3px]">
+          <div className="absolute top-0 left-0 right-0 z-30 px-2 pt-2">
+            <div className="flex gap-1">
               {currentGroup.stories.map((_, index) => (
-                <div key={index} className="h-[2.5px] flex-1 bg-white/25 rounded-full overflow-hidden">
+                <div key={index} className="h-[3px] flex-1 bg-white/30 rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-white rounded-full"
                     style={{
@@ -326,23 +326,32 @@ export const StoryViewer = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 {currentStory.media_type === "video" && (
                   <button
                     onClick={() => setIsMuted(!isMuted)}
-                    className="p-2 rounded-full text-white/80 hover:text-white transition-colors"
+                    className="ig-overlay-btn"
+                    aria-label={isMuted ? "Unmute" : "Mute"}
                   >
-                    {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                    {isMuted ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
                   </button>
                 )}
                 <button
-                  onClick={() => { setShowMoreMenu(!showMoreMenu); setIsPaused(true); }}
-                  className="p-2 rounded-full text-white/80 hover:text-white transition-colors"
+                  onClick={() => { setIsPaused((p) => !p); }}
+                  className="ig-overlay-btn"
+                  aria-label={isPaused ? "Play" : "Pause"}
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  {isPaused ? <Play className="w-[18px] h-[18px]" /> : <Pause className="w-[18px] h-[18px]" />}
                 </button>
-                <button onClick={onClose} className="p-2 rounded-full text-white/80 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
+                <button
+                  onClick={() => { setShowMoreMenu(!showMoreMenu); setIsPaused(true); }}
+                  className="ig-overlay-btn"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-[18px] h-[18px]" />
+                </button>
+                <button onClick={onClose} className="ig-overlay-btn" aria-label="Close">
+                  <X className="w-[20px] h-[20px]" />
                 </button>
               </div>
             </div>

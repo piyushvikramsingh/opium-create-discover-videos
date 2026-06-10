@@ -489,6 +489,57 @@
     color: hsl(var(--primary));
   }
 
+  /* Unified IG unread indicators (crimson, gradient on counts) */
+  .ig-unread-dot {
+    display: inline-block;
+    height: 0.5rem;
+    width: 0.5rem;
+    border-radius: 9999px;
+    background: hsl(var(--primary));
+    box-shadow: 0 0 8px hsl(var(--primary) / 0.55);
+  }
+
+  .ig-unread-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.125rem;
+    height: 1.125rem;
+    padding-inline: 0.4rem;
+    border-radius: 9999px;
+    background: linear-gradient(135deg, hsl(348 83% 47%), hsl(320 80% 50%));
+    color: hsl(var(--primary-foreground));
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 4px 10px hsl(348 83% 47% / 0.35);
+  }
+
+  /* Unified press/hover for icon controls in dark overlays (Story viewer) */
+  .ig-overlay-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 2.25rem;
+    width: 2.25rem;
+    border-radius: 9999px;
+    color: hsl(0 0% 100% / 0.9);
+    transition:
+      background-color var(--ig-dur-fast) var(--ig-ease-standard),
+      transform var(--ig-dur-fast) var(--ig-ease-standard),
+      color var(--ig-dur-fast) var(--ig-ease-standard);
+  }
+
+  .ig-overlay-btn:hover {
+    background: hsl(0 0% 100% / 0.12);
+    color: hsl(0 0% 100%);
+  }
+
+  .ig-overlay-btn:active {
+    transform: scale(0.92);
+    background: hsl(0 0% 100% / 0.2);
+  }
+
   .ig-status-pop {
     animation: ig-status-pop var(--ig-dur-base) var(--ig-ease-emphasized) both;
   }

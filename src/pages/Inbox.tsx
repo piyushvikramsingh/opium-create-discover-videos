@@ -957,7 +957,7 @@ const Inbox = () => {
                   )}
                   {isUnread && (
                     <span
-                      className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                      className="ig-unread-dot"
                       aria-label={unreadCount > 1 ? `${unreadCount} unread` : "unread"}
                     />
                   )}
@@ -1008,7 +1008,7 @@ const Inbox = () => {
                     </span>
                   )}
                   {item.unreadCount > 0 && (
-                    <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">
+                    <span className="ig-unread-badge absolute -right-1 -top-1">
                       {item.unreadCount > 9 ? "9+" : item.unreadCount}
                     </span>
                   )}
@@ -1415,7 +1415,7 @@ const Inbox = () => {
             <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1 transition-colors hover:bg-secondary/70">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
-            <h1 className="text-[20px] font-bold tracking-tight text-foreground">
+            <h1 className="ig-type-h1 text-foreground">
               {profile?.username || user?.user_metadata?.username || "Messages"}
             </h1>
             <ChevronDown className="h-4 w-4 text-foreground" />
