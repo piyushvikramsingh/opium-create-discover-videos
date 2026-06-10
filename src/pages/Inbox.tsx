@@ -1008,7 +1008,7 @@ const Inbox = () => {
                     </span>
                   )}
                   {item.unreadCount > 0 && (
-                    <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">
+                    <span className="ig-unread-badge absolute -right-1 -top-1">
                       {item.unreadCount > 9 ? "9+" : item.unreadCount}
                     </span>
                   )}
