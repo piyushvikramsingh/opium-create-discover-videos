@@ -326,23 +326,32 @@ export const StoryViewer = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-0.5">
                 {currentStory.media_type === "video" && (
                   <button
                     onClick={() => setIsMuted(!isMuted)}
-                    className="p-2 rounded-full text-white/80 hover:text-white transition-colors"
+                    className="ig-overlay-btn"
+                    aria-label={isMuted ? "Unmute" : "Mute"}
                   >
-                    {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                    {isMuted ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
                   </button>
                 )}
                 <button
-                  onClick={() => { setShowMoreMenu(!showMoreMenu); setIsPaused(true); }}
-                  className="p-2 rounded-full text-white/80 hover:text-white transition-colors"
+                  onClick={() => { setIsPaused((p) => !p); }}
+                  className="ig-overlay-btn"
+                  aria-label={isPaused ? "Play" : "Pause"}
                 >
-                  <MoreVertical className="w-4 h-4" />
+                  {isPaused ? <Play className="w-[18px] h-[18px]" /> : <Pause className="w-[18px] h-[18px]" />}
                 </button>
-                <button onClick={onClose} className="p-2 rounded-full text-white/80 hover:text-white transition-colors">
-                  <X className="w-5 h-5" />
+                <button
+                  onClick={() => { setShowMoreMenu(!showMoreMenu); setIsPaused(true); }}
+                  className="ig-overlay-btn"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-[18px] h-[18px]" />
+                </button>
+                <button onClick={onClose} className="ig-overlay-btn" aria-label="Close">
+                  <X className="w-[20px] h-[20px]" />
                 </button>
               </div>
             </div>
