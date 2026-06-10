@@ -280,10 +280,10 @@ export const StoryViewer = ({
           )}
 
           {/* Progress bars */}
-          <div className="absolute top-0 left-0 right-0 z-30 px-3 pt-3">
-            <div className="flex gap-[3px]">
+          <div className="absolute top-0 left-0 right-0 z-30 px-2 pt-2">
+            <div className="flex gap-1">
               {currentGroup.stories.map((_, index) => (
-                <div key={index} className="h-[2.5px] flex-1 bg-white/25 rounded-full overflow-hidden">
+                <div key={index} className="h-[3px] flex-1 bg-white/30 rounded-full overflow-hidden">
                   <motion.div
                     className="h-full bg-white rounded-full"
                     style={{
