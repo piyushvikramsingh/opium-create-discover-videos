@@ -107,7 +107,7 @@ const Auth = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={8}
                 autoComplete={isLogin ? "current-password" : "new-password"}
                 className="meta-input pr-12"
               />
