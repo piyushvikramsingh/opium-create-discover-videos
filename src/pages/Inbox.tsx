@@ -957,7 +957,7 @@ const Inbox = () => {
                   )}
                   {isUnread && (
                     <span
-                      className="h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                      className="ig-unread-dot"
                       aria-label={unreadCount > 1 ? `${unreadCount} unread` : "unread"}
                     />
                   )}
