@@ -1415,7 +1415,7 @@ const Inbox = () => {
             <button onClick={() => navigate(-1)} className="ig-tap rounded-full p-1 transition-colors hover:bg-secondary/70">
               <ArrowLeft className="h-5 w-5 text-foreground" />
             </button>
-            <h1 className="text-[20px] font-bold tracking-tight text-foreground">
+            <h1 className="ig-type-h1 text-foreground">
               {profile?.username || user?.user_metadata?.username || "Messages"}
             </h1>
             <ChevronDown className="h-4 w-4 text-foreground" />
