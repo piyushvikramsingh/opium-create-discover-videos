@@ -1283,6 +1283,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_ranked_feed: {
+        Args: { _limit?: number; _user_id: string }
+        Returns: {
+          bookmarks_count: number
+          comments_count: number
+          created_at: string
+          description: string
+          id: string
+          interest_category: string
+          likes_count: number
+          music: string
+          score: number
+          shares_count: number
+          thumbnail_url: string
+          user_id: string
+          video_url: string
+        }[]
+      }
       get_user_top_interests: {
         Args: { _limit?: number; _user_id: string }
         Returns: {
@@ -1294,6 +1312,32 @@ export type Database = {
         Args: { story_id: string }
         Returns: undefined
       }
+      search_users: {
+        Args: { _limit?: number; _q: string }
+        Returns: {
+          avatar_url: string
+          bio: string
+          display_name: string
+          followers_count: number
+          rank: number
+          user_id: string
+          username: string
+        }[]
+      }
+      search_videos: {
+        Args: { _limit?: number; _q: string }
+        Returns: {
+          description: string
+          id: string
+          likes_count: number
+          rank: number
+          thumbnail_url: string
+          user_id: string
+          video_url: string
+        }[]
+      }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       user_is_in_conversation: { Args: { conv_id: string }; Returns: boolean }
     }
     Enums: {
