@@ -1,0 +1,18 @@
+# Opium
+
+> Opium is a short-form vertical video community — Clippy reels, stories, creator messaging, and discovery in a sleek dark-themed feed.
+
+## Pages
+
+- [Home](/): For You and Following video feed with stories bar.
+- [Clippy](/clipy): Vertical video feed with tap-to-toggle audio.
+- [Discover](/discover): Masonry grid of trending creators and posts.
+- [Reels](/reels): Full-screen short-video reels with Remix.
+- [Search](/search): Find users, videos, and hashtags.
+- [Sounds](/sounds): Browse music and audio tracks used in reels.
+- [Live](/live): Live streams and scheduled broadcasts.
+- [Help](/help): Support and FAQ.
+
+## Optional
+
+- [Sign in](/auth): Email and Google authentication.

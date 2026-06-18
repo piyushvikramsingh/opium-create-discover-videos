@@ -1991,7 +1991,7 @@ const Create = () => {
           {isSelectStep ? (
             <>
               <div className="w-10" />
-              <h1 className="text-sm font-semibold tracking-wide text-foreground">New</h1>
+              <h1 className="text-sm font-semibold tracking-wide text-foreground">Create New Post</h1>
               <div ref={createOverflowRef} className="relative">
                 <Button
                   variant="ghost"
@@ -2033,7 +2033,7 @@ const Create = () => {
                   </Button>
                 )}
                 <h1 className="text-xl font-bold">
-                  {step === "edit" ? "Edit" : step === "share" ? "Share" : "Done"}
+                  {step === "edit" ? "Edit Post Content" : step === "share" ? "Share Your Post" : "Post Published"}
                 </h1>
               </div>
               <Button variant="outline" className="ig-tap ig-icon-btn" onClick={clearAll}>
