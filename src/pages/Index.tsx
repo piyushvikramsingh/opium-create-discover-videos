@@ -314,6 +314,7 @@ const Index = () => {
 
   return (
     <div ref={containerRef} className="ig-screen ig-screen-spring ig-modern-page snap-container scrollbar-hide" aria-label="video-feed">
+      <h1 className="sr-only">Clippy Video Feed</h1>
       <TopNav
         activeTab={activeFeedTab}
         onTabChange={setActiveFeedTab}

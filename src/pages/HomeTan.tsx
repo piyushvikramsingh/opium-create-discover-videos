@@ -720,7 +720,8 @@ const HomeTan = () => {
         <div className="flex items-center justify-between px-4 py-2.5">
           <div className="flex items-center gap-3">
             <h1 className="text-[22px] font-bold tracking-tight text-foreground" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-              Opium
+              <span aria-hidden="true">Opium</span>
+              <span className="sr-only">Opium — Social Video Sharing</span>
             </h1>
             <button
               onClick={() => setShowCreateOptions(true)}
