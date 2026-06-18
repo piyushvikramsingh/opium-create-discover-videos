@@ -581,46 +581,73 @@ export type Database = {
       }
       profiles: {
         Row: {
+          affiliate_url: string | null
           allow_mentions: boolean
           avatar_url: string | null
           bio: string | null
+          category: string | null
+          contact_email: string | null
+          contact_phone: string | null
           created_at: string
           display_name: string
           id: string
           interests: Json | null
           is_private: boolean
           is_verified: boolean
+          last_active_at: string | null
+          professional_account: boolean
+          shop_url: string | null
+          show_last_active: boolean
           updated_at: string
           user_id: string
           username: string
+          website_url: string | null
         }
         Insert: {
+          affiliate_url?: string | null
           allow_mentions?: boolean
           avatar_url?: string | null
           bio?: string | null
+          category?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           display_name?: string
           id?: string
           interests?: Json | null
           is_private?: boolean
           is_verified?: boolean
+          last_active_at?: string | null
+          professional_account?: boolean
+          shop_url?: string | null
+          show_last_active?: boolean
           updated_at?: string
           user_id: string
           username: string
+          website_url?: string | null
         }
         Update: {
+          affiliate_url?: string | null
           allow_mentions?: boolean
           avatar_url?: string | null
           bio?: string | null
+          category?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           created_at?: string
           display_name?: string
           id?: string
           interests?: Json | null
           is_private?: boolean
           is_verified?: boolean
+          last_active_at?: string | null
+          professional_account?: boolean
+          shop_url?: string | null
+          show_last_active?: boolean
           updated_at?: string
           user_id?: string
           username?: string
+          website_url?: string | null
         }
         Relationships: []
       }
