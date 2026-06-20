@@ -366,6 +366,80 @@ export type Database = {
           },
         ]
       }
+      live_stream_viewers: {
+        Row: {
+          id: string
+          joined_at: string
+          left_at: string | null
+          stream_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          joined_at?: string
+          left_at?: string | null
+          stream_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          joined_at?: string
+          left_at?: string | null
+          stream_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_stream_viewers_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_streams: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          peak_viewers: number
+          started_at: string
+          status: string
+          thumbnail_url: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+          viewer_count: number
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          peak_viewers?: number
+          started_at?: string
+          status?: string
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          viewer_count?: number
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          peak_viewers?: number
+          started_at?: string
+          status?: string
+          thumbnail_url?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          viewer_count?: number
+        }
+        Relationships: []
+      }
       message_reactions: {
         Row: {
           created_at: string
