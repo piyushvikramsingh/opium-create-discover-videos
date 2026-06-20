@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase as _supabase } from "@/integrations/supabase/client";
 const supabase: any = _supabase;
@@ -6,8 +7,23 @@ import { useToast } from "@/hooks/use-toast";
 const createStreamKey = () =>
   (crypto.randomUUID() + crypto.randomUUID()).replace(/-/g, "").slice(0, 48);
 
-export const useLiveStreams = () =>
-  useQuery({
+export const useLiveStreams = () => {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const ch = supabase
+      .channel("live-streams-list")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "live_streams" },
+        () => queryClient.invalidateQueries({ queryKey: ["live-streams"] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [queryClient]);
+
+  return useQuery({
     queryKey: ["live-streams"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -18,6 +34,8 @@ export const useLiveStreams = () =>
       return data;
     },
   });
+};
+
 
 export const useCreateLiveStream = () => {
   const queryClient = useQueryClient();
@@ -75,8 +93,29 @@ export const useUpdateStreamStatus = () => {
   });
 };
 
-export const useLiveComments = (streamId: string | null) =>
-  useQuery({
+export const useLiveComments = (streamId: string | null) => {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!streamId) return;
+    const ch = supabase
+      .channel(`live-comments:${streamId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "live_comments",
+          filter: `stream_id=eq.${streamId}`,
+        },
+        () => queryClient.invalidateQueries({ queryKey: ["live-comments", streamId] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [streamId, queryClient]);
+
+  return useQuery({
     queryKey: ["live-comments", streamId],
     enabled: !!streamId,
     queryFn: async () => {
@@ -90,6 +129,8 @@ export const useLiveComments = (streamId: string | null) =>
       return data;
     },
   });
+};
+
 
 export const useSendLiveComment = () => {
   const queryClient = useQueryClient();
