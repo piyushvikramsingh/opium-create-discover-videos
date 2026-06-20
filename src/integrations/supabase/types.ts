@@ -366,6 +366,38 @@ export type Database = {
           },
         ]
       }
+      live_comments: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          stream_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          stream_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          stream_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_comments_stream_id_fkey"
+            columns: ["stream_id"]
+            isOneToOne: false
+            referencedRelation: "live_streams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_stream_viewers: {
         Row: {
           id: string
@@ -401,11 +433,14 @@ export type Database = {
       live_streams: {
         Row: {
           created_at: string
+          description: string | null
           ended_at: string | null
           id: string
           peak_viewers: number
-          started_at: string
+          scheduled_start: string | null
+          started_at: string | null
           status: string
+          stream_key: string | null
           thumbnail_url: string | null
           title: string | null
           updated_at: string
@@ -414,11 +449,14 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           ended_at?: string | null
           id?: string
           peak_viewers?: number
-          started_at?: string
+          scheduled_start?: string | null
+          started_at?: string | null
           status?: string
+          stream_key?: string | null
           thumbnail_url?: string | null
           title?: string | null
           updated_at?: string
@@ -427,11 +465,14 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           ended_at?: string | null
           id?: string
           peak_viewers?: number
-          started_at?: string
+          scheduled_start?: string | null
+          started_at?: string | null
           status?: string
+          stream_key?: string | null
           thumbnail_url?: string | null
           title?: string | null
           updated_at?: string
