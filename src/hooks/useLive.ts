@@ -93,8 +93,29 @@ export const useUpdateStreamStatus = () => {
   });
 };
 
-export const useLiveComments = (streamId: string | null) =>
-  useQuery({
+export const useLiveComments = (streamId: string | null) => {
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!streamId) return;
+    const ch = supabase
+      .channel(`live-comments:${streamId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "live_comments",
+          filter: `stream_id=eq.${streamId}`,
+        },
+        () => queryClient.invalidateQueries({ queryKey: ["live-comments", streamId] }),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [streamId, queryClient]);
+
+  return useQuery({
     queryKey: ["live-comments", streamId],
     enabled: !!streamId,
     queryFn: async () => {
@@ -108,6 +129,8 @@ export const useLiveComments = (streamId: string | null) =>
       return data;
     },
   });
+};
+
 
 export const useSendLiveComment = () => {
   const queryClient = useQueryClient();
