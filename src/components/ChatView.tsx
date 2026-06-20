@@ -50,6 +50,7 @@ import { useChatMediaUrl } from "@/hooks/useChatMediaUrl";
 import { toast } from "sonner";
 import SnapCamera from "@/components/SnapCamera";
 import SnapViewer from "@/components/SnapViewer";
+import ChatMediaPreview from "@/components/ChatMediaPreview";
 import { useToggleVanishMode, useReportScreenshot } from "@/hooks/useGroupChat";
 import {
   playMessageSentSound,
