@@ -45,9 +45,12 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useLogMessageRequestAction } from "@/hooks/useData";
 import { supabase } from "@/integrations/supabase/client";
+import { uploadChatMedia } from "@/lib/chatMedia";
+import { useChatMediaUrl } from "@/hooks/useChatMediaUrl";
 import { toast } from "sonner";
 import SnapCamera from "@/components/SnapCamera";
 import SnapViewer from "@/components/SnapViewer";
+import ChatMediaPreview from "@/components/ChatMediaPreview";
 import { useToggleVanishMode, useReportScreenshot } from "@/hooks/useGroupChat";
 import {
   playMessageSentSound,
@@ -743,18 +746,11 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
 
     setSending(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("chat-media")
-        .upload(path, file, { contentType: file.type });
-      if (upErr) throw upErr;
-
-      const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+      const path = await uploadChatMedia(user.id, file, file.name, file.type);
 
       await sendMessage.mutateAsync({
         conversationId,
-        mediaUrl: urlData.publicUrl,
+        mediaUrl: path,
         mediaType: "image",
         isSnap: true,
         snapDuration: 5,
@@ -783,18 +779,11 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
 
     setSending(true);
     try {
-      const ext = file.name.split(".").pop();
-      const path = `${user.id}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("chat-media")
-        .upload(path, file, { contentType: file.type });
-      if (upErr) throw upErr;
-
-      const { data: urlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+      const path = await uploadChatMedia(user.id, file, file.name, file.type);
 
       await sendMessage.mutateAsync({
         conversationId,
-        mediaUrl: urlData.publicUrl,
+        mediaUrl: path,
         mediaType: isVideo ? "video" : "image",
         isSnap: snapMode,
         snapDuration: snapMode ? 5 : undefined,
@@ -810,12 +799,15 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
     }
   };
 
-  const handleOpenSnap = (msg: ChatMessage) => {
+  const handleOpenSnap = async (msg: ChatMessage) => {
     if (!msg.media_url && !msg.content) return;
     const isMine = msg.sender_id === user?.id;
 
+    const { getChatMediaSignedUrl } = await import("@/lib/chatMedia");
+    const signed = msg.media_url ? await getChatMediaSignedUrl(msg.media_url) : null;
+
     setViewingSnap({
-      imageUrl: msg.media_url || "",
+      imageUrl: signed || "",
       senderName: isMine ? "You" : safeOtherUser.display_name,
       caption: msg.content,
       duration: msg.snap_duration || 5,
@@ -1096,17 +1088,11 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
 
         setSending(true);
         try {
-          const path = `${user.id}/${Date.now()}.webm`;
-          const { error: uploadError } = await supabase.storage
-            .from("chat-media")
-            .upload(path, audioBlob, { contentType: "audio/webm" });
-          if (uploadError) throw uploadError;
-
-          const { data: audioUrlData } = supabase.storage.from("chat-media").getPublicUrl(path);
+          const path = await uploadChatMedia(user.id, audioBlob, "voice.webm", "audio/webm");
 
           await sendMessage.mutateAsync({
             conversationId,
-            mediaUrl: audioUrlData.publicUrl,
+            mediaUrl: path,
             mediaType: "audio",
             content: undefined,
           });
@@ -1693,22 +1679,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
                         <>
                           {msg.media_url && (
                             <div className="mb-2 overflow-hidden rounded-xl">
-                              {msg.media_type === "video" ? (
-                                <video
-                                  src={msg.media_url}
-                                  className="max-h-56 w-full rounded-xl object-cover"
-                                  controls
-                                  playsInline
-                                />
-                              ) : msg.media_type === "audio" ? (
-                                <audio
-                                  src={msg.media_url}
-                                  controls
-                                  className="w-full rounded-xl"
-                                />
-                              ) : (
-                                <img src={msg.media_url} alt="" className="max-h-56 w-full rounded-xl object-cover" />
-                              )}
+                              <ChatMediaPreview src={msg.media_url} mediaType={msg.media_type} />
                             </div>
                           )}
                           {isStoryReplyMessage && (
