@@ -1675,22 +1675,7 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
                         <>
                           {msg.media_url && (
                             <div className="mb-2 overflow-hidden rounded-xl">
-                              {msg.media_type === "video" ? (
-                                <video
-                                  src={msg.media_url}
-                                  className="max-h-56 w-full rounded-xl object-cover"
-                                  controls
-                                  playsInline
-                                />
-                              ) : msg.media_type === "audio" ? (
-                                <audio
-                                  src={msg.media_url}
-                                  controls
-                                  className="w-full rounded-xl"
-                                />
-                              ) : (
-                                <img src={msg.media_url} alt="" className="max-h-56 w-full rounded-xl object-cover" />
-                              )}
+                              <ChatMediaPreview src={msg.media_url} mediaType={msg.media_type} />
                             </div>
                           )}
                           {isStoryReplyMessage && (
