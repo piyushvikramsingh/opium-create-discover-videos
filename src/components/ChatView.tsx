@@ -799,12 +799,15 @@ const ChatView = ({ conversationId, otherUser, onBack, openCameraOnMount = false
     }
   };
 
-  const handleOpenSnap = (msg: ChatMessage) => {
+  const handleOpenSnap = async (msg: ChatMessage) => {
     if (!msg.media_url && !msg.content) return;
     const isMine = msg.sender_id === user?.id;
 
+    const { getChatMediaSignedUrl } = await import("@/lib/chatMedia");
+    const signed = msg.media_url ? await getChatMediaSignedUrl(msg.media_url) : null;
+
     setViewingSnap({
-      imageUrl: msg.media_url || "",
+      imageUrl: signed || "",
       senderName: isMine ? "You" : safeOtherUser.display_name,
       caption: msg.content,
       duration: msg.snap_duration || 5,
